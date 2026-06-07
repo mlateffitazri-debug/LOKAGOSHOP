@@ -18,6 +18,8 @@ export interface Seller {
   is_open: boolean
   view_count: number
   wa_click_count: number
+  testimonial_count: number
+  months_active: number
   created_at: string
   approved_at: string | null
 }
@@ -32,6 +34,7 @@ export interface Product {
   is_available: boolean
   is_preorder: boolean
   min_qty_preorder: number | null
+  status: 'pending' | 'approved' | 'rejected'
   created_at: string
 }
 
