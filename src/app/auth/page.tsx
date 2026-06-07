@@ -1,5 +1,6 @@
 'use client'
 
+import { useEffect } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { useLang } from '@/lib/i18n'
 
@@ -34,13 +35,37 @@ export default function LoginPage() {
     return translated === key ? authCopy[key][lang] : translated
   }
 
+  useEffect(() => {
+    const error = new URLSearchParams(window.location.search).get('error')
+    if (error) {
+      alert(decodeURIComponent(error))
+    }
+  }, [])
+
+  function getOAuthRedirectUrl() {
+    const configuredUrl = process.env.NEXT_PUBLIC_APP_URL?.trim().replace(/\/$/, '')
+    const isBrowserOnLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
+    const configuredIsLocalhost = configuredUrl?.includes('localhost') || configuredUrl?.includes('127.0.0.1')
+    const origin = configuredUrl && (isBrowserOnLocalhost || !configuredIsLocalhost)
+      ? configuredUrl
+      : window.location.origin
+
+    return `${origin}/auth/callback`
+  }
+
   async function handleGoogleLogin() {
-    await supabase.auth.signInWithOAuth({
+    const redirectTo = getOAuthRedirectUrl()
+    const { error } = await supabase.auth.signInWithOAuth({
       provider: 'google',
       options: {
-        redirectTo: `${window.location.origin}/auth/callback`,
+        redirectTo,
       },
     })
+
+    if (error) {
+      console.error('Google OAuth login failed', { redirectTo, error })
+      alert(error.message)
+    }
   }
 
   function handleSellerRegister() {
