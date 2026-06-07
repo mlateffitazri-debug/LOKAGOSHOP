@@ -1,6 +1,58 @@
 'use client'
 
+import { useEffect } from 'react'
 import { HtmlPrototypePage } from '@/components/shared/HtmlPrototypePage'
+import type { AdminMessage } from '@/types/database'
+
+type InboxWindow = Window & {
+  __lokalgoOpenMessage?: (id: string, card: HTMLElement) => Promise<void>
+}
+
+function escapeHtml(value: unknown) {
+  return String(value ?? '')
+    .replaceAll('&', '&amp;')
+    .replaceAll('<', '&lt;')
+    .replaceAll('>', '&gt;')
+    .replaceAll('"', '&quot;')
+    .replaceAll("'", '&#039;')
+}
+
+function messageTag(type: AdminMessage['type']) {
+  if (type === 'warning') return 'Amaran'
+  if (type === 'flag') return 'Aduan'
+  if (type === 'success') return 'Diluluskan'
+  return 'Maklumat'
+}
+
+function iconClass(type: AdminMessage['type']) {
+  return `mi-${type}`
+}
+
+function sentTime(value: string) {
+  return new Intl.DateTimeFormat('ms-MY', {
+    day: 'numeric',
+    month: 'short',
+    hour: 'numeric',
+    minute: '2-digit',
+  }).format(new Date(value))
+}
+
+function inboxCard(message: AdminMessage) {
+  return `<div class="msg-card ${message.is_read ? '' : 'unread'} ${message.type}" onclick="window.__lokalgoOpenMessage('${message.id}', this)">
+    <div class="msg-header">
+      <div class="msg-icon ${iconClass(message.type)}"></div>
+      <div class="msg-meta">
+        <div class="msg-sender">LokalGo Admin <span class="admin-badge">ADMIN</span></div>
+        <div class="msg-title">${escapeHtml(message.title)}</div>
+        <div class="msg-preview">${escapeHtml(message.body.slice(0, 96))}${message.body.length > 96 ? '...' : ''}</div>
+        <div class="msg-time">${sentTime(message.sent_at)}</div>
+      </div>
+      ${message.is_read ? '' : '<div class="unread-dot"></div>'}
+    </div>
+    <div class="msg-footer"><span class="msg-tag tag-${message.type}">${messageTag(message.type)}</span></div>
+    <div class="msg-expanded"><div class="msg-full-text">${escapeHtml(message.body).replaceAll('\n', '<br>')}</div></div>
+  </div>`
+}
 
 const styles = ":root{--c-primary:#7B1533;--c-accent:#ADD036;--c-bg:#F5F5F5;--c-surface:#FFFFFF;--c-border:#E5E5EA;--c-text:#111111;--c-text2:#555555;--c-text3:#888888;--c-hint:#BBBBBB;}\n*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;-webkit-font-smoothing:antialiased;}\nbody{background:#0a0a0a;min-height:100vh;font-family:\u0027Plus Jakarta Sans\u0027,-apple-system,sans-serif;font-size:14px;color:var(--c-text);}\n.page{width:100%;max-width:430px;margin:0 auto;min-height:100vh;background:var(--c-bg);overflow:hidden;}\n@media(min-width:500px){body{padding:40px 20px;display:flex;justify-content:center;align-items:flex-start;}.page{min-height:auto;border-radius:36px;border:8px solid #1a1a1a;box-shadow:0 32px 80px rgba(0,0,0,0.7);}}\n@media(min-width:1024px){body{align-items:center;padding:40px;min-height:100vh;}}\n.scroll{height:812px;overflow-y:auto;}.scroll::-webkit-scrollbar{display:none;}\n\n/* HEADER */\n.header{background:var(--c-primary);padding:14px 20px 16px;}\n.header-r1{display:flex;align-items:center;gap:12px;}\n.back-btn{width:32px;height:32px;border-radius:50%;background:rgba(255,255,255,0.15);border:none;display:flex;align-items:center;justify-content:center;cursor:pointer;flex-shrink:0;}\n.header-title{font-size:17px;font-weight:700;color:#fff;flex:1;}\n.header-sub-row{font-size:11px;color:rgba(255,255,255,0.55);margin-top:4px;margin-left:44px;}\n\n/* MSG LIST */\n.msg-list{padding:12px 20px;display:flex;flex-direction:column;gap:8px;}\n\n/* MESSAGE CARD */\n.msg-card{background:#fff;border-radius:14px;border:1px solid #eee;overflow:hidden;cursor:pointer;}\n.msg-card.unread{border-color:#f0d0d8;background:#fff9fb;}\n.msg-card.warning{border-left:4px solid #F0A500;}\n.msg-card.flag{border-left:4px solid #e44;}\n.msg-card.info{border-left:4px solid #185FA5;}\n.msg-card.success{border-left:4px solid #ADD036;}\n\n.msg-header{padding:12px 14px 8px;display:flex;align-items:flex-start;gap:10px;}\n.msg-icon{width:36px;height:36px;border-radius:50%;display:flex;align-items:center;justify-content:center;flex-shrink:0;}\n.mi-warning{background:#FFF3E0;}\n.mi-flag{background:#FFEBEE;}\n.mi-info{background:#E3F2FD;}\n.mi-success{background:#EAF3DE;}\n.msg-meta{flex:1;}\n.msg-sender{font-size:12px;font-weight:700;color:var(--c-text3);margin-bottom:2px;display:flex;align-items:center;gap:6px;}\n.admin-badge{font-size:9px;background:var(--c-primary);color:#fff;padding:1px 6px;border-radius:20px;font-weight:600;}\n.msg-title{font-size:14px;font-weight:700;color:var(--c-text);margin-bottom:3px;}\n.msg-preview{font-size:12px;color:var(--c-text2);line-height:1.5;}\n.msg-time{font-size:10px;color:var(--c-hint);margin-top:6px;}\n.msg-footer{padding:0 14px 12px;display:flex;align-items:center;justify-content:space-between;}\n.msg-tag{font-size:10px;font-weight:700;padding:3px 10px;border-radius:20px;}\n.tag-warning{background:#FFF3E0;color:#856404;}\n.tag-flag{background:#FFEBEE;color:#A32D2D;}\n.tag-info{background:#E3F2FD;color:#185FA5;}\n.tag-success{background:#EAF3DE;color:#3B6D11;}\n.unread-dot{width:8px;height:8px;background:var(--c-primary);border-radius:50%;flex-shrink:0;margin-top:2px;}\n\n/* EXPANDED MSG */\n.msg-expanded{background:#f9f9f9;padding:12px 14px;border-top:1px solid #eee;display:none;}\n.msg-expanded.open{display:block;}\n.msg-full-text{font-size:13px;color:var(--c-text2);line-height:1.6;}\n.msg-action{margin-top:12px;display:flex;gap:8px;}\n.btn-appeal{background:var(--c-primary);border:none;border-radius:10px;padding:9px 16px;color:#fff;font-size:13px;font-weight:600;font-family:inherit;cursor:pointer;}\n.btn-dismiss{background:#f0f0f0;border:none;border-radius:10px;padding:9px 16px;color:#555;font-size:13px;font-weight:500;font-family:inherit;cursor:pointer;}"
 const markup = "\u003cdiv class=\"page\"\u003e\n\u003cdiv class=\"scroll\"\u003e\n\n\u003cdiv class=\"header\"\u003e\n  \u003cdiv class=\"header-r1\"\u003e\n    \u003cbutton class=\"back-btn\" onclick=\"history.back()\"\u003e\n      \u003csvg width=\"16\" height=\"16\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"#fff\" stroke-width=\"2.5\" stroke-linecap=\"round\" stroke-linejoin=\"round\"\u003e\u003cpolyline points=\"15 18 9 12 15 6\"/\u003e\u003c/svg\u003e\n    \u003c/button\u003e\n    \u003cspan class=\"header-title\"\u003e\u003cspan data-i18n=\"mesej_admin\"\u003eMesej Admin\u003c/span\u003e\u003c/span\u003e\n  \u003c/div\u003e\n  \u003cdiv class=\"header-sub-row\"\u003eSemua komunikasi rasmi dari LokalGo Admin\u003c/div\u003e\n\u003c/div\u003e\n\n\u003cdiv class=\"msg-list\"\u003e\n\n  \u003c!-- WARNING — unread, expanded --\u003e\n  \u003cdiv class=\"msg-card unread warning\" onclick=\"toggleMsg(this)\"\u003e\n    \u003cdiv class=\"msg-header\"\u003e\n      \u003cdiv class=\"msg-icon mi-warning\"\u003e\n        \u003csvg width=\"18\" height=\"18\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"#F0A500\" stroke-width=\"2.5\" stroke-linecap=\"round\" stroke-linejoin=\"round\"\u003e\u003cpath d=\"M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z\"/\u003e\u003cline x1=\"12\" y1=\"9\" x2=\"12\" y2=\"13\"/\u003e\u003cline x1=\"12\" y1=\"17\" x2=\"12.01\" y2=\"17\"/\u003e\u003c/svg\u003e\n      \u003c/div\u003e\n      \u003cdiv class=\"msg-meta\"\u003e\n        \u003cdiv class=\"msg-sender\"\u003eLokalGo Admin \u003cspan class=\"admin-badge\"\u003eADMIN\u003c/span\u003e\u003c/div\u003e\n        \u003cdiv class=\"msg-title\"\u003e⚠️ Amaran Pertama — Gambar Produk\u003c/div\u003e\n        \u003cdiv class=\"msg-preview\"\u003eGambar produk \"Kuih Talam\" anda didapati tidak memenuhi standard...\u003c/div\u003e\n        \u003cdiv class=\"msg-time\"\u003eHari ini, 10:23 pagi\u003c/div\u003e\n      \u003c/div\u003e\n      \u003cdiv class=\"unread-dot\"\u003e\u003c/div\u003e\n    \u003c/div\u003e\n    \u003cdiv class=\"msg-footer\"\u003e\n      \u003cspan class=\"msg-tag tag-warning\"\u003eAmaran\u003c/span\u003e\n    \u003c/div\u003e\n    \u003cdiv class=\"msg-expanded\"\u003e\n      \u003cdiv class=\"msg-full-text\"\u003eSalam Kak Mila,\u003cbr\u003e\u003cbr\u003eKami mendapati gambar produk \"Kuih Talam\" yang dimuat naik tidak memenuhi garis panduan platform LokalGo. Gambar yang digunakan didapati berkualiti rendah dan tidak menggambarkan produk sebenar dengan jelas.\u003cbr\u003e\u003cbr\u003eSila kemaskini gambar produk dalam masa \u003cstrong\u003e48 jam\u003c/strong\u003e. Kegagalan berbuat demikian mungkin menyebabkan produk tersebut disembunyikan dari paparan pembeli.\u003cbr\u003e\u003cbr\u003eTerima kasih atas kerjasama anda.\u003c/div\u003e\n      \u003cdiv class=\"msg-action\"\u003e\n        \u003cbutton class=\"btn-dismiss\"\u003eFaham\u003c/button\u003e\n      \u003c/div\u003e\n    \u003c/div\u003e\n  \u003c/div\u003e\n\n  \u003c!-- INFO --\u003e\n  \u003cdiv class=\"msg-card info\" onclick=\"toggleMsg(this)\"\u003e\n    \u003cdiv class=\"msg-header\"\u003e\n      \u003cdiv class=\"msg-icon mi-info\"\u003e\n        \u003csvg width=\"18\" height=\"18\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"#185FA5\" stroke-width=\"2.5\" stroke-linecap=\"round\" stroke-linejoin=\"round\"\u003e\u003ccircle cx=\"12\" cy=\"12\" r=\"10\"/\u003e\u003cline x1=\"12\" y1=\"8\" x2=\"12\" y2=\"12\"/\u003e\u003cline x1=\"12\" y1=\"16\" x2=\"12.01\" y2=\"16\"/\u003e\u003c/svg\u003e\n      \u003c/div\u003e\n      \u003cdiv class=\"msg-meta\"\u003e\n        \u003cdiv class=\"msg-sender\"\u003eLokalGo Admin \u003cspan class=\"admin-badge\"\u003eADMIN\u003c/span\u003e\u003c/div\u003e\n        \u003cdiv class=\"msg-title\"\u003e📢 Kemaskini Platform — Versi 1.1\u003c/div\u003e\n        \u003cdiv class=\"msg-preview\"\u003ePlatform LokalGo telah dikemaskini. Terdapat beberapa perubahan...\u003c/div\u003e\n        \u003cdiv class=\"msg-time\"\u003eSemalam, 2:00 ptg\u003c/div\u003e\n      \u003c/div\u003e\n    \u003c/div\u003e\n    \u003cdiv class=\"msg-footer\"\u003e\n      \u003cspan class=\"msg-tag tag-info\"\u003eMaklumat\u003c/span\u003e\n    \u003c/div\u003e\n    \u003cdiv class=\"msg-expanded\"\u003e\n      \u003cdiv class=\"msg-full-text\"\u003eSalam semua seller,\u003cbr\u003e\u003cbr\u003ePlatform LokalGo telah dikemaskini kepada Versi 1.1. Perubahan utama termasuk:\u003cbr\u003e\u003cbr\u003e• Testimoni kini boleh difilter mengikut kategori\u003cbr\u003e• Paparan statistik lebih terperinci dalam dashboard\u003cbr\u003e• Notifikasi WhatsApp dipertingkatkan\u003cbr\u003e\u003cbr\u003eSebarang masalah teknikal, sila hubungi admin melalui WhatsApp.\u003c/div\u003e\n      \u003cdiv class=\"msg-action\"\u003e\n        \u003cbutton class=\"btn-dismiss\"\u003eOK, faham\u003c/button\u003e\n      \u003c/div\u003e\n    \u003c/div\u003e\n  \u003c/div\u003e\n\n  \u003c!-- SUCCESS --\u003e\n  \u003cdiv class=\"msg-card success\" onclick=\"toggleMsg(this)\"\u003e\n    \u003cdiv class=\"msg-header\"\u003e\n      \u003cdiv class=\"msg-icon mi-success\"\u003e\n        \u003csvg width=\"18\" height=\"18\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"#4A7C10\" stroke-width=\"2.5\" stroke-linecap=\"round\" stroke-linejoin=\"round\"\u003e\u003cpath d=\"M22 11.08V12a10 10 0 1 1-5.93-9.14\"/\u003e\u003cpolyline points=\"22 4 12 14.01 9 11.01\"/\u003e\u003c/svg\u003e\n      \u003c/div\u003e\n      \u003cdiv class=\"msg-meta\"\u003e\n        \u003cdiv class=\"msg-sender\"\u003eLokalGo Admin \u003cspan class=\"admin-badge\"\u003eADMIN\u003c/span\u003e\u003c/div\u003e\n        \u003cdiv class=\"msg-title\"\u003e✅ Kedai anda telah diluluskan\u003c/div\u003e\n        \u003cdiv class=\"msg-preview\"\u003eTahniah! Permohonan kedai digital anda telah berjaya diluluskan...\u003c/div\u003e\n        \u003cdiv class=\"msg-time\"\u003e3 hari lepas\u003c/div\u003e\n      \u003c/div\u003e\n    \u003c/div\u003e\n    \u003cdiv class=\"msg-footer\"\u003e\n      \u003cspan class=\"msg-tag tag-success\"\u003eDiluluskan\u003c/span\u003e\n    \u003c/div\u003e\n    \u003cdiv class=\"msg-expanded\"\u003e\n      \u003cdiv class=\"msg-full-text\"\u003eSalam Kak Mila,\u003cbr\u003e\u003cbr\u003eTahniah! Permohonan kedai digital \"Resepi Kak Mila\" telah berjaya disemak dan diluluskan oleh admin LokalGo.\u003cbr\u003e\u003cbr\u003eKedai anda kini aktif dan boleh ditemui oleh pembeli dalam kawasan Taman Desa Baiduri.\u003cbr\u003e\u003cbr\u003eSelamat berniaga! 🎉\u003c/div\u003e\n      \u003cdiv class=\"msg-action\"\u003e\n        \u003cbutton class=\"btn-dismiss\"\u003eTerima kasih!\u003c/button\u003e\n      \u003c/div\u003e\n    \u003c/div\u003e\n  \u003c/div\u003e\n\n  \u003c!-- FLAG — suspend --\u003e\n  \u003cdiv class=\"msg-card flag\" onclick=\"toggleMsg(this)\"\u003e\n    \u003cdiv class=\"msg-header\"\u003e\n      \u003cdiv class=\"msg-icon mi-flag\"\u003e\n        \u003csvg width=\"18\" height=\"18\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"#e44\" stroke-width=\"2.5\" stroke-linecap=\"round\" stroke-linejoin=\"round\"\u003e\u003cpath d=\"M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z\"/\u003e\u003cline x1=\"4\" y1=\"22\" x2=\"4\" y2=\"15\"/\u003e\u003c/svg\u003e\n      \u003c/div\u003e\n      \u003cdiv class=\"msg-meta\"\u003e\n        \u003cdiv class=\"msg-sender\"\u003eLokalGo Admin \u003cspan class=\"admin-badge\"\u003eADMIN\u003c/span\u003e\u003c/div\u003e\n        \u003cdiv class=\"msg-title\"\u003e🚩 Aduan diterima — Semakan diperlukan\u003c/div\u003e\n        \u003cdiv class=\"msg-preview\"\u003eKami telah menerima aduan berkaitan kedai anda. Admin sedang menyemak...\u003c/div\u003e\n        \u003cdiv class=\"msg-time\"\u003e5 hari lepas\u003c/div\u003e\n      \u003c/div\u003e\n    \u003c/div\u003e\n    \u003cdiv class=\"msg-footer\"\u003e\n      \u003cspan class=\"msg-tag tag-flag\"\u003eAduan\u003c/span\u003e\n    \u003c/div\u003e\n    \u003cdiv class=\"msg-expanded\"\u003e\n      \u003cdiv class=\"msg-full-text\"\u003eSalam Kak Mila,\u003cbr\u003e\u003cbr\u003eKami telah menerima aduan daripada seorang pembeli berkaitan transaksi dengan kedai anda. Admin sedang menyemak aduan tersebut.\u003cbr\u003e\u003cbr\u003eKami mungkin akan menghubungi anda melalui WhatsApp untuk maklumat lanjut. Sila pastikan WhatsApp anda aktif.\u003cbr\u003e\u003cbr\u003eAduan ini \u003cstrong\u003etidak menjejaskan status kedai anda\u003c/strong\u003e buat masa ini.\u003c/div\u003e\n      \u003cdiv class=\"msg-action\"\u003e\n        \u003cbutton class=\"btn-appeal\"\u003eHubungi Admin\u003c/button\u003e\n        \u003cbutton class=\"btn-dismiss\"\u003eFaham\u003c/button\u003e\n      \u003c/div\u003e\n    \u003c/div\u003e\n  \u003c/div\u003e\n\n\u003c/div\u003e\n\u003c/div\u003e\n\u003c/div\u003e"
@@ -9,6 +61,72 @@ const externalScripts: string[] = []
 const externalStylesheets: string[] = ["https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800\u0026display=swap"]
 
 export default function Page() {
+  useEffect(() => {
+    let messages: AdminMessage[] = []
+    const runtime = window as InboxWindow
+
+    function render() {
+      const list = document.querySelector<HTMLElement>('.msg-list')
+      const sub = document.querySelector<HTMLElement>('.header-sub-row')
+      if (!list) return
+
+      if (sub) {
+        const unread = messages.filter((message) => !message.is_read).length
+        sub.textContent = unread ? `${unread} mesej belum dibaca` : 'Semua komunikasi rasmi dari LokalGo Admin'
+      }
+
+      list.innerHTML = messages.length
+        ? messages.map(inboxCard).join('')
+        : '<div class="msg-card"><div class="msg-header"><div class="msg-meta"><div class="msg-title">Tiada mesej admin</div><div class="msg-preview">Mesej rasmi akan dipaparkan di sini.</div></div></div></div>'
+    }
+
+    runtime.__lokalgoOpenMessage = async (id: string, card: HTMLElement) => {
+      const expanded = card.querySelector<HTMLElement>('.msg-expanded')
+      const isOpen = expanded?.classList.contains('open')
+
+      document.querySelectorAll('.msg-expanded.open').forEach((element) => element.classList.remove('open'))
+
+      if (!isOpen) {
+        expanded?.classList.add('open')
+        card.classList.remove('unread')
+        card.querySelector('.unread-dot')?.remove()
+
+        const message = messages.find((item) => item.id === id)
+        if (message && !message.is_read) {
+          message.is_read = true
+          await fetch('/api/admin-messages', {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ id }),
+          })
+        }
+      }
+    }
+
+    async function loadMessages() {
+      const response = await fetch('/api/admin-messages', { cache: 'no-store' })
+      const payload = (await response.json()) as { messages?: AdminMessage[]; error?: string }
+
+      if (response.status === 401) {
+        window.location.href = '/auth'
+        return
+      }
+
+      if (!response.ok) {
+        throw new Error(payload.error || 'Tidak dapat memuat inbox.')
+      }
+
+      messages = payload.messages ?? []
+      render()
+    }
+
+    loadMessages().catch(console.error)
+
+    return () => {
+      delete runtime.__lokalgoOpenMessage
+    }
+  }, [])
+
   return (
     <HtmlPrototypePage
       styles={styles}
