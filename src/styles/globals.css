@@ -1,0 +1,79 @@
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');
+
+:root {
+  --c-primary: #7B1533;
+  --c-primary-dark: #6A1029;
+  --c-primary-lt: #8f1a3a;
+  --c-accent: #ADD036;
+  --c-green: #25D366;
+  --c-bg: #F5F5F5;
+  --c-surface: #FFFFFF;
+  --c-border: #E5E5EA;
+  --c-text: #111111;
+  --c-text2: #555555;
+  --c-text3: #888888;
+  --c-hint: #BBBBBB;
+}
+
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+  -webkit-font-smoothing: antialiased;
+}
+
+body {
+  font-family: 'Plus Jakarta Sans', -apple-system, sans-serif;
+  font-size: 14px;
+  color: var(--c-text);
+  line-height: 1.6;
+  background: #0a0a0a;
+  min-height: 100vh;
+}
+
+/* Phone frame wrapper — semua page guna ini */
+.page-frame {
+  width: 100%;
+  max-width: 430px;
+  margin: 0 auto;
+  min-height: 100vh;
+  background: var(--c-bg);
+  overflow: hidden;
+}
+
+@media (min-width: 500px) {
+  body {
+    padding: 40px 20px;
+    display: flex;
+    justify-content: center;
+    align-items: flex-start;
+  }
+  .page-frame {
+    min-height: auto;
+    border-radius: 36px;
+    border: 8px solid #1a1a1a;
+    box-shadow: 0 32px 80px rgba(0,0,0,0.7);
+  }
+}
+
+@media (min-width: 1024px) {
+  body {
+    align-items: center;
+    padding: 40px;
+    min-height: 100vh;
+  }
+}
+
+/* Scrollable content area */
+.page-scroll {
+  height: 812px;
+  overflow-y: auto;
+}
+.page-scroll::-webkit-scrollbar { display: none; }
+
+/* Global padding */
+.px-page { padding-left: 20px; padding-right: 20px; }
+
+/* Hide scrollbar globally */
+* { scrollbar-width: none; }
+*::-webkit-scrollbar { display: none; }
