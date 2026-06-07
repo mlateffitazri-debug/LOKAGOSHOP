@@ -4,6 +4,14 @@ export type Lang = 'ms' | 'en'
 
 export const translations: Record<string, Record<Lang, string>> = {
   tagline: { ms: 'Platform perniagaan lokal setempat', en: 'Your local community marketplace' },
+  selamat_datang: { ms: 'Selamat Datang', en: 'Welcome' },
+  teruskan_google: { ms: 'Teruskan dengan Google', en: 'Continue with Google' },
+  daftar_penjual: { ms: 'Daftar sebagai Penjual', en: 'Register as Seller' },
+  login_hint: { ms: 'Log masuk untuk mula meneroka kedai-kedai tempatan di kawasan anda.', en: 'Sign in to start exploring local shops in your area.' },
+  atau: { ms: 'atau', en: 'or' },
+  terms_copy: { ms: 'Dengan log masuk, anda bersetuju dengan', en: 'By signing in, you agree to LokaGo' },
+  terms: { ms: 'Terma & Syarat', en: 'Terms & Conditions' },
+  privacy: { ms: 'Dasar Privasi', en: 'Privacy Policy' },
   cat_kuih: { ms: 'Kuih & Kek', en: 'Kuih & Cake' },
   cat_lauk: { ms: 'Lauk', en: 'Side Dishes' },
   cat_minuman: { ms: 'Minuman', en: 'Drinks' },

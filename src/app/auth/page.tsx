@@ -38,7 +38,7 @@ export default function LoginPage() {
     await supabase.auth.signInWithOAuth({
       provider: 'google',
       options: {
-        redirectTo: `${window.location.origin}/home`,
+        redirectTo: `${window.location.origin}/auth/callback`,
       },
     })
   }
@@ -120,13 +120,13 @@ export default function LoginPage() {
           </button>
 
           <div style={{ fontSize: 13, color: '#999', textAlign: 'center', lineHeight: 1.6, marginBottom: 22, padding: '0 8px' }}>
-            Log masuk untuk mula meneroka kedai-kedai tempatan di kawasan anda.
+            {t('login_hint')}
           </div>
 
           {/* Divider */}
           <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginBottom: 16 }}>
             <div style={{ flex: 1, height: 1, background: '#E5E5EA' }} />
-            <span style={{ fontSize: 13, fontWeight: 500, color: '#BBB' }}>atau</span>
+            <span style={{ fontSize: 13, fontWeight: 500, color: '#BBB' }}>{t('atau')}</span>
             <div style={{ flex: 1, height: 1, background: '#E5E5EA' }} />
           </div>
 
@@ -155,11 +155,10 @@ export default function LoginPage() {
 
           {/* Terms */}
           <div style={{ fontSize: 12, color: '#BBB', textAlign: 'center', lineHeight: 1.8 }}>
-            Dengan log masuk, anda bersetuju dengan{' '}
-            <a href="/terms" style={{ color: '#7B1533', textDecoration: 'none', fontWeight: 600 }}>Terma & Syarat</a>
-            {' '}dan{' '}
-            <a href="/privacy" style={{ color: '#7B1533', textDecoration: 'none', fontWeight: 600 }}>Dasar Privasi</a>
-            {' '}LokaGo.
+            {t('terms_copy')}{' '}
+            <a href="/terms" style={{ color: '#7B1533', textDecoration: 'none', fontWeight: 600 }}>{t('terms')}</a>
+            {' '}{lang === 'ms' ? 'dan' : 'and'}{' '}
+            <a href="/privacy" style={{ color: '#7B1533', textDecoration: 'none', fontWeight: 600 }}>{t('privacy')}</a>.
           </div>
         </div>
       </div>
