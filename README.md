@@ -1,4 +1,4 @@
-# LokaGo Shop — Setup Guide
+# LokalGo Shop — Setup Guide
 
 ## 1. Install dependencies
 

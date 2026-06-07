@@ -2,7 +2,7 @@ import type { Metadata, Viewport } from 'next'
 import '../styles/globals.css'
 
 export const metadata: Metadata = {
-  title: 'LokaGo Shop',
+  title: 'LokalGo Shop',
   description: 'Platform perniagaan lokal setempat',
   manifest: '/manifest.json',
 }

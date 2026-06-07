@@ -50,7 +50,7 @@ export interface Testimonial {
   id: string
   seller_id: string
   buyer_id: string | null
-  buyer_name: string // anonymized to 'Pembeli LokaGo' if buyer deleted
+  buyer_name: string // anonymized to 'Pembeli LokalGo' if buyer deleted
   buyer_kawasan: string
   rating: number
   content: string

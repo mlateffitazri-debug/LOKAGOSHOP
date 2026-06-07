@@ -78,7 +78,7 @@ export default function LoginPage() {
 
           {/* Mascot */}
           <div style={{ flex: 1, width: '100%', display: 'flex', alignItems: 'flex-end', justifyContent: 'center', paddingBottom: 0 }}>
-            <img src={mascotSrc} style={{ width: '100%', maxWidth: 380, objectFit: 'contain', display: 'block', marginBottom: -4 }} alt="LokaGo Maskot" />
+            <img src={mascotSrc} style={{ width: '100%', maxWidth: 380, objectFit: 'contain', display: 'block', marginBottom: -4 }} alt="LokalGo Maskot" />
           </div>
         </div>
 

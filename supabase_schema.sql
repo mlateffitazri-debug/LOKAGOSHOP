@@ -1,5 +1,5 @@
 -- =============================================
--- LOKAGO SHOP — SUPABASE SCHEMA
+-- LOKALGO SHOP — SUPABASE SCHEMA
 -- Run ini dalam Supabase SQL Editor
 -- =============================================
 
@@ -56,7 +56,7 @@ create table testimonials (
   id uuid primary key default gen_random_uuid(),
   seller_id uuid references sellers(id) on delete cascade,
   buyer_id uuid references buyers(id) on delete set null,
-  buyer_name text not null default 'Pembeli LokaGo',
+  buyer_name text not null default 'Pembeli LokalGo',
   buyer_kawasan text,
   rating integer check (rating between 1 and 5),
   content text not null,

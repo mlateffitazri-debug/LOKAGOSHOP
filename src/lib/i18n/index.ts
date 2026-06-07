@@ -9,7 +9,7 @@ export const translations: Record<string, Record<Lang, string>> = {
   daftar_penjual: { ms: 'Daftar sebagai Penjual', en: 'Register as Seller' },
   login_hint: { ms: 'Log masuk untuk mula meneroka kedai-kedai tempatan di kawasan anda.', en: 'Sign in to start exploring local shops in your area.' },
   atau: { ms: 'atau', en: 'or' },
-  terms_copy: { ms: 'Dengan log masuk, anda bersetuju dengan', en: 'By signing in, you agree to LokaGo' },
+  terms_copy: { ms: 'Dengan log masuk, anda bersetuju dengan', en: 'By signing in, you agree to LokalGo' },
   terms: { ms: 'Terma & Syarat', en: 'Terms & Conditions' },
   privacy: { ms: 'Dasar Privasi', en: 'Privacy Policy' },
   cat_kuih: { ms: 'Kuih & Kek', en: 'Kuih & Cake' },
@@ -62,14 +62,14 @@ export function useLang() {
   const [lang, setLang] = useState<Lang>('ms')
 
   useEffect(() => {
-    const saved = localStorage.getItem('lokago_lang') as Lang | null
+    const saved = localStorage.getItem('lokalgo_lang') as Lang | null
     if (saved) setLang(saved)
   }, [])
 
   const toggle = () => {
     const next: Lang = lang === 'ms' ? 'en' : 'ms'
     setLang(next)
-    localStorage.setItem('lokago_lang', next)
+    localStorage.setItem('lokalgo_lang', next)
   }
 
   const translate = (key: string) => t(key, lang)
