@@ -28,8 +28,8 @@ export interface Product {
   id: string
   seller_id: string
   category: string
-  description: string
-  price_from: number
+  description: string | null
+  price_from: number | null
   images: string[]
   is_available: boolean
   is_preorder: boolean
@@ -54,7 +54,7 @@ export interface Testimonial {
   seller_id: string
   buyer_id: string | null
   buyer_name: string // anonymized to 'Pembeli LokalGo' if buyer deleted
-  buyer_kawasan: string
+  buyer_kawasan: string | null
   rating: number
   content: string
   is_approved: boolean
