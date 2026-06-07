@@ -10,44 +10,45 @@ type ModerationBody = {
   action?: ModerationAction
 }
 
+function getSellerStatus(seller: { status?: string; permanent_ban?: boolean }) {
+  if (seller.status) return seller.status
+  if (seller.permanent_ban) return 'suspended'
+  return 'pending'
+}
+
 export async function GET() {
   try {
     const supabase = createAdminClient()
 
-    const [
-      sellersResult,
-      pendingTestimonialsResult,
-      pendingProductsResult,
-      complaintsResult,
-      buyersResult,
-    ] = await Promise.all([
-      supabase.from('sellers').select('*').order('created_at', { ascending: false }),
+    const sellersResult = await supabase.from('sellers').select('*').order('created_at', { ascending: false })
+
+    if (sellersResult.error) {
+      return NextResponse.json({ error: sellersResult.error.message }, { status: 500 })
+    }
+
+    const [pendingTestimonialsResult, pendingProductsResult, complaintsResult, buyersResult] = await Promise.all([
       supabase.from('testimonials').select('*').eq('is_approved', false).order('created_at', { ascending: false }),
       supabase.from('products').select('*').eq('status', 'pending').order('created_at', { ascending: false }),
       supabase.from('suspended_sellers').select('*').order('suspend_date', { ascending: false }),
       supabase.from('buyers').select('id', { count: 'exact', head: true }),
     ])
 
-    const firstError = sellersResult.error
-      || pendingTestimonialsResult.error
-      || pendingProductsResult.error
-      || complaintsResult.error
-      || buyersResult.error
-
-    if (firstError) {
-      return NextResponse.json({ error: firstError.message }, { status: 500 })
-    }
-
     const sellers = sellersResult.data ?? []
 
     return NextResponse.json({
       sellers,
-      pendingSellers: sellers.filter((seller) => seller.status === 'pending'),
-      activeSellers: sellers.filter((seller) => seller.status === 'active'),
-      pendingTestimonials: pendingTestimonialsResult.data ?? [],
-      pendingProducts: pendingProductsResult.data ?? [],
-      complaints: complaintsResult.data ?? [],
+      pendingSellers: sellers.filter((seller) => getSellerStatus(seller) === 'pending'),
+      activeSellers: sellers.filter((seller) => getSellerStatus(seller) === 'active'),
+      pendingTestimonials: pendingTestimonialsResult.error ? [] : pendingTestimonialsResult.data ?? [],
+      pendingProducts: pendingProductsResult.error ? [] : pendingProductsResult.data ?? [],
+      complaints: complaintsResult.error ? [] : complaintsResult.data ?? [],
       buyerCount: buyersResult.count ?? 0,
+      warnings: [
+        pendingTestimonialsResult.error?.message,
+        pendingProductsResult.error?.message,
+        complaintsResult.error?.message,
+        buyersResult.error?.message,
+      ].filter(Boolean),
     })
   } catch (error) {
     return NextResponse.json(
@@ -71,12 +72,22 @@ export async function PATCH(request: Request) {
     if (body.type === 'seller') {
       result = await supabase
         .from('sellers')
-        .update(
-          body.action === 'approve'
-            ? { status: 'active', approved_at: new Date().toISOString() }
-            : { status: 'rejected' },
-        )
+        .update(body.action === 'approve' ? { status: 'active', approved_at: new Date().toISOString() } : { status: 'rejected' })
         .eq('id', body.id)
+
+      if (result.error?.message.includes('approved_at')) {
+        result = await supabase
+          .from('sellers')
+          .update({ status: body.action === 'approve' ? 'active' : 'rejected' })
+          .eq('id', body.id)
+      }
+
+      if (result.error?.message.includes('status')) {
+        result = await supabase
+          .from('sellers')
+          .update({ permanent_ban: body.action === 'reject' })
+          .eq('id', body.id)
+      }
     } else if (body.type === 'testimonial') {
       if (body.action === 'approve') {
         const testimonial = await supabase

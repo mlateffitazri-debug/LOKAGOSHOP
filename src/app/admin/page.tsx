@@ -50,6 +50,14 @@ function emptyCard(text: string) {
 }
 
 function renderSellerCard(seller: Seller, mode: 'pending' | 'active') {
+  const legacySeller = seller as Seller & { name?: string; email?: string }
+  const shopName = seller.shop_name || legacySeller.name || 'Seller LokalGo'
+  const tamanName = seller.taman_name || seller.kawasan || 'Kawasan belum ditetapkan'
+  const postcode = seller.postcode || ''
+  const badge = seller.badge || 'seller_baharu'
+  const testimonialCount = seller.testimonial_count ?? 0
+  const viewCount = seller.view_count ?? 0
+  const waClickCount = seller.wa_click_count ?? 0
   const statusClass = mode === 'pending' ? 'pill-pending' : 'pill-active'
   const actions = mode === 'pending'
     ? `<div class="card-actions">
@@ -64,20 +72,20 @@ function renderSellerCard(seller: Seller, mode: 'pending' | 'active') {
 
   return `<div class="card">
     <div class="card-header">
-      <div class="card-avatar">${escapeHtml(initials(seller.shop_name))}</div>
+      <div class="card-avatar">${escapeHtml(initials(shopName))}</div>
       <div class="card-meta">
-        <div class="card-name">${escapeHtml(seller.shop_name)}</div>
-        <div class="card-sub">${escapeHtml(seller.taman_name)}, ${escapeHtml(seller.postcode)} ${escapeHtml(seller.kawasan || '')}</div>
+        <div class="card-name">${escapeHtml(shopName)}</div>
+        <div class="card-sub">${escapeHtml(tamanName)}${postcode ? `, ${escapeHtml(postcode)}` : ''}</div>
         <div class="card-time">${mode === 'pending' ? 'Dihantar' : 'Aktif'}: ${formatDate(mode === 'pending' ? seller.created_at : seller.approved_at)}</div>
       </div>
       <span class="status-pill ${statusClass}">${mode === 'pending' ? 'Pending' : 'Aktif'}</span>
     </div>
     <div class="seller-info">
       <span class="info-tag">Tel: ${escapeHtml(seller.whatsapp_number)}</span>
-      <span class="info-tag">${escapeHtml(seller.badge)}</span>
-      <span class="info-tag">${seller.testimonial_count ?? 0} testimoni</span>
-      <span class="info-tag">${seller.view_count ?? 0} views</span>
-      <span class="info-tag">${seller.wa_click_count ?? 0} WA clicks</span>
+      <span class="info-tag">${escapeHtml(badge)}</span>
+      <span class="info-tag">${testimonialCount} testimoni</span>
+      <span class="info-tag">${viewCount} views</span>
+      <span class="info-tag">${waClickCount} WA clicks</span>
     </div>
     ${actions}
   </div>`

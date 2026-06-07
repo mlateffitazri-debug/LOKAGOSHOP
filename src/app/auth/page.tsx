@@ -49,8 +49,11 @@ export default function LoginPage() {
     const origin = configuredUrl && (isBrowserOnLocalhost || !configuredIsLocalhost)
       ? configuredUrl
       : window.location.origin
+    const next = new URLSearchParams(window.location.search).get('next') || localStorage.getItem('lokalgo_after_login') || '/home'
+    const callback = new URL(`${origin}/auth/callback`)
+    callback.searchParams.set('next', next)
 
-    return `${origin}/auth/callback`
+    return callback.toString()
   }
 
   async function handleGoogleLogin() {

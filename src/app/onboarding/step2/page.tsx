@@ -2,14 +2,6 @@
 
 import { useEffect } from 'react'
 import { HtmlPrototypePage } from '@/components/shared/HtmlPrototypePage'
-import { createClient } from '@/lib/supabase/client'
-
-function normalizeWhatsapp(value: string) {
-  const digits = value.replace(/\D/g, '')
-  if (digits.startsWith('60')) return digits
-  if (digits.startsWith('0')) return `6${digits}`
-  return digits
-}
 
 type OnboardingWindow = Window & {
   __submitSellerOnboarding?: () => void
@@ -23,8 +15,6 @@ const externalStylesheets: string[] = []
 
 export default function Page() {
   useEffect(() => {
-    const supabase = createClient()
-
     ;(window as OnboardingWindow).__submitSellerOnboarding = async () => {
       const submitButton = document.querySelector<HTMLButtonElement>('.submit-btn')
       const saved = localStorage.getItem('lokalgo_seller_onboarding')
@@ -49,46 +39,36 @@ export default function Page() {
       submitButton?.setAttribute('disabled', 'true')
       if (submitButton) submitButton.textContent = 'Menghantar...'
 
-      const {
-        data: { user },
-      } = await supabase.auth.getUser()
+      const response = await fetch('/api/seller/onboarding', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          shop_name: baseData.shop_name,
+          whatsapp_number: baseData.whatsapp_number,
+          taman_name: baseData.taman_name,
+          postcode: baseData.postcode || '00000',
+          kawasan: baseData.kawasan || baseData.taman_name,
+        }),
+      })
+      const result = await response.json() as { error?: string; sellerId?: string }
 
-      if (!user) {
-        window.location.href = '/auth'
+      if (response.status === 401) {
+        localStorage.setItem('lokalgo_after_login', '/onboarding/step2')
+        window.location.href = '/auth?next=/onboarding/step2'
         return
       }
 
-      const sellerPayload = {
-        user_id: user.id,
-        shop_name: baseData.shop_name,
-        whatsapp_number: normalizeWhatsapp(baseData.whatsapp_number),
-        taman_name: baseData.taman_name,
-        postcode: baseData.postcode || '00000',
-        kawasan: baseData.kawasan || baseData.taman_name,
-        status: 'pending',
-        is_open: false,
-      }
-
-      const { data: existingSeller } = await supabase
-        .from('sellers')
-        .select('id')
-        .eq('user_id', user.id)
-        .maybeSingle()
-
-      const result = existingSeller
-        ? await supabase.from('sellers').update(sellerPayload).eq('id', existingSeller.id)
-        : await supabase.from('sellers').insert(sellerPayload)
-
-      if (result.error) {
+      if (!response.ok) {
         console.error(result.error)
-        alert(`Permohonan tidak dapat dihantar: ${result.error.message}`)
+        alert(`Permohonan tidak dapat dihantar: ${result.error || 'Sila cuba semula.'}`)
         submitButton?.removeAttribute('disabled')
         if (submitButton) submitButton.textContent = 'Hantar permohonan'
         return
       }
 
-      localStorage.setItem('lokalgo_seller_onboarding_extra', JSON.stringify({ description, categories }))
-      window.location.href = '/onboarding/step3'
+      localStorage.setItem('lokalgo_seller_onboarding_extra', JSON.stringify({ description, categories, seller_id: result.sellerId }))
+      localStorage.setItem('lokalgo_seller_onboarding_success', 'true')
+      window.location.href = `/onboarding/step3?seller=${encodeURIComponent(result.sellerId || '')}&success=1`
     }
 
     return () => {
