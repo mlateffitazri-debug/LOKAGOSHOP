@@ -25,6 +25,7 @@ create table sellers (
   postcode text not null,
   kawasan text,
   profile_image_url text,
+  pickup_instruction text,
   badge text not null default 'seller_baharu' check (badge in ('seller_baharu','seller_aktif','verified_seller')),
   status text not null default 'pending' check (status in ('pending','active','suspended','rejected')),
   is_open boolean default true,

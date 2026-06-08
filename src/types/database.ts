@@ -13,6 +13,7 @@ export interface Seller {
   postcode: string
   taman_name: string
   profile_image_url: string | null
+  pickup_instruction: string | null
   badge: BadgeLevel
   status: ShopStatus
   is_open: boolean
