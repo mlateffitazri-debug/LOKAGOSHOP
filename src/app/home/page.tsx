@@ -134,6 +134,17 @@ export default function HomePage() {
       setIsLoading(true)
       setError(null)
 
+      const {
+        data: { user },
+      } = await supabase.auth.getUser()
+
+      if (cancelled) return
+
+      if (!user) {
+        window.location.href = '/auth'
+        return
+      }
+
       const { data, error: sellersError } = await supabase
         .from('sellers')
         .select('*')

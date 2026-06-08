@@ -8,7 +8,6 @@ export const dynamic = 'force-dynamic'
 export async function GET(request: Request) {
   const { searchParams, origin } = new URL(request.url)
   const code = searchParams.get('code')
-  const next = searchParams.get('next')
 
   if (searchParams.get('error')) {
     const errorDescription = searchParams.get('error_description') || searchParams.get('error') || 'OAuth login failed'
@@ -54,10 +53,6 @@ export async function GET(request: Request) {
     } = await supabase.auth.getUser()
 
     if (user?.email) {
-      if (next === '/admin') {
-        return NextResponse.redirect(`${origin}/admin`)
-      }
-
       const adminClient = createAdminClient()
       const { data: seller } = await adminClient
         .from('sellers')
