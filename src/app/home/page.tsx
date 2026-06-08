@@ -399,7 +399,7 @@ export default function HomePage() {
         await supabase
           .from('saved_shops')
           .insert({ buyer_id: profile.buyerId, shop_id: sellerId })
-        setSavedShopIds((prev) => new Set([...prev, sellerId]))
+        setSavedShopIds((prev) => new Set(Array.from(prev).concat(sellerId)))
       }
       return
     }
