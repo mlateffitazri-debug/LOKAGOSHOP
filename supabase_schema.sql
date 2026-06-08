@@ -9,6 +9,7 @@ create table buyers (
   user_id uuid references auth.users(id) on delete cascade unique,
   name text not null,
   email text not null unique,
+  whatsapp_number text,
   kawasan text,
   address_rumah text,
   address_pejabat text,

@@ -45,6 +45,7 @@ export interface Buyer {
   user_id: string
   name: string
   email: string
+  whatsapp_number: string | null
   kawasan: string | null
   address_rumah: string | null
   address_pejabat: string | null
