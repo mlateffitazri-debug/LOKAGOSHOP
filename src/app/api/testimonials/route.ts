@@ -18,6 +18,10 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Invalid testimonial submission' }, { status: 400 })
     }
 
+    if (process.env.LOKALGO_E2E_MOCK === '1') {
+      return NextResponse.json({ ok: true, testimonialId: 'mock-testimonial-id' }, { status: 201 })
+    }
+
     const supabase = createAdminClient()
     const { error } = await supabase.from('testimonials').insert({
       seller_id: body.seller_id,
@@ -32,7 +36,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: error.message }, { status: 500 })
     }
 
-    return NextResponse.json({ ok: true })
+    return NextResponse.json({ ok: true }, { status: 201 })
   } catch (error) {
     return NextResponse.json(
       { error: error instanceof Error ? error.message : 'Unable to submit testimonial' },

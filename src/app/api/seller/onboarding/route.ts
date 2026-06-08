@@ -19,6 +19,16 @@ function normalizeWhatsapp(value: string) {
 }
 
 export async function POST(request: Request) {
+  const body = (await request.json()) as SellerOnboardingBody
+
+  if (process.env.LOKALGO_E2E_MOCK === '1') {
+    if (!body.shop_name?.trim() || !body.whatsapp_number?.trim() || !body.taman_name?.trim()) {
+      return NextResponse.json({ error: 'Missing seller onboarding fields' }, { status: 400 })
+    }
+
+    return NextResponse.json({ ok: true, sellerId: 'mock-seller-id' }, { status: 201 })
+  }
+
   const authClient = createServerClient()
   const {
     data: { user },
@@ -28,8 +38,6 @@ export async function POST(request: Request) {
   if (authError || !user) {
     return NextResponse.json({ error: 'Not authenticated' }, { status: 401 })
   }
-
-  const body = (await request.json()) as SellerOnboardingBody
 
   if (!body.shop_name?.trim() || !body.whatsapp_number?.trim() || !body.taman_name?.trim()) {
     return NextResponse.json({ error: 'Missing seller onboarding fields' }, { status: 400 })
@@ -89,5 +97,5 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: result.error.message }, { status: 500 })
   }
 
-  return NextResponse.json({ ok: true, sellerId: result.data.id })
+  return NextResponse.json({ ok: true, sellerId: result.data.id }, { status: 201 })
 }
