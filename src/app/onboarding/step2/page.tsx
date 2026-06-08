@@ -55,9 +55,24 @@ export default function Page() {
       submitButton?.setAttribute('disabled', 'true')
       if (submitButton) submitButton.textContent = 'Menghantar...'
 
+      // Get the current session access token to send as Authorization header.
+      // This avoids relying on server-side cookie reading (which can be unreliable
+      // with PKCE flow in Route Handlers) and ensures the API can always verify auth.
+      const { data: { session } } = await supabase.auth.getSession()
+      const accessToken = session?.access_token
+
+      if (!accessToken) {
+        localStorage.setItem('lokalgo_after_login', '/onboarding/step2')
+        window.location.href = '/auth?next=/onboarding/step2'
+        return
+      }
+
       const response = await fetch('/api/seller/onboarding', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${accessToken}`,
+        },
         body: JSON.stringify({
           shop_name: baseData.shop_name,
           whatsapp_number: baseData.whatsapp_number,

@@ -30,11 +30,15 @@ export async function POST(request: Request) {
     return NextResponse.json({ ok: true, sellerId: 'mock-seller-id' }, { status: 201 })
   }
 
-  const authClient = createServerClient()
-  const {
-    data: { user },
-    error: authError,
-  } = await authClient.auth.getUser()
+  // Prefer Bearer token from Authorization header (sent explicitly by the client
+  // to bypass PKCE cookie-reading issues in Route Handlers). Fall back to SSR cookies.
+  const adminClient = createAdminClient()
+  const authHeader = request.headers.get('Authorization')
+  const bearerToken = authHeader?.startsWith('Bearer ') ? authHeader.slice(7) : null
+
+  const { data: { user }, error: authError } = bearerToken
+    ? await adminClient.auth.getUser(bearerToken)
+    : await createServerClient().auth.getUser()
 
   if (authError || !user) {
     return NextResponse.json({ error: 'Not authenticated' }, { status: 401 })
@@ -44,7 +48,6 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Missing seller onboarding fields' }, { status: 400 })
   }
 
-  const adminClient = createAdminClient()
   const sellerPayload = {
     user_id: user.id,
     shop_name: body.shop_name.trim(),
