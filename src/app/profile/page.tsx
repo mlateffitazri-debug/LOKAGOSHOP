@@ -1,102 +1,292 @@
 'use client'
 
-import { useEffect } from 'react'
-import { HtmlPrototypePage } from '@/components/shared/HtmlPrototypePage'
+import { useEffect, useMemo, useState } from 'react'
+import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import type { Buyer } from '@/types/database'
 
-type ProfileWindow = Window & {
-  confirmLogout?: () => Promise<void>
+type ProfileData = {
+  name: string
+  email: string
+  kawasan: string
+  avatarUrl: string | null
+  createdAt: string | null
 }
 
-function profileInitials(name: string) {
-  return name
-    .split(/\s+/)
-    .filter(Boolean)
-    .slice(0, 2)
-    .map((word) => word[0]?.toUpperCase())
-    .join('') || 'LG'
+type Counts = {
+  savedShops: number
+  testimonials: number
 }
 
-function setText(selector: string, text: string | number) {
-  const element = document.querySelector<HTMLElement>(selector)
-  if (element) element.textContent = String(text)
+function initialFor(name: string) {
+  return name.trim().charAt(0).toUpperCase() || 'L'
 }
 
-function savedAddressSummary(key: string, fallback: string) {
-  try {
-    const address = JSON.parse(localStorage.getItem(key) || '{}') as Record<string, string>
-    return [address.line1, address.area, address.postcode, address.city].filter(Boolean).join(', ') || fallback
-  } catch {
-    return fallback
+function activeDays(createdAt: string | null) {
+  if (!createdAt) return 0
+  const created = new Date(createdAt).getTime()
+  if (Number.isNaN(created)) return 0
+  return Math.max(1, Math.ceil((Date.now() - created) / 86400000))
+}
+
+function metadataString(metadata: Record<string, unknown>, keys: string[]) {
+  for (const key of keys) {
+    const value = metadata[key]
+    if (typeof value === 'string' && value.trim()) return value
   }
+  return null
 }
 
-const styles = ":root{\n  --c-primary:#7B1533;\n  --c-primary-dark:#6A1029;\n  --c-accent:#ADD036;\n  --c-bg:#F5F5F5;\n  --c-surface:#FFFFFF;\n  --c-border:#E5E5EA;\n  --c-text:#111111;\n  --c-text2:#555555;\n  --c-text3:#888888;\n  --c-hint:#BBBBBB;\n}\n*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;-webkit-font-smoothing:antialiased;}\nbody{background:#0a0a0a;min-height:100vh;font-family:\u0027Plus Jakarta Sans\u0027,-apple-system,sans-serif;color:var(--c-text);}\n.page{width:100%;max-width:430px;margin:0 auto;min-height:100vh;background:var(--c-bg);overflow:hidden;}\n@media(min-width:500px){body{padding:40px 20px;display:flex;justify-content:center;align-items:flex-start;}.page{min-height:auto;border-radius:36px;border:8px solid #1a1a1a;box-shadow:0 32px 80px rgba(0,0,0,0.7);}}\n@media(min-width:1024px){body{align-items:center;padding:40px;}}\n.scroll{height:812px;overflow-y:auto;}.scroll::-webkit-scrollbar{display:none;}\n\n/* ── HERO SECTION ── */\n.hero{\n  background:var(--c-primary);\n  position:relative;\n  overflow:hidden;\n  padding:0;\n}\n\n/* decorative circles */\n.hero::before{\n  content:\u0027\u0027;\n  position:absolute;\n  width:280px;height:280px;\n  border-radius:50%;\n  border:1px solid rgba(255,255,255,0.06);\n  top:-80px;right:-60px;\n}\n.hero::after{\n  content:\u0027\u0027;\n  position:absolute;\n  width:180px;height:180px;\n  border-radius:50%;\n  border:1px solid rgba(255,255,255,0.05);\n  bottom:-40px;left:-40px;\n}\n\n.hero-top{\n  display:flex;\n  align-items:center;\n  justify-content:space-between;\n  padding:16px 20px 0;\n  position:relative;z-index:2;\n}\n.back-btn{\n  width:36px;height:36px;\n  border-radius:50%;\n  background:rgba(255,255,255,0.12);\n  border:1px solid rgba(255,255,255,0.15);\n  display:flex;align-items:center;justify-content:center;\n  cursor:pointer;\n}\n.hero-label{\n  font-size:13px;font-weight:600;\n  color:rgba(255,255,255,0.6);\n  letter-spacing:0.3px;\n}\n.settings-btn{\n  width:36px;height:36px;\n  border-radius:50%;\n  background:rgba(255,255,255,0.12);\n  border:1px solid rgba(255,255,255,0.15);\n  display:flex;align-items:center;justify-content:center;\n  cursor:pointer;\n}\n\n/* PROFILE CARD floating */\n.profile-card{\n  margin:20px 20px 0;\n  background:rgba(255,255,255,0.1);\n  border:1px solid rgba(255,255,255,0.15);\n  border-radius:24px;\n  padding:20px;\n  display:flex;\n  gap:16px;\n  align-items:center;\n  position:relative;z-index:2;\n  backdrop-filter:blur(10px);\n}\n.avatar-ring{\n  width:64px;height:64px;\n  border-radius:50%;\n  background:linear-gradient(135deg,rgba(255,255,255,0.3),rgba(255,255,255,0.1));\n  border:2px solid rgba(255,255,255,0.4);\n  display:flex;align-items:center;justify-content:center;\n  flex-shrink:0;\n  position:relative;\n}\n.avatar-initial{\n  font-size:22px;font-weight:800;color:#fff;\n}\n.google-badge{\n  position:absolute;bottom:-2px;right:-2px;\n  width:20px;height:20px;\n  border-radius:50%;\n  background:#fff;\n  display:flex;align-items:center;justify-content:center;\n  border:1.5px solid rgba(255,255,255,0.5);\n}\n.profile-info{flex:1;}\n.profile-name{font-size:17px;font-weight:800;color:#fff;letter-spacing:-0.3px;margin-bottom:3px;}\n.profile-email{font-size:11px;color:rgba(255,255,255,0.55);margin-bottom:5px;}\n.kawasan-chip{\n  display:inline-flex;align-items:center;gap:4px;\n  background:rgba(255,255,255,0.12);\n  border:1px solid rgba(255,255,255,0.15);\n  border-radius:20px;\n  padding:3px 9px;\n  font-size:10px;color:rgba(255,255,255,0.75);font-weight:500;\n}\n\n/* STATS STRIP */\n.stats-strip{\n  display:flex;\n  margin:14px 20px 0;\n  background:rgba(0,0,0,0.2);\n  border-radius:16px;\n  overflow:hidden;\n  position:relative;z-index:2;\n  border:1px solid rgba(255,255,255,0.08);\n}\n.stat-item{\n  flex:1;\n  padding:12px 8px;\n  text-align:center;\n}\n.stat-item+.stat-item{border-left:1px solid rgba(255,255,255,0.08);}\n.stat-num{font-size:20px;font-weight:800;color:#fff;letter-spacing:-0.5px;}\n.stat-lbl{font-size:9px;color:rgba(255,255,255,0.45);margin-top:2px;text-transform:uppercase;letter-spacing:0.4px;}\n\n/* WAVE DIVIDER */\n.wave{\n  display:block;\n  margin-top:24px;\n  width:100%;\n}\n\n/* ── CONTENT SECTION ── */\n.content{padding:4px 20px 32px;}\n\n/* SECTION TITLE */\n.sec-title{\n  font-size:11px;font-weight:700;\n  color:var(--c-hint);\n  text-transform:uppercase;\n  letter-spacing:0.6px;\n  margin:16px 0 8px;\n}\n\n/* MENU CARD */\n.menu-card{\n  background:#fff;\n  border-radius:18px;\n  overflow:hidden;\n  border:1px solid var(--c-border);\n  margin-bottom:10px;\n  box-shadow:0 2px 10px rgba(0,0,0,0.05);\n}\n.menu-row{\n  display:flex;align-items:center;\n  gap:14px;\n  padding:14px 16px;\n  cursor:pointer;\n  border-bottom:1px solid #f5f5f5;\n  transition:background 0.15s;\n  text-decoration:none;\n}\n.menu-row:last-child{border-bottom:none;}\n.menu-row:active{background:#fafafa;}\n\n.menu-icon-wrap{\n  width:40px;height:40px;\n  border-radius:12px;\n  display:flex;align-items:center;justify-content:center;\n  flex-shrink:0;\n}\n.ic-maroon{background:linear-gradient(135deg,#fff0f3,#ffd6df);}\n.ic-blue{background:linear-gradient(135deg,#e8f4fd,#c8e6fb);}\n.ic-green{background:linear-gradient(135deg,#eaf5d8,#cfe8b0);}\n.ic-amber{background:linear-gradient(135deg,#fff8e1,#ffe082);}\n.ic-grey{background:#f5f5f5;}\n\n.menu-text{flex:1;}\n.menu-name{font-size:14px;font-weight:600;color:var(--c-text);}\n.menu-sub{font-size:11px;color:var(--c-text3);margin-top:1px;}\n.menu-arrow{color:var(--c-hint);}\n\n/* BADGE PILL */\n.menu-badge{\n  font-size:10px;font-weight:700;\n  background:var(--c-primary);\n  color:#fff;\n  padding:2px 8px;\n  border-radius:20px;\n}\n\n/* LOGOUT */\n.logout-row{\n  display:flex;align-items:center;gap:14px;\n  padding:14px 16px;\n  cursor:pointer;\n  background:#fff;\n  border-radius:18px;\n  border:1px solid var(--c-border);\n  margin-bottom:10px;\n  box-shadow:0 2px 10px rgba(0,0,0,0.05);\n}\n.logout-text{flex:1;font-size:14px;font-weight:600;color:var(--c-text3);}\n\n/* DELETE */\n.delete-row{\n  display:flex;align-items:center;justify-content:center;gap:6px;\n  padding:14px;\n  cursor:pointer;\n  color:#A32D2D;\n  font-size:13px;font-weight:600;\n}\n\n.version{text-align:center;font-size:10px;color:var(--c-hint);padding-bottom:8px;}"
-const markup = "\u003cdiv class=\"page\"\u003e\n\u003cdiv class=\"scroll\"\u003e\n\n\u003c!-- HERO --\u003e\n\u003cdiv class=\"hero\"\u003e\n  \u003cdiv class=\"hero-top\"\u003e\n    \u003cbutton class=\"back-btn\" onclick=\"history.back()\"\u003e\n      \u003csvg width=\"16\" height=\"16\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"#fff\" stroke-width=\"2.5\" stroke-linecap=\"round\" stroke-linejoin=\"round\"\u003e\u003cpolyline points=\"15 18 9 12 15 6\"/\u003e\u003c/svg\u003e\n    \u003c/button\u003e\n    \u003cspan class=\"hero-label\"\u003e\u003cspan data-i18n=\"profil_saya\"\u003eProfil Saya\u003c/span\u003e\u003c/span\u003e\n    \u003cbutton class=\"settings-btn\"\u003e\n      \u003csvg width=\"16\" height=\"16\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"#fff\" stroke-width=\"2.5\" stroke-linecap=\"round\" stroke-linejoin=\"round\"\u003e\u003ccircle cx=\"12\" cy=\"12\" r=\"3\"/\u003e\u003cpath d=\"M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z\"/\u003e\u003c/svg\u003e\n    \u003c/button\u003e\n  \u003c/div\u003e\n\n  \u003c!-- PROFILE CARD --\u003e\n  \u003cdiv class=\"profile-card\"\u003e\n    \u003cdiv class=\"avatar-ring\"\u003e\n      \u003cspan class=\"avatar-initial\"\u003eKR\u003c/span\u003e\n      \u003cdiv class=\"google-badge\"\u003e\n        \u003csvg width=\"12\" height=\"12\" viewBox=\"0 0 24 24\"\u003e\u003cpath d=\"M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z\" fill=\"#4285F4\"/\u003e\u003cpath d=\"M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z\" fill=\"#34A853\"/\u003e\u003cpath d=\"M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z\" fill=\"#FBBC05\"/\u003e\u003cpath d=\"M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z\" fill=\"#EA4335\"/\u003e\u003c/svg\u003e\n      \u003c/div\u003e\n    \u003c/div\u003e\n    \u003cdiv class=\"profile-info\"\u003e\n      \u003cdiv class=\"profile-name\"\u003eKak Ros\u003c/div\u003e\n      \u003cdiv class=\"profile-email\"\u003ekakros@gmail.com\u003c/div\u003e\n      \u003cdiv class=\"kawasan-chip\"\u003e\n        \u003csvg width=\"9\" height=\"9\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"rgba(255,255,255,0.7)\" stroke-width=\"2.5\" stroke-linecap=\"round\" stroke-linejoin=\"round\"\u003e\u003cpath d=\"M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z\"/\u003e\u003ccircle cx=\"12\" cy=\"10\" r=\"3\"/\u003e\u003c/svg\u003e\n        Taman Sri Muda\n      \u003c/div\u003e\n    \u003c/div\u003e\n  \u003c/div\u003e\n\n  \u003c!-- STATS --\u003e\n  \u003cdiv class=\"stats-strip\"\u003e\n    \u003cdiv class=\"stat-item\"\u003e\n      \u003cdiv class=\"stat-num\"\u003e12\u003c/div\u003e\n      \u003cdiv class=\"stat-lbl\"\u003eDisimpan\u003c/div\u003e\n    \u003c/div\u003e\n    \u003cdiv class=\"stat-item\"\u003e\n      \u003cdiv class=\"stat-num\"\u003e5\u003c/div\u003e\n      \u003cdiv class=\"stat-lbl\"\u003eTestimoni\u003c/div\u003e\n    \u003c/div\u003e\n    \u003cdiv class=\"stat-item\"\u003e\n      \u003cdiv class=\"stat-num\"\u003e38\u003c/div\u003e\n      \u003cdiv class=\"stat-lbl\"\u003eHari Aktif\u003c/div\u003e\n    \u003c/div\u003e\n  \u003c/div\u003e\n\n  \u003c!-- WAVE --\u003e\n  \u003csvg class=\"wave\" viewBox=\"0 0 430 32\" preserveAspectRatio=\"none\" xmlns=\"http://www.w3.org/2000/svg\"\u003e\n    \u003cpath d=\"M0 0 Q107 32 215 16 Q322 0 430 24 L430 32 L0 32 Z\" fill=\"#F5F5F5\"/\u003e\n  \u003c/svg\u003e\n\u003c/div\u003e\n\n\u003c!-- CONTENT --\u003e\n\u003cdiv class=\"content\"\u003e\n\n  \u003cdiv class=\"sec-title\"\u003eAktiviti\u003c/div\u003e\n  \u003cdiv class=\"menu-card\"\u003e\n    \u003ca class=\"menu-row\" href=\"lokalgo_saved.html\"\u003e\n      \u003cdiv class=\"menu-icon-wrap ic-maroon\"\u003e\n        \u003csvg width=\"18\" height=\"18\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"#7B1533\" stroke-width=\"2.5\" stroke-linecap=\"round\" stroke-linejoin=\"round\"\u003e\u003cpath d=\"M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z\"/\u003e\u003c/svg\u003e\n      \u003c/div\u003e\n      \u003cdiv class=\"menu-text\"\u003e\n        \u003cdiv class=\"menu-name\"\u003e\u003cspan data-i18n=\"kedai_disimpan\"\u003eKedai Disimpan\u003c/span\u003e\u003c/div\u003e\n        \u003cdiv class=\"menu-sub\"\u003e12 kedai dalam senarai kegemaran\u003c/div\u003e\n      \u003c/div\u003e\n      \u003cspan class=\"menu-badge\"\u003e12\u003c/span\u003e\n    \u003c/a\u003e\n    \u003ca class=\"menu-row\" href=\"#\"\u003e\n      \u003cdiv class=\"menu-icon-wrap ic-blue\"\u003e\n        \u003csvg width=\"18\" height=\"18\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"#185FA5\" stroke-width=\"2.5\" stroke-linecap=\"round\" stroke-linejoin=\"round\"\u003e\u003cpath d=\"M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z\"/\u003e\u003c/svg\u003e\n      \u003c/div\u003e\n      \u003cdiv class=\"menu-text\"\u003e\n        \u003cdiv class=\"menu-name\"\u003eTestimoni Saya\u003c/div\u003e\n        \u003cdiv class=\"menu-sub\"\u003e5 ulasan yang pernah ditulis\u003c/div\u003e\n      \u003c/div\u003e\n      \u003csvg class=\"menu-arrow\" width=\"16\" height=\"16\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"#ccc\" stroke-width=\"2.5\" stroke-linecap=\"round\" stroke-linejoin=\"round\"\u003e\u003cpolyline points=\"9 18 15 12 9 6\"/\u003e\u003c/svg\u003e\n    \u003c/a\u003e\n  \u003c/div\u003e\n\n  \u003cdiv class=\"sec-title\"\u003eAlamat Penghantaran\u003c/div\u003e\n  \u003cdiv class=\"menu-card\"\u003e\n    \u003ca class=\"menu-row\" href=\"lokalgo_alamat.html\"\u003e\n      \u003cdiv class=\"menu-icon-wrap ic-green\"\u003e\n        \u003csvg width=\"18\" height=\"18\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"#4A7C10\" stroke-width=\"2.5\" stroke-linecap=\"round\" stroke-linejoin=\"round\"\u003e\u003cpath d=\"M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z\"/\u003e\u003ccircle cx=\"12\" cy=\"10\" r=\"3\"/\u003e\u003c/svg\u003e\n      \u003c/div\u003e\n      \u003cdiv class=\"menu-text\"\u003e\n        \u003cdiv class=\"menu-name\"\u003eAlamat Rumah\u003c/div\u003e\n        \u003cdiv class=\"menu-sub\" style=\"color:var(--c-text2);\"\u003eNo 12, Jalan Muda 3, Taman Sri Muda\u003c/div\u003e\n      \u003c/div\u003e\n      \u003csvg class=\"menu-arrow\" width=\"16\" height=\"16\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"#ccc\" stroke-width=\"2.5\" stroke-linecap=\"round\" stroke-linejoin=\"round\"\u003e\u003cpolyline points=\"9 18 15 12 9 6\"/\u003e\u003c/svg\u003e\n    \u003c/a\u003e\n    \u003ca class=\"menu-row\" href=\"lokalgo_alamat.html\"\u003e\n      \u003cdiv class=\"menu-icon-wrap\" style=\"background:linear-gradient(135deg,#e8f4fd,#c8e6fb);\"\u003e\n        \u003csvg width=\"18\" height=\"18\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"#185FA5\" stroke-width=\"2.5\" stroke-linecap=\"round\" stroke-linejoin=\"round\"\u003e\u003crect x=\"2\" y=\"7\" width=\"20\" height=\"14\" rx=\"2\"/\u003e\u003cpath d=\"M16 7V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2\"/\u003e\u003cline x1=\"12\" y1=\"12\" x2=\"12\" y2=\"16\"/\u003e\u003cline x1=\"10\" y1=\"14\" x2=\"14\" y2=\"14\"/\u003e\u003c/svg\u003e\n      \u003c/div\u003e\n      \u003cdiv class=\"menu-text\"\u003e\n        \u003cdiv class=\"menu-name\"\u003eAlamat Pejabat \u003cspan style=\"font-size:10px;background:#e8f4fd;color:#185FA5;padding:1px 7px;border-radius:10px;font-weight:600;margin-left:4px;\"\u003eOptional\u003c/span\u003e\u003c/div\u003e\n        \u003cdiv class=\"menu-sub\" style=\"color:var(--c-hint);\"\u003eBelum ditetapkan\u003c/div\u003e\n      \u003c/div\u003e\n      \u003csvg class=\"menu-arrow\" width=\"16\" height=\"16\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"#ccc\" stroke-width=\"2.5\" stroke-linecap=\"round\" stroke-linejoin=\"round\"\u003e\u003cpolyline points=\"9 18 15 12 9 6\"/\u003e\u003c/svg\u003e\n    \u003c/a\u003e\n  \u003c/div\u003e\n\n  \u003cdiv class=\"sec-title\"\u003eAkaun\u003c/div\u003e\n  \u003cdiv class=\"menu-card\"\u003e\n    \u003ca class=\"menu-row\" href=\"#\"\u003e\n      \u003cdiv class=\"menu-icon-wrap ic-green\"\u003e\n        \u003csvg width=\"18\" height=\"18\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"#4A7C10\" stroke-width=\"2.5\" stroke-linecap=\"round\" stroke-linejoin=\"round\"\u003e\u003cpath d=\"M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2\"/\u003e\u003ccircle cx=\"12\" cy=\"7\" r=\"4\"/\u003e\u003c/svg\u003e\n      \u003c/div\u003e\n      \u003cdiv class=\"menu-text\"\u003e\n        \u003cdiv class=\"menu-name\"\u003eEdit Profil\u003c/div\u003e\n        \u003cdiv class=\"menu-sub\"\u003eNama, kawasan\u003c/div\u003e\n      \u003c/div\u003e\n      \u003csvg class=\"menu-arrow\" width=\"16\" height=\"16\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"#ccc\" stroke-width=\"2.5\" stroke-linecap=\"round\" stroke-linejoin=\"round\"\u003e\u003cpolyline points=\"9 18 15 12 9 6\"/\u003e\u003c/svg\u003e\n    \u003c/a\u003e\n    \u003ca class=\"menu-row\" href=\"lokalgo_sokong.html\"\u003e\n      \u003cdiv class=\"menu-icon-wrap ic-amber\"\u003e\n        \u003csvg width=\"18\" height=\"18\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"#856404\" stroke-width=\"2.5\" stroke-linecap=\"round\" stroke-linejoin=\"round\"\u003e\u003cpath d=\"M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z\"/\u003e\u003c/svg\u003e\n      \u003c/div\u003e\n      \u003cdiv class=\"menu-text\"\u003e\n        \u003cdiv class=\"menu-name\"\u003eSokong Pembangun\u003c/div\u003e\n        \u003cdiv class=\"menu-sub\"\u003eBantu kami terus berkembang 🙏\u003c/div\u003e\n      \u003c/div\u003e\n      \u003csvg class=\"menu-arrow\" width=\"16\" height=\"16\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"#ccc\" stroke-width=\"2.5\" stroke-linecap=\"round\" stroke-linejoin=\"round\"\u003e\u003cpolyline points=\"9 18 15 12 9 6\"/\u003e\u003c/svg\u003e\n    \u003c/a\u003e\n    \u003ca class=\"menu-row\" href=\"#\"\u003e\n      \u003cdiv class=\"menu-icon-wrap ic-grey\"\u003e\n        \u003csvg width=\"18\" height=\"18\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"#888\" stroke-width=\"2.5\" stroke-linecap=\"round\" stroke-linejoin=\"round\"\u003e\u003ccircle cx=\"12\" cy=\"12\" r=\"10\"/\u003e\u003cline x1=\"12\" y1=\"8\" x2=\"12\" y2=\"12\"/\u003e\u003cline x1=\"12\" y1=\"16\" x2=\"12.01\" y2=\"16\"/\u003e\u003c/svg\u003e\n      \u003c/div\u003e\n      \u003cdiv class=\"menu-text\"\u003e\n        \u003cdiv class=\"menu-name\"\u003eTentang LokalGo\u003c/div\u003e\n        \u003cdiv class=\"menu-sub\"\u003eVersi 1.1 • NS0308474-A\u003c/div\u003e\n      \u003c/div\u003e\n      \u003csvg class=\"menu-arrow\" width=\"16\" height=\"16\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"#ccc\" stroke-width=\"2.5\" stroke-linecap=\"round\" stroke-linejoin=\"round\"\u003e\u003cpolyline points=\"9 18 15 12 9 6\"/\u003e\u003c/svg\u003e\n    \u003c/a\u003e\n  \u003c/div\u003e\n\n  \u003cdiv class=\"logout-row\" onclick=\"confirmLogout()\"\u003e\n    \u003cdiv class=\"menu-icon-wrap ic-grey\"\u003e\n      \u003csvg width=\"18\" height=\"18\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"#888\" stroke-width=\"2.5\" stroke-linecap=\"round\" stroke-linejoin=\"round\"\u003e\u003cpath d=\"M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4\"/\u003e\u003cpolyline points=\"16 17 21 12 16 7\"/\u003e\u003cline x1=\"21\" y1=\"12\" x2=\"9\" y2=\"12\"/\u003e\u003c/svg\u003e\n    \u003c/div\u003e\n    \u003cdiv class=\"logout-text\"\u003e\u003cspan data-i18n=\"log_keluar\"\u003eLog Keluar\u003c/span\u003e\u003c/div\u003e\n    \u003csvg class=\"menu-arrow\" width=\"16\" height=\"16\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"#ccc\" stroke-width=\"2.5\" stroke-linecap=\"round\" stroke-linejoin=\"round\"\u003e\u003cpolyline points=\"9 18 15 12 9 6\"/\u003e\u003c/svg\u003e\n  \u003c/div\u003e\n\n  \u003cdiv class=\"delete-row\" onclick=\"confirmDelete()\"\u003e\n    \u003csvg width=\"14\" height=\"14\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"#A32D2D\" stroke-width=\"2.5\" stroke-linecap=\"round\" stroke-linejoin=\"round\"\u003e\u003cpolyline points=\"3 6 5 6 21 6\"/\u003e\u003cpath d=\"M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2\"/\u003e\u003c/svg\u003e\n    Padam Akaun\n  \u003c/div\u003e\n  \u003cdiv class=\"version\"\u003elokalgo.app • Versi 1.1 • Jun 2026\u003c/div\u003e\n\n\u003c/div\u003e\n\u003c/div\u003e\n\u003c/div\u003e"
-const scripts: string[] = ["function confirmLogout() {\n  if(confirm(\u0027Nak log keluar?\u0027)) window.location.href=\u0027lokalgo_login.html\u0027;\n}\nfunction confirmDelete() {\n  if(confirm(\u0027Padam akaun? Data akan dipadamkan dalam 30 hari.\u0027)) alert(\u0027Akaun anda telah dipadamkan.\u0027);\n}"]
-const externalScripts: string[] = []
-const externalStylesheets: string[] = ["https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:ital,wght@0,400;0,500;0,600;0,700;0,800;1,400\u0026display=swap"]
+function MenuIcon({ children, tone }: { children: React.ReactNode; tone: string }) {
+  return (
+    <span className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ${tone}`}>
+      {children}
+    </span>
+  )
+}
 
-export default function Page() {
+function MenuRow({
+  href,
+  title,
+  subtitle,
+  badge,
+  children,
+}: {
+  href: string
+  title: string
+  subtitle: string
+  badge?: number
+  children: React.ReactNode
+}) {
+  return (
+    <Link href={href} className="flex items-center gap-3 border-b border-[#F3F3F3] px-4 py-4 last:border-b-0">
+      {children}
+      <span className="min-w-0 flex-1">
+        <span className="block text-sm font-semibold text-[#111111]">{title}</span>
+        <span className="mt-0.5 block truncate text-[11px] text-[#888888]">{subtitle}</span>
+      </span>
+      {typeof badge === 'number' ? (
+        <span className="rounded-full bg-[#7B1533] px-2.5 py-1 text-[10px] font-bold text-white">{badge}</span>
+      ) : null}
+      <span className="text-[#BBBBBB]">›</span>
+    </Link>
+  )
+}
+
+export default function ProfilePage() {
+  const router = useRouter()
+  const [profile, setProfile] = useState<ProfileData>({
+    name: 'LokalGo',
+    email: '',
+    kawasan: 'Kawasan belum ditetapkan',
+    avatarUrl: null,
+    createdAt: null,
+  })
+  const [counts, setCounts] = useState<Counts>({ savedShops: 0, testimonials: 0 })
+
+  const daysActive = useMemo(() => activeDays(profile.createdAt), [profile.createdAt])
+
   useEffect(() => {
+    let cancelled = false
     const supabase = createClient()
-    const runtime = window as ProfileWindow
 
     async function loadProfile() {
-      const { data: authData } = await supabase.auth.getUser()
+      const {
+        data: { user },
+      } = await supabase.auth.getUser()
 
-      if (!authData.user) {
-        window.location.href = '/auth'
+      if (!user) {
+        router.replace('/auth')
         return
       }
 
-      const { data, error } = await supabase
+      const metadata = user.user_metadata ?? {}
+      const nameFromGoogle = metadataString(metadata, ['full_name', 'name'])
+      const avatarUrl = metadataString(metadata, ['avatar_url', 'picture'])
+
+      const { data: buyerData } = await supabase
         .from('buyers')
         .select('*')
-        .eq('user_id', authData.user.id)
-        .single()
+        .eq('user_id', user.id)
+        .maybeSingle()
 
-      if (error) {
-        console.error(error)
-        return
+      if (cancelled) return
+
+      const buyer = buyerData as Buyer | null
+      const nextProfile: ProfileData = {
+        name: nameFromGoogle || buyer?.name || user.email || 'LokalGo',
+        email: user.email || buyer?.email || '',
+        kawasan: buyer?.kawasan || 'Kawasan belum ditetapkan',
+        avatarUrl,
+        createdAt: buyer?.created_at || user.created_at || null,
       }
 
-      const buyer = data as Buyer
-      const savedIds = JSON.parse(localStorage.getItem('lokalgo_saved_shop_ids') || '[]') as unknown
-      const savedCount = Array.isArray(savedIds) ? savedIds.length : 0
+      setProfile(nextProfile)
 
-      setText('.avatar-initial', profileInitials(buyer.name))
-      setText('.profile-name', buyer.name)
-      setText('.profile-email', buyer.email)
-      setText('.kawasan-chip', buyer.kawasan || 'Kawasan belum ditetapkan')
-      setText('.stats-strip .stat-item:nth-child(1) .stat-num', savedCount)
-      setText('.menu-card .menu-row:nth-child(1) .menu-sub', `${savedCount} kedai dalam senarai kegemaran`)
-      setText('.menu-card .menu-row:nth-child(1) .menu-badge', savedCount)
-      setText('.content .menu-card:nth-of-type(2) .menu-row:nth-child(1) .menu-sub', savedAddressSummary('lokalgo_home_addr', buyer.address_rumah || 'Belum ditetapkan'))
-      setText('.content .menu-card:nth-of-type(2) .menu-row:nth-child(2) .menu-sub', savedAddressSummary('lokalgo_office_addr', buyer.address_pejabat || 'Belum ditetapkan'))
-    }
+      let localSavedCount = 0
+      try {
+        const savedIds = JSON.parse(localStorage.getItem('lokalgo_saved_shop_ids') || '[]') as unknown
+        localSavedCount = Array.isArray(savedIds) ? savedIds.length : 0
+      } catch {
+        localSavedCount = 0
+      }
 
-    runtime.confirmLogout = async () => {
-      if (!confirm('Nak log keluar?')) return
-      await supabase.auth.signOut()
-      window.location.href = '/auth'
+      const [{ count: savedCount }, { count: testimonialCount }] = await Promise.all([
+        buyer
+          ? supabase
+              .from('saved_shops')
+              .select('id', { count: 'exact', head: true })
+              .eq('buyer_id', buyer.id)
+          : Promise.resolve({ count: localSavedCount }),
+        buyer
+          ? supabase
+              .from('testimonials')
+              .select('id', { count: 'exact', head: true })
+              .eq('buyer_id', buyer.id)
+          : Promise.resolve({ count: 0 }),
+      ])
+
+      if (!cancelled) {
+        setCounts({
+          savedShops: savedCount ?? localSavedCount,
+          testimonials: testimonialCount ?? 0,
+        })
+      }
     }
 
     loadProfile().catch(console.error)
 
     return () => {
-      delete runtime.confirmLogout
+      cancelled = true
     }
-  }, [])
+  }, [router])
+
+  function signOut() {
+    void fetch('/auth/signout', { method: 'POST' }).then(() => {
+      router.replace('/auth')
+    })
+  }
+
+  function deleteAccount() {
+    if (confirm('Padam akaun? Data anda akan dijadualkan untuk dipadam dalam 30 hari.')) {
+      alert('Permintaan padam akaun diterima.')
+    }
+  }
 
   return (
-    <HtmlPrototypePage
-      styles={styles}
-      markup={markup}
-      scripts={scripts}
-      externalScripts={externalScripts}
-      externalStylesheets={externalStylesheets}
-    />
+    <main className="min-h-screen bg-[#0a0a0a] font-['Plus_Jakarta_Sans',sans-serif] text-[#111111] min-[500px]:flex min-[500px]:items-start min-[500px]:justify-center min-[500px]:p-10 min-[1024px]:items-center">
+      <section className="min-h-screen w-full max-w-[430px] overflow-hidden bg-[#F5F5F5] min-[500px]:min-h-0 min-[500px]:rounded-[36px] min-[500px]:border-8 min-[500px]:border-[#1a1a1a] min-[500px]:shadow-[0_32px_80px_rgba(0,0,0,0.7)]">
+        <div className="h-[812px] overflow-y-auto">
+          <header className="relative overflow-hidden bg-[#7B1533]">
+            <div className="relative z-10 flex items-center justify-between px-5 pt-4">
+              <button
+                type="button"
+                onClick={() => router.push('/home')}
+                className="flex h-9 w-9 items-center justify-center rounded-full border border-white/15 bg-white/10 text-white"
+                aria-label="Kembali"
+              >
+                ‹
+              </button>
+              <span className="text-sm font-semibold tracking-wide text-white/65">Profil Saya</span>
+              <span className="h-9 w-9" />
+            </div>
+
+            <div className="relative z-10 mx-5 mt-5 flex items-center gap-4 rounded-[24px] border border-white/15 bg-white/10 p-5 shadow-[0_18px_45px_rgba(0,0,0,0.18)] backdrop-blur-md">
+              <div className="flex h-20 w-20 shrink-0 items-center justify-center overflow-hidden rounded-full border-2 border-white/45 bg-[#7B1533] text-3xl font-extrabold text-white">
+                {profile.avatarUrl ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={profile.avatarUrl} alt={profile.name} className="h-full w-full object-cover" />
+                ) : (
+                  initialFor(profile.name)
+                )}
+              </div>
+              <div className="min-w-0 flex-1">
+                <h1 className="truncate text-xl font-extrabold text-white">{profile.name}</h1>
+                <p className="mt-1 truncate text-xs text-white/60">{profile.email}</p>
+                <p className="mt-2 inline-flex max-w-full items-center rounded-full border border-white/15 bg-white/10 px-3 py-1 text-[11px] font-semibold text-white/75">
+                  {profile.kawasan}
+                </p>
+              </div>
+            </div>
+
+            <div className="relative z-10 mx-5 mt-4 grid grid-cols-3 overflow-hidden rounded-2xl border border-white/10 bg-black/20">
+              <div className="border-r border-white/10 p-3 text-center">
+                <p className="text-xl font-extrabold text-white">{counts.savedShops}</p>
+                <p className="mt-1 text-[9px] font-bold uppercase tracking-wide text-white/45">Kedai Disimpan</p>
+              </div>
+              <div className="border-r border-white/10 p-3 text-center">
+                <p className="text-xl font-extrabold text-white">{counts.testimonials}</p>
+                <p className="mt-1 text-[9px] font-bold uppercase tracking-wide text-white/45">Testimoni</p>
+              </div>
+              <div className="p-3 text-center">
+                <p className="text-xl font-extrabold text-white">{daysActive}</p>
+                <p className="mt-1 text-[9px] font-bold uppercase tracking-wide text-white/45">Hari Aktif</p>
+              </div>
+            </div>
+
+            <svg className="relative z-10 mt-6 block w-full" viewBox="0 0 430 32" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg">
+              <path d="M0 0 Q107 32 215 16 Q322 0 430 24 L430 32 L0 32 Z" fill="#F5F5F5" />
+            </svg>
+          </header>
+
+          <div className="px-5 pb-8 pt-1">
+            <h2 className="mb-2 mt-4 text-[11px] font-bold uppercase tracking-wide text-[#888888]">Aktiviti</h2>
+            <div className="overflow-hidden rounded-[18px] border border-[#E5E5EA] bg-white shadow-[0_2px_10px_rgba(0,0,0,0.05)]">
+              <MenuRow href="/saved" title="Kedai Disimpan" subtitle={`${counts.savedShops} kedai dalam senarai kegemaran`} badge={counts.savedShops}>
+                <MenuIcon tone="bg-[#FFF0F3]">
+                  <span className="text-lg text-[#7B1533]">♡</span>
+                </MenuIcon>
+              </MenuRow>
+              <MenuRow href="/testimonials" title="Testimoni Saya" subtitle={`${counts.testimonials} ulasan yang pernah ditulis`}>
+                <MenuIcon tone="bg-[#E8F4FD]">
+                  <span className="text-lg text-[#185FA5]">✎</span>
+                </MenuIcon>
+              </MenuRow>
+            </div>
+
+            <h2 className="mb-2 mt-4 text-[11px] font-bold uppercase tracking-wide text-[#888888]">Alamat Penghantaran</h2>
+            <div className="overflow-hidden rounded-[18px] border border-[#E5E5EA] bg-white shadow-[0_2px_10px_rgba(0,0,0,0.05)]">
+              <MenuRow href="/profile/address" title="Alamat Rumah" subtitle="Tetapkan alamat penghantaran utama">
+                <MenuIcon tone="bg-[#EAF5D8]">
+                  <span className="text-lg text-[#4A7C10]">⌂</span>
+                </MenuIcon>
+              </MenuRow>
+              <MenuRow href="/profile/address" title="Alamat Pejabat (Optional)" subtitle="Tetapkan alamat pejabat jika perlu">
+                <MenuIcon tone="bg-[#E8F4FD]">
+                  <span className="text-lg text-[#185FA5]">▣</span>
+                </MenuIcon>
+              </MenuRow>
+            </div>
+
+            <h2 className="mb-2 mt-4 text-[11px] font-bold uppercase tracking-wide text-[#888888]">Akaun</h2>
+            <div className="overflow-hidden rounded-[18px] border border-[#E5E5EA] bg-white shadow-[0_2px_10px_rgba(0,0,0,0.05)]">
+              <MenuRow href="/sokong" title="Sokong Pembangun" subtitle="Bantu LokalGo terus berkembang">
+                <MenuIcon tone="bg-[#FFF8E1]">
+                  <span className="text-lg text-[#856404]">♡</span>
+                </MenuIcon>
+              </MenuRow>
+              <MenuRow href="/about" title="Tentang LokaGo" subtitle="Versi 1.1 | NS0308474-A">
+                <MenuIcon tone="bg-[#F5F5F5]">
+                  <span className="text-lg text-[#888888]">i</span>
+                </MenuIcon>
+              </MenuRow>
+              <button type="button" onClick={signOut} className="flex w-full items-center gap-3 border-b border-[#F3F3F3] px-4 py-4 text-left">
+                <MenuIcon tone="bg-[#F5F5F5]">
+                  <span className="text-lg text-[#888888]">↪</span>
+                </MenuIcon>
+                <span className="flex-1 text-sm font-semibold text-[#555555]">Log Keluar</span>
+                <span className="text-[#BBBBBB]">›</span>
+              </button>
+              <button type="button" onClick={deleteAccount} className="flex w-full items-center justify-center gap-2 px-4 py-4 text-sm font-semibold text-[#A32D2D]">
+                Padam Akaun
+              </button>
+            </div>
+
+            <p className="pb-2 pt-5 text-center text-[10px] text-[#BBBBBB]">lokalgo.app | Versi 1.1 | Jun 2026</p>
+          </div>
+        </div>
+      </section>
+    </main>
   )
 }
