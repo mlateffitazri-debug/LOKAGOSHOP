@@ -8,45 +8,59 @@ export async function middleware(request: NextRequest) {
     },
   })
 
-  const supabase = createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    {
-      auth: {
-        flowType: 'pkce',
-      },
-      cookieOptions: {
-        path: '/',
-        sameSite: 'lax',
-        secure: process.env.NODE_ENV === 'production',
-      },
-      cookies: {
-        get(name: string) {
-          return request.cookies.get(name)?.value
-        },
-        set(name: string, value: string, options: CookieOptions) {
-          request.cookies.set(name, value)
-          response = NextResponse.next({
-            request: {
-              headers: request.headers,
-            },
-          })
-          response.cookies.set(name, value, options as Parameters<typeof response.cookies.set>[2])
-        },
-        remove(name: string, options: CookieOptions) {
-          request.cookies.set(name, '')
-          response = NextResponse.next({
-            request: {
-              headers: request.headers,
-            },
-          })
-          response.cookies.set(name, '', { ...options, maxAge: 0 } as Parameters<typeof response.cookies.set>[2])
-        },
-      },
-    },
-  )
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+  const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
 
-  await supabase.auth.getUser()
+  // If env vars are missing, pass the request through rather than crashing.
+  if (!supabaseUrl || !supabaseAnonKey) {
+    console.error('middleware: missing Supabase env vars — skipping auth refresh')
+    return response
+  }
+
+  try {
+    const supabase = createServerClient(
+      supabaseUrl,
+      supabaseAnonKey,
+      {
+        auth: {
+          flowType: 'pkce',
+        },
+        cookieOptions: {
+          path: '/',
+          sameSite: 'lax',
+          secure: process.env.NODE_ENV === 'production',
+        },
+        cookies: {
+          get(name: string) {
+            return request.cookies.get(name)?.value
+          },
+          set(name: string, value: string, options: CookieOptions) {
+            request.cookies.set(name, value)
+            response = NextResponse.next({
+              request: {
+                headers: request.headers,
+              },
+            })
+            response.cookies.set(name, value, options as Parameters<typeof response.cookies.set>[2])
+          },
+          remove(name: string, options: CookieOptions) {
+            request.cookies.set(name, '')
+            response = NextResponse.next({
+              request: {
+                headers: request.headers,
+              },
+            })
+            response.cookies.set(name, '', { ...options, maxAge: 0 } as Parameters<typeof response.cookies.set>[2])
+          },
+        },
+      },
+    )
+
+    await supabase.auth.getUser()
+  } catch (err) {
+    // Never let middleware crash a request — log and pass through.
+    console.error('middleware: Supabase auth refresh failed', err)
+  }
 
   return response
 }
