@@ -312,7 +312,7 @@ export default function Page() {
         .update({ view_count: (seller.view_count ?? 0) + 1 })
         .eq('id', seller.id)
 
-      const [{ data: products }, { data: testimonials }] = await Promise.all([
+      const [{ data: products }, { data: testimonials }, { data: buyerData }] = await Promise.all([
         supabase
           .from('products')
           .select('*')
@@ -325,6 +325,11 @@ export default function Page() {
           .eq('seller_id', seller.id)
           .eq('is_approved', true)
           .order('created_at', { ascending: false }),
+        supabase
+          .from('buyers')
+          .select('id')
+          .eq('user_id', shopUser.id)
+          .maybeSingle(),
       ])
 
       if (cancelled) return
@@ -363,6 +368,75 @@ export default function Page() {
 
       renderPickupInstruction(seller.pickup_instruction)
       void renderSellerMap(seller as SellerWithCoordinates)
+
+      // ── Share & Heart buttons ──────────────────────────────────────
+      const buyerIdForSave = (buyerData as { id: string } | null)?.id ?? null
+
+      // Check if this shop is already saved
+      let isSaved = false
+      if (buyerIdForSave) {
+        const { data: savedRow } = await supabase
+          .from('saved_shops')
+          .select('id')
+          .eq('buyer_id', buyerIdForSave)
+          .eq('shop_id', seller.id)
+          .maybeSingle()
+        isSaved = !!savedRow
+      }
+
+      if (cancelled) return
+
+      const actionBtns = document.querySelectorAll<HTMLElement>('.act-btn')
+      const shareBtn = actionBtns[0]
+      const heartBtn = actionBtns[1]
+
+      const heartFilled = '<svg width="14" height="14" viewBox="0 0 24 24" fill="#e44" stroke="none"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>'
+      const heartEmpty = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#555" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>'
+
+      function updateHeart(saved: boolean) {
+        if (heartBtn) heartBtn.innerHTML = saved ? heartFilled : heartEmpty
+      }
+      updateHeart(isSaved)
+
+      function showShopToast(msg: string) {
+        document.querySelector('.shop-toast')?.remove()
+        const el = document.createElement('div')
+        el.className = 'shop-toast'
+        el.textContent = msg
+        el.style.cssText = 'position:fixed;bottom:80px;left:50%;transform:translateX(-50%);background:rgba(0,0,0,0.82);color:#fff;padding:10px 22px;border-radius:20px;font-size:13px;font-weight:600;z-index:9999;white-space:nowrap;pointer-events:none;'
+        document.body.appendChild(el)
+        setTimeout(() => el.remove(), 2500)
+      }
+
+      if (shareBtn) {
+        shareBtn.style.cursor = 'pointer'
+        shareBtn.onclick = async () => {
+          const url = `${window.location.origin}/shop?seller=${seller.id}`
+          if (navigator.share) {
+            try { await navigator.share({ title: seller.shop_name, text: 'Tengok kedai ini di LokaGo!', url }) } catch { /* dismissed */ }
+          } else {
+            try { await navigator.clipboard.writeText(url); showShopToast('Pautan disalin!') } catch { showShopToast('Gagal salin pautan') }
+          }
+        }
+      }
+
+      if (heartBtn) {
+        heartBtn.style.cursor = 'pointer'
+        heartBtn.onclick = async () => {
+          if (!buyerIdForSave) { window.location.href = '/auth'; return }
+          isSaved = !isSaved
+          updateHeart(isSaved)
+          if (isSaved) {
+            await supabase.from('saved_shops').upsert(
+              { buyer_id: buyerIdForSave, shop_id: seller.id },
+              { onConflict: 'buyer_id,shop_id' }
+            )
+          } else {
+            await supabase.from('saved_shops').delete()
+              .eq('buyer_id', buyerIdForSave).eq('shop_id', seller.id)
+          }
+        }
+      }
     }
 
     // Back button — inject before logo if not already present

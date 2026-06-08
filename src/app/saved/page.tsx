@@ -6,7 +6,7 @@ import { createClient } from '@/lib/supabase/client'
 import type { Seller } from '@/types/database'
 
 type SavedWindow = Window & {
-  __lokalgoUnsave?: (id: string, event?: Event) => void
+  __lokalgoUnsave?: (id: string, event?: Event) => void | Promise<void>
 }
 
 function getSavedIds() {
@@ -63,6 +63,7 @@ const externalStylesheets: string[] = ["https://fonts.googleapis.com/css2?family
 export default function Page() {
   useEffect(() => {
     let sellers: Seller[] = []
+    let currentBuyerId: string | null = null
     const supabase = createClient()
     const runtime = window as SavedWindow
 
@@ -99,7 +100,35 @@ export default function Page() {
         return
       }
 
-      const ids = getSavedIds()
+      // Get buyer ID from Supabase (saved_shops is keyed by buyer_id, not user_id)
+      const { data: buyerData } = await supabase
+        .from('buyers')
+        .select('id')
+        .eq('user_id', savedUser.id)
+        .maybeSingle()
+
+      currentBuyerId = (buyerData as { id: string } | null)?.id ?? null
+
+      if (!currentBuyerId) {
+        sellers = []
+        render()
+        return
+      }
+
+      // Load saved shop IDs from the saved_shops table
+      const { data: savedRows, error: savedError } = await supabase
+        .from('saved_shops')
+        .select('shop_id')
+        .eq('buyer_id', currentBuyerId)
+
+      if (savedError) {
+        console.error(savedError)
+        sellers = []
+        render()
+        return
+      }
+
+      const ids = (savedRows ?? []).map((r: { shop_id: string }) => r.shop_id).filter(Boolean)
 
       if (!ids.length) {
         sellers = []
@@ -123,12 +152,13 @@ export default function Page() {
       render()
     }
 
-    runtime.__lokalgoUnsave = (id: string, event?: Event) => {
+    runtime.__lokalgoUnsave = async (id: string, event?: Event) => {
       event?.stopPropagation()
-      const nextIds = getSavedIds().filter((savedId) => savedId !== id)
-      setSavedIds(nextIds)
       sellers = sellers.filter((seller) => seller.id !== id)
       render()
+      if (currentBuyerId) {
+        await supabase.from('saved_shops').delete().eq('buyer_id', currentBuyerId).eq('shop_id', id)
+      }
     }
 
     loadSaved().catch(console.error)
