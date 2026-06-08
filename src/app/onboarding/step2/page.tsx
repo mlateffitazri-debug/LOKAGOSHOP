@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect } from 'react'
+import { createClient } from '@/lib/supabase/client'
 import { HtmlPrototypePage } from '@/components/shared/HtmlPrototypePage'
 
 type OnboardingWindow = Window & {
@@ -15,6 +16,21 @@ const externalStylesheets: string[] = []
 
 export default function Page() {
   useEffect(() => {
+    let authCancelled = false
+    const supabase = createClient()
+
+    async function checkAuth() {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (authCancelled) return
+      if (!user) { window.location.href = '/auth?next=/onboarding/step2'; return }
+      const { data: seller } = await supabase
+        .from('sellers').select('id').eq('user_id', user.id).maybeSingle()
+      if (authCancelled) return
+      if (seller) { window.location.href = '/seller/dashboard' }
+    }
+
+    checkAuth().catch(console.error)
+
     ;(window as OnboardingWindow).__submitSellerOnboarding = async () => {
       const submitButton = document.querySelector<HTMLButtonElement>('.submit-btn')
       const saved = localStorage.getItem('lokalgo_seller_onboarding')
@@ -72,6 +88,7 @@ export default function Page() {
     }
 
     return () => {
+      authCancelled = true
       delete (window as OnboardingWindow).__submitSellerOnboarding
     }
   }, [])
