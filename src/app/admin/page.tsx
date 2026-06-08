@@ -2,24 +2,10 @@
 
 import { useEffect } from 'react'
 import { HtmlPrototypePage } from '@/components/shared/HtmlPrototypePage'
-import type { Product, Seller, SuspendedSeller, Testimonial } from '@/types/database'
 
-type AdminPayload = {
-  sellers: Seller[]
-  pendingSellers: Seller[]
-  activeSellers: Seller[]
-  pendingTestimonials: Testimonial[]
-  pendingProducts: Product[]
-  complaints: SuspendedSeller[]
-  buyerCount: number
-}
-
-type AdminWindow = Window & {
-  __lokalgoAdminAction?: (type: string, id: string, action: string) => Promise<void>
-}
-
-function escapeHtml(value: unknown) {
-  return String(value ?? '')
+/* ─── helpers ────────────────────────────────────────────────────────────── */
+function esc(v: unknown) {
+  return String(v ?? '')
     .replaceAll('&', '&amp;')
     .replaceAll('<', '&lt;')
     .replaceAll('>', '&gt;')
@@ -27,220 +13,639 @@ function escapeHtml(value: unknown) {
     .replaceAll("'", '&#039;')
 }
 
-function initials(value: string) {
-  return value
-    .split(/\s+/)
-    .filter(Boolean)
-    .slice(0, 2)
-    .map((word) => word[0]?.toUpperCase())
-    .join('') || 'LG'
+function fmtDate(v?: string | null) {
+  if (!v) return '—'
+  try { return new Intl.DateTimeFormat('ms-MY', { day: 'numeric', month: 'short', year: '2-digit' }).format(new Date(v)) }
+  catch { return '—' }
 }
 
-function formatDate(value?: string | null) {
-  if (!value) return 'Baru dihantar'
-  return new Intl.DateTimeFormat('ms-MY', { day: 'numeric', month: 'short', year: 'numeric' }).format(new Date(value))
+type AnyRow = Record<string, unknown>
+
+function statusPill(status: string) {
+  const map: Record<string, string> = {
+    active: 'pill-active', pending: 'pill-pending',
+    suspended: 'pill-suspended', rejected: 'pill-suspended',
+  }
+  return `<span class="status-pill ${map[status] ?? 'pill-pending'}">${esc(status)}</span>`
 }
 
-function badgeCount(count: number, tone = 'orange') {
-  return `<span class="count-badge ${tone}">${count} pending</span>`
+function badgeLabel(badge: string) {
+  const map: Record<string, [string, string]> = {
+    seller_baharu: ['Baharu', '#888'],
+    seller_aktif: ['Aktif', '#185FA5'],
+    verified: ['Verified', '#3B6D11'],
+  }
+  const [label, color] = map[badge] ?? ['Baharu', '#888']
+  return `<span style="color:${color};font-weight:700;font-size:11px;">${label}</span>`
 }
 
-function emptyCard(text: string) {
-  return `<div class="card"><div class="card-body" style="padding:16px;text-align:center;color:var(--c-hint);">${escapeHtml(text)}</div></div>`
+function renderSellerRows(sellers: AnyRow[]) {
+  if (!sellers.length) return '<tr><td colspan="7" class="td-empty">Tiada rekod</td></tr>'
+  return sellers.map((s) => {
+    const status = String(s.status ?? (s.permanent_ban ? 'suspended' : 'pending'))
+    const badge = String(s.badge ?? 'seller_baharu')
+    const approveBtn = status === 'pending'
+      ? `<button class="act-btn btn-green" title="Luluskan" onclick="adminAction('seller','${s.id}','approve')">✓</button>` : ''
+    const suspendBtn = status === 'active'
+      ? `<button class="act-btn btn-orange" title="Suspend" onclick="adminAction('seller','${s.id}','suspend')">⊘</button>`
+      : status === 'suspended'
+        ? `<button class="act-btn btn-blue" title="Aktifkan semula" onclick="adminAction('seller','${s.id}','unsuspend')">↑</button>` : ''
+    const delBtn = `<button class="act-btn btn-red" title="Padam" onclick="if(confirm('Padam seller ini?'))adminAction('seller','${s.id}','delete')">✕</button>`
+    const nextBadge = badge === 'seller_baharu' ? 'badge_aktif' : badge === 'seller_aktif' ? 'badge_verified' : 'badge_baharu'
+    const nextLabel = nextBadge === 'badge_aktif' ? 'B→A' : nextBadge === 'badge_verified' ? 'A→V' : 'V→B'
+    const badgeBtn = `<button class="act-btn btn-badge" title="Naik taraf badge" onclick="adminAction('seller','${s.id}','${nextBadge}')">${nextLabel}</button>`
+    return `<tr data-id="${s.id}" data-status="${esc(status)}">
+      <td class="td-name" title="${esc(s.shop_name ?? s.name)}">${esc((s.shop_name as string || s.name as string || '—').slice(0,22))}</td>
+      <td class="td-cell">${esc((s.kawasan as string || '—').slice(0,15))}</td>
+      <td class="td-center">${badgeLabel(badge)}</td>
+      <td class="td-center">${s.is_open ? '<span style="color:#3B6D11">●</span>' : '<span style="color:#bbb">○</span>'}</td>
+      <td class="td-center">${statusPill(status)}</td>
+      <td class="td-cell">${fmtDate(s.created_at as string)}</td>
+      <td class="td-actions">${approveBtn}${suspendBtn}${delBtn}${badgeBtn}</td>
+    </tr>`
+  }).join('')
 }
 
-function renderSellerCard(seller: Seller, mode: 'pending' | 'active') {
-  const legacySeller = seller as Seller & { name?: string; email?: string }
-  const shopName = seller.shop_name || legacySeller.name || 'Seller LokalGo'
-  const tamanName = seller.taman_name || seller.kawasan || 'Kawasan belum ditetapkan'
-  const postcode = seller.postcode || ''
-  const badge = seller.badge || 'seller_baharu'
-  const testimonialCount = seller.testimonial_count ?? 0
-  const viewCount = seller.view_count ?? 0
-  const waClickCount = seller.wa_click_count ?? 0
-  const statusClass = mode === 'pending' ? 'pill-pending' : 'pill-active'
-  const actions = mode === 'pending'
-    ? `<div class="card-actions">
-        <button class="btn-approve" onclick="window.__lokalgoAdminAction('seller','${seller.id}','approve')">Luluskan</button>
-        <button class="btn-reject" onclick="window.__lokalgoAdminAction('seller','${seller.id}','reject')">Tolak</button>
-        <button class="btn-msg" onclick="window.open('https://wa.me/${escapeHtml(seller.whatsapp_number)}','_blank')">WA</button>
-      </div>`
-    : `<div class="card-actions">
-        <button class="btn-suspend" onclick="window.__lokalgoAdminAction('seller','${seller.id}','reject')">Suspend</button>
-        <button class="btn-msg" onclick="openComposer('${escapeHtml(seller.shop_name)}')">Hantar Mesej</button>
-      </div>`
-
-  return `<div class="card">
-    <div class="card-header">
-      <div class="card-avatar">${escapeHtml(initials(shopName))}</div>
-      <div class="card-meta">
-        <div class="card-name">${escapeHtml(shopName)}</div>
-        <div class="card-sub">${escapeHtml(tamanName)}${postcode ? `, ${escapeHtml(postcode)}` : ''}</div>
-        <div class="card-time">${mode === 'pending' ? 'Dihantar' : 'Aktif'}: ${formatDate(mode === 'pending' ? seller.created_at : seller.approved_at)}</div>
-      </div>
-      <span class="status-pill ${statusClass}">${mode === 'pending' ? 'Pending' : 'Aktif'}</span>
-    </div>
-    <div class="seller-info">
-      <span class="info-tag">Tel: ${escapeHtml(seller.whatsapp_number)}</span>
-      <span class="info-tag">${escapeHtml(badge)}</span>
-      <span class="info-tag">${testimonialCount} testimoni</span>
-      <span class="info-tag">${viewCount} views</span>
-      <span class="info-tag">${waClickCount} WA clicks</span>
-    </div>
-    ${actions}
-  </div>`
+function renderBuyerRows(buyers: AnyRow[]) {
+  if (!buyers.length) return '<tr><td colspan="5" class="td-empty">Tiada rekod</td></tr>'
+  return buyers.map((b) =>
+    `<tr data-id="${b.id}">
+      <td class="td-name" title="${esc(b.name)}">${esc((b.name as string || '—').slice(0,20))}</td>
+      <td class="td-cell" title="${esc(b.email)}">${esc((b.email as string || '—').slice(0,20))}</td>
+      <td class="td-cell">${esc((b.kawasan as string || '—').slice(0,15))}</td>
+      <td class="td-cell">${fmtDate(b.created_at as string)}</td>
+      <td class="td-actions"><button class="act-btn btn-red" onclick="if(confirm('Padam buyer ini?'))adminAction('buyer','${b.id}','delete')">✕</button></td>
+    </tr>`,
+  ).join('')
 }
 
-function renderTestimonialCard(testimonial: Testimonial, sellers: Seller[]) {
-  const seller = sellers.find((item) => item.id === testimonial.seller_id)
-  return `<div class="card">
-    <div class="card-header">
-      <div class="card-avatar" style="background:#F0A500;font-size:12px;">${escapeHtml(initials(testimonial.buyer_name))}</div>
-      <div class="card-meta">
-        <div class="card-name">${escapeHtml(testimonial.buyer_name)}${testimonial.buyer_kawasan ? ` - ${escapeHtml(testimonial.buyer_kawasan)}` : ''}</div>
-        <div class="card-sub">Untuk: <strong>${escapeHtml(seller?.shop_name || 'Seller LokalGo')}</strong></div>
-        <div class="card-time">Dihantar: ${formatDate(testimonial.created_at)} - ${'★'.repeat(testimonial.rating || 0)}</div>
-      </div>
-    </div>
-    <div class="card-body">"${escapeHtml(testimonial.content)}"</div>
-    <div class="card-actions">
-      <button class="btn-approve" onclick="window.__lokalgoAdminAction('testimonial','${testimonial.id}','approve')">Luluskan</button>
-      <button class="btn-reject" onclick="window.__lokalgoAdminAction('testimonial','${testimonial.id}','reject')">Tolak</button>
-    </div>
-  </div>`
+function renderTestimoniRows(testimonials: AnyRow[], sellers: AnyRow[]) {
+  if (!testimonials.length) return '<tr><td colspan="6" class="td-empty">Tiada rekod</td></tr>'
+  const sellerMap: Record<string, string> = {}
+  sellers.forEach((s) => { sellerMap[s.id as string] = s.shop_name as string || s.name as string || '—' })
+  return testimonials.map((t) => {
+    const shop = sellerMap[t.seller_id as string] ?? '—'
+    const rating = '★'.repeat(Number(t.rating) || 0)
+    const approved = t.is_approved ? '<span style="color:#3B6D11;font-weight:700;">Approved</span>' : '<span style="color:#856404;font-weight:700;">Pending</span>'
+    const approveBtn = !t.is_approved ? `<button class="act-btn btn-green" onclick="adminAction('testimonial','${t.id}','approve')">✓</button>` : ''
+    const delBtn = `<button class="act-btn btn-red" onclick="if(confirm('Padam testimoni ini?'))adminAction('testimonial','${t.id}','delete')">✕</button>`
+    return `<tr data-id="${t.id}">
+      <td class="td-cell">${esc((t.buyer_name as string || '—').slice(0,16))}</td>
+      <td class="td-cell">${esc(shop.slice(0,16))}</td>
+      <td class="td-name" title="${esc(t.content)}">${esc((t.content as string || '—').slice(0,28))}…</td>
+      <td class="td-center" style="color:#F0A500;">${rating || '—'}</td>
+      <td class="td-center">${approved}</td>
+      <td class="td-actions">${approveBtn}${delBtn}</td>
+    </tr>`
+  }).join('')
 }
 
-function renderProductCard(product: Product, sellers: Seller[]) {
-  const seller = sellers.find((item) => item.id === product.seller_id)
-  return `<div class="card">
-    <div class="card-header">
-      <div style="width:60px;height:60px;border-radius:10px;background:#f0f0f0;flex-shrink:0;display:flex;align-items:center;justify-content:center;overflow:hidden;">
-        ${product.images?.[0] ? `<img src="${escapeHtml(product.images[0])}" alt="" style="width:100%;height:100%;object-fit:cover;">` : 'IMG'}
-      </div>
-      <div class="card-meta">
-        <div class="card-name">${escapeHtml(product.category)} - ${escapeHtml(seller?.shop_name || 'Seller LokalGo')}</div>
-        <div class="card-sub">${product.images?.length || 0} gambar / produk menunggu kelulusan</div>
-        <div class="card-time">${formatDate(product.created_at)}</div>
-      </div>
-    </div>
-    <div class="card-body">${escapeHtml(product.description || 'Tiada penerangan produk.')}</div>
-    <div class="card-actions">
-      <button class="btn-approve" onclick="window.__lokalgoAdminAction('product','${product.id}','approve')">Luluskan</button>
-      <button class="btn-reject" onclick="window.__lokalgoAdminAction('product','${product.id}','reject')">Tolak</button>
-    </div>
-  </div>`
+function renderSavedRows(savedShops: AnyRow[]) {
+  if (!savedShops.length) return '<tr><td colspan="3" class="td-empty">Tiada rekod</td></tr>'
+  return savedShops.map((row) =>
+    `<tr>
+      <td class="td-cell">${esc((row.buyer_display as string || '—').slice(0,22))}</td>
+      <td class="td-cell">${esc((row.shop_display as string || '—').slice(0,22))}</td>
+      <td class="td-cell">${fmtDate(row.created_at as string)}</td>
+    </tr>`,
+  ).join('')
 }
 
-function renderComplaintCard(complaint: SuspendedSeller, sellers: Seller[]) {
-  const seller = sellers.find((item) => item.id === complaint.seller_id)
-  return `<div class="card">
-    <div class="card-header">
-      <div class="card-avatar" style="background:#e44;font-size:12px;">!</div>
-      <div class="card-meta">
-        <div class="card-name">Aduan terhadap: ${escapeHtml(seller?.shop_name || complaint.whatsapp_number)}</div>
-        <div class="card-sub">Status rayuan: ${escapeHtml(complaint.appeal_status || 'pending')}</div>
-        <div class="card-time">Diterima: ${formatDate(complaint.suspend_date)}</div>
-      </div>
+/* ─── CSS ────────────────────────────────────────────────────────────────── */
+const styles = `
+:root{--c-primary:#7B1533;--c-primary-dark:#6A1029;--c-accent:#ADD036;--c-bg:#F5F5F5;--c-surface:#fff;--c-border:#E5E5EA;--c-text:#111;--c-text2:#555;--c-text3:#888;--c-hint:#bbb;}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;-webkit-font-smoothing:antialiased;}
+body{background:#0a0a0a;min-height:100vh;font-family:'Plus Jakarta Sans',-apple-system,sans-serif;font-size:14px;color:var(--c-text);}
+.page{width:100%;max-width:430px;margin:0 auto;min-height:100vh;background:var(--c-bg);overflow:hidden;}
+@media(min-width:500px){body{padding:40px 20px;display:flex;justify-content:center;align-items:flex-start;}.page{min-height:auto;border-radius:36px;border:8px solid #1a1a1a;box-shadow:0 32px 80px rgba(0,0,0,0.7);}}
+@media(min-width:1024px){body{align-items:center;padding:40px;min-height:100vh;}}
+.scroll{height:812px;overflow-y:auto;}.scroll::-webkit-scrollbar{display:none;}
+
+/* HEADER */
+.header{background:#111;padding:14px 20px 12px;}
+.header-r1{display:flex;align-items:center;justify-content:space-between;margin-bottom:3px;}
+.admin-badge{background:#e44;color:#fff;font-size:10px;font-weight:700;padding:3px 10px;border-radius:20px;letter-spacing:0.5px;}
+.header-sub{font-size:11px;color:rgba(255,255,255,0.4);margin-top:4px;}
+
+/* STATS */
+.stats-row{display:grid;grid-template-columns:repeat(4,1fr);background:#eee;border-bottom:1px solid #eee;}
+.stat-box{background:#fff;padding:10px 6px;text-align:center;border-right:1px solid #eee;}
+.stat-num{font-size:18px;font-weight:800;}
+.stat-lbl{font-size:9px;color:var(--c-hint);margin-top:1px;text-transform:uppercase;letter-spacing:0.4px;}
+.num-green{color:#3B6D11;}.num-orange{color:#856404;}.num-red{color:#A32D2D;}.num-blue{color:#185FA5;}
+
+/* TABS */
+.tabs{display:flex;background:#fff;border-bottom:2px solid #eee;overflow-x:auto;}
+.tabs::-webkit-scrollbar{display:none;}
+.tab{padding:11px 14px;font-size:12px;font-weight:700;color:var(--c-hint);cursor:pointer;white-space:nowrap;border-bottom:2px solid transparent;margin-bottom:-2px;transition:all 0.15s;letter-spacing:0.3px;}
+.tab.active{color:var(--c-primary);border-bottom-color:var(--c-primary);}
+
+/* SECTIONS */
+.section{display:none;padding-bottom:32px;}
+.section.active{display:block;}
+.sec-head{display:flex;align-items:center;justify-content:space-between;padding:12px 14px 8px;}
+.sec-title{font-size:12px;font-weight:800;color:var(--c-text);text-transform:uppercase;letter-spacing:0.5px;}
+.count-badge{font-size:11px;background:#f0f0f0;color:var(--c-text3);padding:2px 8px;border-radius:20px;font-weight:700;}
+.count-badge.orange{background:#FFF3E0;color:#856404;}
+.count-badge.red{background:#FFEBEE;color:#A32D2D;}
+.count-badge.green{background:#EAF3DE;color:#3B6D11;}
+
+/* FILTER BAR */
+.filter-bar{display:flex;gap:6px;padding:0 14px 10px;overflow-x:auto;}
+.filter-bar::-webkit-scrollbar{display:none;}
+.f-chip{border:1.5px solid #eee;border-radius:20px;padding:4px 12px;font-size:11px;font-weight:700;color:#888;cursor:pointer;background:#fff;white-space:nowrap;font-family:inherit;}
+.f-chip.active{background:var(--c-primary);border-color:var(--c-primary);color:#fff;}
+
+/* TABLES */
+.tbl-wrap{overflow-x:auto;padding:0 14px 10px;}
+.tbl{width:100%;border-collapse:collapse;font-size:11px;min-width:460px;}
+.tbl th{background:#f8f8f8;padding:7px 8px;text-align:left;font-size:9px;color:#aaa;font-weight:800;text-transform:uppercase;letter-spacing:0.5px;border-bottom:2px solid #eee;white-space:nowrap;}
+.tbl td{padding:7px 8px;border-bottom:1px solid #f5f5f5;vertical-align:middle;}
+.tbl tr:hover td{background:#fafafa;}
+.td-name{font-weight:700;color:var(--c-text);max-width:100px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.td-cell{color:var(--c-text2);max-width:100px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.td-center{text-align:center;}
+.td-actions{text-align:right;white-space:nowrap;}
+.td-empty{text-align:center;color:var(--c-hint);padding:20px;font-size:12px;}
+
+/* ACTION BUTTONS */
+.act-btn{border:none;border-radius:5px;padding:3px 7px;font-size:10px;font-weight:800;cursor:pointer;font-family:inherit;margin-left:3px;}
+.btn-green{background:#EAF3DE;color:#3B6D11;}
+.btn-red{background:#FFEBEE;color:#A32D2D;}
+.btn-orange{background:#FFF3E0;color:#856404;}
+.btn-blue{background:#E3F2FD;color:#185FA5;}
+.btn-badge{background:#f5f5f5;color:#555;}
+
+/* STATUS PILLS */
+.status-pill{font-size:9px;font-weight:800;padding:2px 7px;border-radius:20px;white-space:nowrap;}
+.pill-active{background:#EAF3DE;color:#3B6D11;}
+.pill-pending{background:#FFF3E0;color:#856404;}
+.pill-suspended{background:#FFEBEE;color:#A32D2D;}
+
+/* STATS GRID */
+.stat-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;padding:0 14px 10px;}
+.stat-card{background:#fff;border-radius:12px;border:1px solid #eee;padding:14px;}
+.sc-num{font-size:26px;font-weight:800;color:var(--c-text);}
+.sc-lbl{font-size:10px;color:var(--c-hint);margin-top:2px;text-transform:uppercase;letter-spacing:0.4px;}
+.sc-breakdown{margin-top:8px;display:flex;flex-direction:column;gap:3px;}
+.sc-line{font-size:11px;color:var(--c-text2);}
+.area-bar-wrap{padding:0 14px 10px;}
+.area-card{background:#fff;border-radius:12px;border:1px solid #eee;padding:14px;margin-bottom:8px;}
+.area-row{display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;}
+.area-name{font-size:13px;font-weight:700;color:var(--c-text);}
+.area-count{font-size:13px;font-weight:800;color:var(--c-primary);}
+.area-bar{background:#f0f0f0;border-radius:6px;height:7px;overflow:hidden;margin-bottom:4px;}
+.area-fill{background:var(--c-primary);height:100%;border-radius:6px;transition:width 0.5s;}
+
+/* DATABASE TAB */
+.db-controls{padding:10px 14px;display:flex;gap:8px;align-items:center;}
+.db-select{flex:1;border:1.5px solid var(--c-border);border-radius:10px;padding:9px 12px;font-size:13px;color:var(--c-text);background:#fff;outline:none;font-family:inherit;}
+.btn-load{background:var(--c-primary);color:#fff;border:none;border-radius:10px;padding:9px 16px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;white-space:nowrap;}
+.db-info{padding:0 14px 8px;font-size:11px;color:var(--c-hint);}
+.danger-zone{margin:10px 14px;background:#FFF5F5;border:1.5px solid #F9C0C0;border-radius:12px;padding:14px;}
+.danger-title{font-size:11px;font-weight:800;color:#A32D2D;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px;}
+.btn-danger{background:#A32D2D;color:#fff;border:none;border-radius:8px;padding:9px 16px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;width:100%;}
+`
+
+/* ─── MARKUP ─────────────────────────────────────────────────────────────── */
+const markup = `<div class="page"><div class="scroll">
+
+<div class="header">
+  <div class="header-r1">
+    <svg viewBox="0 0 1080 365" xmlns="http://www.w3.org/2000/svg" style="height:36px;width:auto;">
+      <style>.s0{fill:#FFF}.s1{fill:#ADD036}</style>
+      <path class="s0" d="M133,61v175c0,13-11,24-24,24h-4c-13,0-24-11-24-24V61c0-13,11-24,24-24h4C122,37,133,48,133,61z"/>
+      <path class="s0" d="M180,251c-13-7-23-17-31-30c-8-13-11-28-11-46c0-17,4-32,11-46s18-23,31-30c13-7,28-11,45-11s31,4,45,11c13,7,24,17,31,30s11,28,11,46c0,17-4,32-12,46c-8,13-18,23-32,30c-13,7-28,11-45,11S193,258,180,251z M249,207c7-7,10-18,10-31s-3-24-10-31c-7-7-15-11-25-11c-10,0-18,4-25,11c-7,7-10,18-10,31c0,13,3,24,10,31c7,7,15,11,25,11C234,218,242,214,249,207z"/>
+      <path class="s0" d="M411,248l-43-59v49c0,12-9,21-21,21h-7c-13,0-23-10-23-23V56c0-11,9-19,19-19h15c10,0,17,8,17,17v106l43-57c5-7,13-11,22-11h32c7,0,11,8,6,14l-58,70l54,65c6,7,1,19-9,19h-25C425,259,416,255,411,248z"/>
+      <path class="s0" d="M470,130c7-13,15-23,27-30c11-7,24-11,38-11c12,0,22,2,31,7s16,11,21,19v-8c0-9,7-16,16-16h20c8,0,15,7,15,15v139c0,7-6,13-13,13h-21c-10,0-17-8-17-17v-6c-5,8-12,14-21,19c-9,5-19,7-31,7c-14,0-26-4-37-11c-11-7-20-17-27-30c-7-13-10-28-10-46C460,158,464,143,470,130z M575,145c-7-7-16-11-26-11c-10,0-19,4-26,11c-7,7-11,17-11,30c0,13,4,23,11,31c7,8,16,11,26,11c10,0,19-4,26-11c7-7,11-18,11-30C586,163,582,153,575,145z"/>
+      <path class="s1" d="M747,96c9,5,16,11,21,19v-7c0-9,7-17,17-17h19c9,0,16,7,16,16v152c0,15-3,29-9,42c-6,13-15,23-28,30c-13,7-28,11-47,11c-25,0-45-6-60-18c-11-8-18-19-23-31c-3-8,3-17,12-17h21c8,0,14,4,19,10c2,2,4,4,7,6c6,4,13,6,22,6c11,0,19-3,25-9c6-6,10-16,10-29v-24c-5,8-12,14-21,19c-9,5-19,7-31,7c-14,0-26-4-38-11c-11-7-20-17-27-30c-7-13-10-28-10-46c0-17,3-32,10-45c7-13,15-23,27-30c11-7,24-11,38-11C728,89,738,91,747,96z M757,145c-7-7-16-11-26-11c-10,0-19,4-26,11c-7,7-11,17-11,30c0,13,4,23,11,31c7,8,16,11,26,11c10,0,19-4,26-11c7-7,11-18,11-30C768,163,764,153,757,145z"/>
+      <path class="s1" d="M866,251c-13-7-23-17-31-30c-8-13-11-28-11-46c0-17,4-32,11-46s18-23,31-30c13-7,28-11,45-11c16,0,31,4,45,11c13,7,24,17,31,30s11,28,11,46c0,17-4,32-12,46c-8,13-18,23-32,30c-13,7-28,11-45,11C894,262,879,258,866,251z M935,207c7-7,10-18,10-31s-3-24-10-31c-7-7-15-11-25-11c-10,0-18,4-25,11c-7,7-10,18-10,31c0,13,3,24,10,31c7,7,15,11,25,11C920,218,928,214,935,207z"/>
+    </svg>
+    <span class="admin-badge">ADMIN</span>
+  </div>
+  <div class="header-sub">LokalGo Admin Panel — NS0308474-A</div>
+</div>
+
+<div class="stats-row" id="statsRow">
+  <div class="stat-box"><div class="stat-num num-green" id="st-active">—</div><div class="stat-lbl">Aktif</div></div>
+  <div class="stat-box"><div class="stat-num num-orange" id="st-pending">—</div><div class="stat-lbl">Pending</div></div>
+  <div class="stat-box"><div class="stat-num num-blue" id="st-buyers">—</div><div class="stat-lbl">Buyers</div></div>
+  <div class="stat-box"><div class="stat-num num-red" id="st-review">—</div><div class="stat-lbl">Semak</div></div>
+</div>
+
+<div class="tabs">
+  <div class="tab active" onclick="switchTab(this,'tab-sellers')">SELLERS</div>
+  <div class="tab" onclick="switchTab(this,'tab-buyers')">BUYERS</div>
+  <div class="tab" onclick="switchTab(this,'tab-testimoni')">TESTIMONI</div>
+  <div class="tab" onclick="switchTab(this,'tab-saved')">SAVED</div>
+  <div class="tab" onclick="switchTab(this,'tab-stats')">STATS</div>
+  <div class="tab" onclick="switchTab(this,'tab-database')">DATABASE</div>
+</div>
+
+<!-- TAB: SELLERS -->
+<div class="section active" id="tab-sellers">
+  <div class="sec-head">
+    <span class="sec-title">Sellers</span>
+    <span class="count-badge" id="sellers-count">—</span>
+  </div>
+  <div class="filter-bar">
+    <button class="f-chip active" onclick="filterSellers(this,'all')">Semua</button>
+    <button class="f-chip" onclick="filterSellers(this,'pending')">Pending</button>
+    <button class="f-chip" onclick="filterSellers(this,'active')">Aktif</button>
+    <button class="f-chip" onclick="filterSellers(this,'suspended')">Suspended</button>
+  </div>
+  <div class="tbl-wrap">
+    <table class="tbl">
+      <thead><tr>
+        <th>Nama Kedai</th><th>Kawasan</th><th>Badge</th>
+        <th>Buka</th><th>Status</th><th>Tarikh</th><th>Tindakan</th>
+      </tr></thead>
+      <tbody id="sellers-tbody"><tr><td colspan="7" class="td-empty">Memuatkan...</td></tr></tbody>
+    </table>
+  </div>
+</div>
+
+<!-- TAB: BUYERS -->
+<div class="section" id="tab-buyers">
+  <div class="sec-head">
+    <span class="sec-title">Buyers</span>
+    <span class="count-badge green" id="buyers-count">—</span>
+  </div>
+  <div class="tbl-wrap">
+    <table class="tbl">
+      <thead><tr>
+        <th>Nama</th><th>Email</th><th>Kawasan</th><th>Tarikh Daftar</th><th>Del</th>
+      </tr></thead>
+      <tbody id="buyers-tbody"><tr><td colspan="5" class="td-empty">Memuatkan...</td></tr></tbody>
+    </table>
+  </div>
+</div>
+
+<!-- TAB: TESTIMONI -->
+<div class="section" id="tab-testimoni">
+  <div class="sec-head">
+    <span class="sec-title">Testimoni</span>
+    <span class="count-badge orange" id="testi-count">—</span>
+  </div>
+  <div class="filter-bar">
+    <button class="f-chip active" onclick="filterTesti(this,'all')">Semua</button>
+    <button class="f-chip" onclick="filterTesti(this,'pending')">Pending</button>
+    <button class="f-chip" onclick="filterTesti(this,'approved')">Diluluskan</button>
+  </div>
+  <div class="tbl-wrap">
+    <table class="tbl">
+      <thead><tr>
+        <th>Pembeli</th><th>Kedai</th><th>Ulasan</th><th>★</th><th>Status</th><th>Tindakan</th>
+      </tr></thead>
+      <tbody id="testi-tbody"><tr><td colspan="6" class="td-empty">Memuatkan...</td></tr></tbody>
+    </table>
+  </div>
+</div>
+
+<!-- TAB: SAVED SHOPS -->
+<div class="section" id="tab-saved">
+  <div class="sec-head">
+    <span class="sec-title">Saved Shops</span>
+    <span class="count-badge" id="saved-count">—</span>
+  </div>
+  <div class="tbl-wrap">
+    <table class="tbl">
+      <thead><tr><th>Pembeli</th><th>Kedai</th><th>Tarikh Simpan</th></tr></thead>
+      <tbody id="saved-tbody"><tr><td colspan="3" class="td-empty">Memuatkan...</td></tr></tbody>
+    </table>
+  </div>
+</div>
+
+<!-- TAB: PLATFORM STATS -->
+<div class="section" id="tab-stats">
+  <div class="sec-head"><span class="sec-title">Platform Stats</span></div>
+  <div class="stat-grid">
+    <div class="stat-card" style="border-left:4px solid var(--c-primary);">
+      <div class="sc-num" id="ps-sellers">—</div>
+      <div class="sc-lbl">Total Sellers</div>
+      <div class="sc-breakdown" id="ps-sellers-detail"></div>
     </div>
-    <div class="card-body">${escapeHtml(complaint.reason || 'Tiada sebab direkodkan.')}</div>
-    <div class="card-actions">
-      <button class="btn-approve" onclick="window.__lokalgoAdminAction('complaint','${complaint.id}','approve')">Approve Appeal</button>
-      <button class="btn-reject" onclick="window.__lokalgoAdminAction('complaint','${complaint.id}','reject')">Reject Appeal</button>
-      <button class="btn-msg" onclick="window.open('https://wa.me/${escapeHtml(complaint.whatsapp_number)}','_blank')">Hubungi</button>
+    <div class="stat-card" style="border-left:4px solid #185FA5;">
+      <div class="sc-num num-blue" id="ps-buyers">—</div>
+      <div class="sc-lbl">Total Buyers</div>
     </div>
-  </div>`
+    <div class="stat-card" style="border-left:4px solid #F0A500;">
+      <div class="sc-num" id="ps-testi">—</div>
+      <div class="sc-lbl">Total Testimoni</div>
+    </div>
+    <div class="stat-card" style="border-left:4px solid #3B6D11;">
+      <div class="sc-num num-green" id="ps-saved">—</div>
+      <div class="sc-lbl">Total Saved</div>
+    </div>
+  </div>
+  <div class="sec-head"><span class="sec-title">Badge Breakdown</span></div>
+  <div class="stat-grid">
+    <div class="stat-card"><div class="sc-num" id="ps-b-baharu">—</div><div class="sc-lbl">Seller Baharu</div></div>
+    <div class="stat-card"><div class="sc-num num-blue" id="ps-b-aktif">—</div><div class="sc-lbl">Seller Aktif</div></div>
+    <div class="stat-card" style="grid-column:1/-1;"><div class="sc-num num-green" id="ps-b-verified">—</div><div class="sc-lbl">Verified Seller</div></div>
+  </div>
+  <div class="sec-head"><span class="sec-title">Sellers by Kawasan</span></div>
+  <div class="area-bar-wrap" id="area-bars"><div style="text-align:center;color:var(--c-hint);padding:20px;font-size:12px;">Memuatkan...</div></div>
+</div>
+
+<!-- TAB: DATABASE -->
+<div class="section" id="tab-database">
+  <div class="sec-head"><span class="sec-title">Database Viewer</span></div>
+  <div class="db-controls">
+    <select class="db-select" id="db-table-select" onchange="loadDbTable(this.value)">
+      <option value="">-- Pilih Jadual --</option>
+      <option value="sellers">sellers</option>
+      <option value="buyers">buyers</option>
+      <option value="testimonials">testimonials</option>
+      <option value="saved_shops">saved_shops</option>
+      <option value="products">products</option>
+      <option value="suspended_sellers">suspended_sellers</option>
+    </select>
+    <button class="btn-load" onclick="loadDbTable(document.getElementById('db-table-select').value)">Muat</button>
+  </div>
+  <div class="db-info" id="db-info"></div>
+  <div id="db-content" style="padding-bottom:10px;"></div>
+  <div class="danger-zone">
+    <div class="danger-title">⚠ Danger Zone</div>
+    <p style="font-size:11px;color:#A32D2D;margin-bottom:10px;line-height:1.6;">Padam SEMUA rekod dari jadual yang dipilih. Tindakan ini tidak boleh dibatalkan.</p>
+    <button class="btn-danger" onclick="clearDbTable()">Padam Semua Rekod dalam Jadual Ini</button>
+  </div>
+</div>
+
+</div></div>`
+
+/* ─── CLIENT SCRIPTS ─────────────────────────────────────────────────────── */
+const scripts = [`
+// State
+var _data = null;
+var _dbTable = '';
+var _sellersFilter = 'all';
+var _testiFilter = 'all';
+
+function switchTab(el, id) {
+  document.querySelectorAll('.tab').forEach(function(t){ t.classList.remove('active'); });
+  document.querySelectorAll('.section').forEach(function(s){ s.classList.remove('active'); });
+  el.classList.add('active');
+  document.getElementById(id).classList.add('active');
 }
 
-const styles = ":root{--c-primary:#7B1533;--c-primary-dark:#6A1029;--c-primary-lt:#8f1a3a;--c-accent:#ADD036;--c-green:#25D366;--c-bg:#F5F5F5;--c-surface:#FFFFFF;--c-border:#E5E5EA;--c-text:#111111;--c-text2:#555555;--c-text3:#888888;--c-hint:#BBBBBB;}\n*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;-webkit-font-smoothing:antialiased;}\nbody{background:#0a0a0a;min-height:100vh;font-family:\u0027Plus Jakarta Sans\u0027,-apple-system,sans-serif;font-size:14px;color:var(--c-text);}\n.page{width:100%;max-width:430px;margin:0 auto;min-height:100vh;background:var(--c-bg);overflow:hidden;}\n@media(min-width:500px){body{padding:40px 20px;display:flex;justify-content:center;align-items:flex-start;}.page{min-height:auto;border-radius:36px;border:8px solid #1a1a1a;box-shadow:0 32px 80px rgba(0,0,0,0.7);}}\n@media(min-width:1024px){body{align-items:center;padding:40px;min-height:100vh;}}\n.scroll{height:812px;overflow-y:auto;}.scroll::-webkit-scrollbar{display:none;}\n\n/* HEADER */\n.header{background:#111;padding:14px 20px 12px;}\n.header-r1{display:flex;align-items:center;justify-content:space-between;margin-bottom:3px;}\n.admin-badge{background:#e44;color:#fff;font-size:10px;font-weight:700;padding:3px 10px;border-radius:20px;letter-spacing:0.5px;}\n.header-sub{font-size:11px;color:rgba(255,255,255,0.4);margin-bottom:10px;}\n.header-r2{display:flex;gap:8px;align-items:center;}\n.search-wrap{flex:1;background:rgba(255,255,255,0.1);border-radius:10px;padding:9px 12px;display:flex;align-items:center;gap:8px;}\n.search-wrap input{border:none;background:transparent;font-size:13px;color:#fff;outline:none;width:100%;font-family:inherit;}\n.search-wrap input::placeholder{color:rgba(255,255,255,0.3);}\n\n/* STATS ROW */\n.stats-row{display:grid;grid-template-columns:repeat(3,1fr);gap:1px;background:#eee;border-bottom:1px solid #eee;}\n.stat-box{background:#fff;padding:12px 8px;text-align:center;}\n.stat-num{font-size:20px;font-weight:800;color:var(--c-text);}\n.stat-lbl{font-size:10px;color:var(--c-hint);margin-top:2px;}\n.stat-num.red{color:#e44;}\n.stat-num.green{color:#4A7C10;}\n.stat-num.orange{color:#F0A500;}\n\n/* TABS */\n.tabs{display:flex;background:#fff;border-bottom:2px solid #eee;overflow-x:auto;}\n.tabs::-webkit-scrollbar{display:none;}\n.tab{padding:12px 20px;font-size:13px;font-weight:600;color:var(--c-hint);cursor:pointer;white-space:nowrap;border-bottom:2px solid transparent;margin-bottom:-2px;transition:all 0.15s;}\n.tab.active{color:var(--c-primary);border-bottom-color:var(--c-primary);}\n\n/* SECTION */\n.section{padding:12px 20px;display:none;}\n.section.active{display:block;}\n.sec-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;}\n.sec-title{font-size:13px;font-weight:700;color:var(--c-text);}\n.count-badge{font-size:11px;background:#f0f0f0;color:var(--c-text3);padding:2px 8px;border-radius:20px;font-weight:600;}\n.count-badge.red{background:#FFEBEE;color:#A32D2D;}\n.count-badge.orange{background:#FFF3E0;color:#856404;}\n\n/* CARDS */\n.card{background:#fff;border-radius:12px;border:1px solid #eee;margin-bottom:8px;overflow:hidden;}\n.card-header{padding:12px;display:flex;gap:10px;align-items:flex-start;}\n.card-avatar{width:40px;height:40px;border-radius:10px;background:var(--c-primary);flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:700;color:#fff;}\n.card-meta{flex:1;}\n.card-name{font-size:13px;font-weight:700;color:var(--c-text);margin-bottom:2px;}\n.card-sub{font-size:11px;color:var(--c-text3);}\n.card-time{font-size:10px;color:var(--c-hint);margin-top:3px;}\n.card-body{padding:0 12px 10px;font-size:12px;color:var(--c-text2);line-height:1.6;}\n.card-actions{padding:10px 12px;border-top:1px solid #f5f5f5;display:flex;gap:8px;}\n.btn-approve{flex:1;background:var(--c-accent);border:none;border-radius:8px;padding:9px;font-size:12px;font-weight:700;color:#fff;cursor:pointer;font-family:inherit;}\n.btn-reject{flex:1;background:#f5f5f5;border:none;border-radius:8px;padding:9px;font-size:12px;font-weight:600;color:#555;cursor:pointer;font-family:inherit;}\n.btn-suspend{flex:1;background:#FFEBEE;border:none;border-radius:8px;padding:9px;font-size:12px;font-weight:600;color:#A32D2D;cursor:pointer;font-family:inherit;}\n.btn-msg{flex:1;background:#f5f5f5;border:none;border-radius:8px;padding:9px;font-size:12px;font-weight:600;color:var(--c-primary);cursor:pointer;font-family:inherit;}\n\n/* SELLER CARD EXTRA */\n.seller-info{padding:0 12px 10px;display:flex;flex-wrap:wrap;gap:6px;}\n.info-tag{font-size:10px;background:#f5f5f5;color:#555;padding:3px 8px;border-radius:6px;}\n.status-pill{font-size:10px;font-weight:700;padding:3px 10px;border-radius:20px;white-space:nowrap;}\n.pill-pending{background:#FFF3E0;color:#856404;}\n.pill-active{background:#EAF3DE;color:#3B6D11;}\n.pill-suspended{background:#FFEBEE;color:#A32D2D;}\n\n/* PLATFORM STATS */\n.platform-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px;}\n.p-stat{background:#fff;border-radius:12px;border:1px solid #eee;padding:14px;}\n.p-stat-num{font-size:24px;font-weight:800;color:var(--c-text);margin-bottom:3px;}\n.p-stat-lbl{font-size:11px;color:var(--c-hint);}\n.p-stat-change{font-size:11px;color:#4A7C10;font-weight:600;margin-top:4px;}\n.activity-item{background:#fff;border-radius:10px;border:1px solid #eee;padding:10px 12px;margin-bottom:6px;display:flex;gap:10px;align-items:center;}\n.activity-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0;}\n.dot-green{background:#4A7C10;}\n.dot-orange{background:#F0A500;}\n.dot-red{background:#e44;}\n.dot-blue{background:#185FA5;}\n.activity-text{font-size:12px;color:var(--c-text2);flex:1;}\n.activity-time{font-size:10px;color:var(--c-hint);}\n\n/* MSG COMPOSER */\n.msg-composer{background:#fff;border-radius:12px;border:1px solid #eee;padding:14px;margin-bottom:10px;}\n.composer-to{display:flex;align-items:center;gap:8px;background:#f5f5f5;border-radius:8px;padding:8px 12px;margin-bottom:8px;}\n.composer-to span{font-size:12px;color:var(--c-text3);white-space:nowrap;}\n.composer-to select{flex:1;border:none;background:transparent;font-size:13px;color:var(--c-text);outline:none;font-family:inherit;}\n.composer-input{width:100%;border:1.5px solid var(--c-border);border-radius:8px;padding:10px 12px;font-size:13px;color:var(--c-text);outline:none;font-family:inherit;resize:none;height:80px;line-height:1.6;}\n.composer-input:focus{border-color:var(--c-primary);}\n.composer-row{display:flex;gap:8px;margin-top:8px;align-items:center;}\n.msg-type-select{flex:1;border:1.5px solid var(--c-border);border-radius:8px;padding:8px 10px;font-size:12px;color:var(--c-text);outline:none;font-family:inherit;background:#fff;}\n.btn-send{background:var(--c-primary);border:none;border-radius:8px;padding:9px 16px;color:#fff;font-size:13px;font-weight:700;font-family:inherit;cursor:pointer;white-space:nowrap;}\n\n/* BADGE */\n.badge-btn{font-size:10px;font-weight:700;padding:4px 10px;border-radius:20px;border:none;cursor:pointer;font-family:inherit;}\n.bb-baharu{background:#f5f5f5;color:#555;}\n.bb-aktif{background:#E3F2FD;color:#185FA5;}\n.bb-verified{background:#EAF3DE;color:#3B6D11;}\n.bb-suspend{background:#FFEBEE;color:#A32D2D;}\n\n/* APPEAL */\n.appeal-card{background:#fff;border-radius:12px;border:1px solid #eee;margin-bottom:8px;overflow:hidden;border-left:4px solid #F0A500;}\n.cooldown-bar{background:#f5f5f5;border-radius:8px;height:6px;overflow:hidden;margin:6px 0;}\n.cooldown-fill{background:#F0A500;height:100%;border-radius:8px;}\n\n/* BANNED */\n.banned-item{background:#FFEBEE;border-radius:10px;border:1px solid #F9C0C0;padding:10px 12px;margin-bottom:6px;display:flex;align-items:center;justify-content:space-between;}\n\n/* SEARCH WA */\n.wa-search{display:flex;gap:8px;margin-bottom:12px;}\n.wa-input{flex:1;border:1.5px solid var(--c-border);border-radius:10px;padding:10px 12px;font-size:14px;color:var(--c-text);outline:none;font-family:inherit;}\n.wa-input:focus{border-color:var(--c-primary);}\n.btn-search{background:var(--c-primary);border:none;border-radius:10px;padding:10px 20px;color:#fff;font-size:13px;font-weight:700;font-family:inherit;cursor:pointer;}\n\n/* BROADCAST */\n.recipient-chip{padding:5px 12px;border-radius:20px;border:1.5px solid var(--c-border);font-size:12px;color:#555;cursor:pointer;font-family:inherit;background:#fff;transition:all 0.15s;}\n.recipient-chip.selected{background:var(--c-primary);border-color:var(--c-primary);color:#fff;}"
-const markup = "\u003cdiv class=\"page\"\u003e\n\u003cdiv class=\"scroll\"\u003e\n\n\u003c!-- HEADER --\u003e\n\u003cdiv class=\"header\"\u003e\n  \u003cdiv class=\"header-r1\"\u003e\n    \u003csvg viewBox=\"0 0 1080 365\" xmlns=\"http://www.w3.org/2000/svg\" style=\"height:40px;width:auto;\"\u003e\n      \u003cstyle\u003e.s0{fill:#FFF}.s1{fill:#ADD036}\u003c/style\u003e\n      \u003cpath class=\"s0\" d=\"M133,61v175c0,13-11,24-24,24h-4c-13,0-24-11-24-24V61c0-13,11-24,24-24h4C122,37,133,48,133,61z\"/\u003e\n      \u003cpath class=\"s0\" d=\"M180,251c-13-7-23-17-31-30c-8-13-11-28-11-46c0-17,4-32,11-46s18-23,31-30c13-7,28-11,45-11s31,4,45,11c13,7,24,17,31,30s11,28,11,46c0,17-4,32-12,46c-8,13-18,23-32,30c-13,7-28,11-45,11S193,258,180,251z M249,207c7-7,10-18,10-31s-3-24-10-31c-7-7-15-11-25-11c-10,0-18,4-25,11c-7,7-10,18-10,31c0,13,3,24,10,31c7,7,15,11,25,11C234,218,242,214,249,207z\"/\u003e\n      \u003cpath class=\"s0\" d=\"M411,248l-43-59v49c0,12-9,21-21,21h-7c-13,0-23-10-23-23V56c0-11,9-19,19-19h15c10,0,17,8,17,17v106l43-57c5-7,13-11,22-11h32c7,0,11,8,6,14l-58,70l54,65c6,7,1,19-9,19h-25C425,259,416,255,411,248z\"/\u003e\n      \u003cpath class=\"s0\" d=\"M470,130c7-13,15-23,27-30c11-7,24-11,38-11c12,0,22,2,31,7s16,11,21,19v-8c0-9,7-16,16-16h20c8,0,15,7,15,15v139c0,7-6,13-13,13h-21c-10,0-17-8-17-17v-6c-5,8-12,14-21,19c-9,5-19,7-31,7c-14,0-26-4-37-11c-11-7-20-17-27-30c-7-13-10-28-10-46C460,158,464,143,470,130z M575,145c-7-7-16-11-26-11c-10,0-19,4-26,11c-7,7-11,17-11,30c0,13,4,23,11,31c7,8,16,11,26,11c10,0,19-4,26-11c7-7,11-18,11-30C586,163,582,153,575,145z\"/\u003e\n      \u003cpath class=\"s1\" d=\"M747,96c9,5,16,11,21,19v-7c0-9,7-17,17-17h19c9,0,16,7,16,16v152c0,15-3,29-9,42c-6,13-15,23-28,30c-13,7-28,11-47,11c-25,0-45-6-60-18c-11-8-18-19-23-31c-3-8,3-17,12-17h21c8,0,14,4,19,10c2,2,4,4,7,6c6,4,13,6,22,6c11,0,19-3,25-9c6-6,10-16,10-29v-24c-5,8-12,14-21,19c-9,5-19,7-31,7c-14,0-26-4-38-11c-11-7-20-17-27-30c-7-13-10-28-10-46c0-17,3-32,10-45c7-13,15-23,27-30c11-7,24-11,38-11C728,89,738,91,747,96z M757,145c-7-7-16-11-26-11c-10,0-19,4-26,11c-7,7-11,17-11,30c0,13,4,23,11,31c7,8,16,11,26,11c10,0,19-4,26-11c7-7,11-18,11-30C768,163,764,153,757,145z\"/\u003e\n      \u003cpath class=\"s1\" d=\"M866,251c-13-7-23-17-31-30c-8-13-11-28-11-46c0-17,4-32,11-46s18-23,31-30c13-7,28-11,45-11c16,0,31,4,45,11c13,7,24,17,31,30s11,28,11,46c0,17-4,32-12,46c-8,13-18,23-32,30c-13,7-28,11-45,11C894,262,879,258,866,251z M935,207c7-7,10-18,10-31s-3-24-10-31c-7-7-15-11-25-11c-10,0-18,4-25,11c-7,7-10,18-10,31c0,13,3,24,10,31c7,7,15,11,25,11C920,218,928,214,935,207z\"/\u003e\n    \u003c/svg\u003e\n    \u003cspan class=\"admin-badge\"\u003eADMIN\u003c/span\u003e\n  \u003c/div\u003e\n  \u003cdiv class=\"header-sub\"\u003eLokalGo Admin Panel — NS0308474-A\u003c/div\u003e\n  \u003cdiv class=\"header-r2\"\u003e\n    \u003cdiv class=\"search-wrap\"\u003e\n      \u003csvg width=\"14\" height=\"14\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"rgba(255,255,255,0.4)\" stroke-width=\"2.5\" stroke-linecap=\"round\" stroke-linejoin=\"round\"\u003e\u003ccircle cx=\"11\" cy=\"11\" r=\"8\"/\u003e\u003cline x1=\"21\" y1=\"21\" x2=\"16.65\" y2=\"16.65\"/\u003e\u003c/svg\u003e\n      \u003cinput type=\"text\" placeholder=\"Cari seller, testimoni...\"\u003e\n    \u003c/div\u003e\n  \u003c/div\u003e\n\u003c/div\u003e\n\n\u003c!-- QUICK STATS --\u003e\n\u003cdiv class=\"stats-row\"\u003e\n  \u003cdiv class=\"stat-box\"\u003e\n    \u003cdiv class=\"stat-num\"\u003e7\u003c/div\u003e\n    \u003cdiv class=\"stat-lbl\"\u003eSeller Aktif\u003c/div\u003e\n  \u003c/div\u003e\n  \u003cdiv class=\"stat-box\"\u003e\n    \u003cdiv class=\"stat-num orange\"\u003e3\u003c/div\u003e\n    \u003cdiv class=\"stat-lbl\"\u003ePending\u003c/div\u003e\n  \u003c/div\u003e\n  \u003cdiv class=\"stat-box\"\u003e\n    \u003cdiv class=\"stat-num red\"\u003e2\u003c/div\u003e\n    \u003cdiv class=\"stat-lbl\"\u003ePerlu Semak\u003c/div\u003e\n  \u003c/div\u003e\n\u003c/div\u003e\n\n\u003c!-- TABS --\u003e\n\u003cdiv class=\"tabs\"\u003e\n  \u003cdiv class=\"tab active\" onclick=\"switchTab(this,\u0027tab-seller\u0027)\"\u003eSeller\u003c/div\u003e\n  \u003cdiv class=\"tab\" onclick=\"switchTab(this,\u0027tab-testimoni\u0027)\"\u003eTestimoni\u003c/div\u003e\n  \u003cdiv class=\"tab\" onclick=\"switchTab(this,\u0027tab-gambar\u0027)\"\u003eGambar\u003c/div\u003e\n  \u003cdiv class=\"tab\" onclick=\"switchTab(this,\u0027tab-aduan\u0027)\"\u003eAduan\u003c/div\u003e\n  \u003cdiv class=\"tab\" onclick=\"switchTab(this,\u0027tab-disiplin\u0027)\"\u003eDisiplin\u003c/div\u003e\n  \u003cdiv class=\"tab\" onclick=\"switchTab(this,\u0027tab-broadcast\u0027)\"\u003eBroadcast\u003c/div\u003e\n  \u003cdiv class=\"tab\" onclick=\"switchTab(this,\u0027tab-stats\u0027)\"\u003ePlatform\u003c/div\u003e\n\u003c/div\u003e\n\n\u003c!-- TAB: SELLER --\u003e\n\u003cdiv class=\"section active\" id=\"tab-seller\"\u003e\n\n  \u003cdiv class=\"sec-head\"\u003e\n    \u003cspan class=\"sec-title\"\u003ePermohonan Baru\u003c/span\u003e\n    \u003cspan class=\"count-badge orange\"\u003e3 pending\u003c/span\u003e\n  \u003c/div\u003e\n\n  \u003c!-- Pending seller --\u003e\n  \u003cdiv class=\"card\"\u003e\n    \u003cdiv class=\"card-header\"\u003e\n      \u003cdiv class=\"card-avatar\"\u003eKM\u003c/div\u003e\n      \u003cdiv class=\"card-meta\"\u003e\n        \u003cdiv class=\"card-name\"\u003eKedai Kak Mila\u003c/div\u003e\n        \u003cdiv class=\"card-sub\"\u003eTaman Desa Baiduri, 40150 Shah Alam\u003c/div\u003e\n        \u003cdiv class=\"card-time\"\u003eDihantar: 2 jam lepas\u003c/div\u003e\n      \u003c/div\u003e\n      \u003cspan class=\"status-pill pill-pending\"\u003ePending\u003c/span\u003e\n    \u003c/div\u003e\n    \u003cdiv class=\"seller-info\"\u003e\n      \u003cspan class=\"info-tag\"\u003e📞 017-3456789\u003c/span\u003e\n      \u003cspan class=\"info-tag\"\u003e📧 kakmila@gmail.com\u003c/span\u003e\n      \u003cspan class=\"info-tag\"\u003e🍰 Kuih \u0026 Kek\u003c/span\u003e\n      \u003cspan class=\"info-tag\"\u003e🍛 Lauk\u003c/span\u003e\n    \u003c/div\u003e\n    \u003cdiv class=\"card-actions\"\u003e\n      \u003cbutton class=\"btn-approve\" onclick=\"approveCard(this)\"\u003e✓ Luluskan\u003c/button\u003e\n      \u003cbutton class=\"btn-reject\" onclick=\"rejectCard(this)\"\u003e✕ Tolak\u003c/button\u003e\n      \u003cbutton class=\"btn-msg\"\u003e💬 WA\u003c/button\u003e\n    \u003c/div\u003e\n  \u003c/div\u003e\n\n  \u003cdiv class=\"card\"\u003e\n    \u003cdiv class=\"card-header\"\u003e\n      \u003cdiv class=\"card-avatar\"\u003eDR\u003c/div\u003e\n      \u003cdiv class=\"card-meta\"\u003e\n        \u003cdiv class=\"card-name\"\u003eDapur Kak Ros\u003c/div\u003e\n        \u003cdiv class=\"card-sub\"\u003eTaman Sri Muda, 40150 Shah Alam\u003c/div\u003e\n        \u003cdiv class=\"card-time\"\u003eDihantar: 5 jam lepas\u003c/div\u003e\n      \u003c/div\u003e\n      \u003cspan class=\"status-pill pill-pending\"\u003ePending\u003c/span\u003e\n    \u003c/div\u003e\n    \u003cdiv class=\"seller-info\"\u003e\n      \u003cspan class=\"info-tag\"\u003e📞 011-2345678\u003c/span\u003e\n      \u003cspan class=\"info-tag\"\u003e📧 kakros@gmail.com\u003c/span\u003e\n      \u003cspan class=\"info-tag\"\u003e🍛 Lauk \u0026 Masakan\u003c/span\u003e\n    \u003c/div\u003e\n    \u003cdiv class=\"card-actions\"\u003e\n      \u003cbutton class=\"btn-approve\" onclick=\"approveCard(this)\"\u003e✓ Luluskan\u003c/button\u003e\n      \u003cbutton class=\"btn-reject\" onclick=\"rejectCard(this)\"\u003e✕ Tolak\u003c/button\u003e\n      \u003cbutton class=\"btn-msg\"\u003e💬 WA\u003c/button\u003e\n    \u003c/div\u003e\n  \u003c/div\u003e\n\n  \u003cdiv class=\"sec-head\" style=\"margin-top:16px;\"\u003e\n    \u003cspan class=\"sec-title\"\u003eSeller Aktif\u003c/span\u003e\n    \u003cspan class=\"count-badge\"\u003e7 aktif\u003c/span\u003e\n  \u003c/div\u003e\n\n  \u003cdiv class=\"card\"\u003e\n    \u003cdiv class=\"card-header\"\u003e\n      \u003cdiv class=\"card-avatar\" style=\"background:#185FA5;\"\u003eDG\u003c/div\u003e\n      \u003cdiv class=\"card-meta\"\u003e\n        \u003cdiv class=\"card-name\"\u003eDapur Budak Gemok\u003c/div\u003e\n        \u003cdiv class=\"card-sub\"\u003eTaman Desa Baiduri • Seller Aktif\u003c/div\u003e\n        \u003cdiv class=\"card-time\"\u003eAktif sejak 14 hari\u003c/div\u003e\n      \u003c/div\u003e\n      \u003cspan class=\"status-pill pill-active\"\u003eAktif\u003c/span\u003e\n    \u003c/div\u003e\n    \u003cdiv class=\"seller-info\"\u003e\n      \u003cspan class=\"info-tag\"\u003e⭐ 8 testimoni\u003c/span\u003e\n      \u003cspan class=\"info-tag\"\u003e👁 156 views\u003c/span\u003e\n      \u003cspan class=\"info-tag\"\u003e📱 24 WA clicks\u003c/span\u003e\n    \u003c/div\u003e\n    \u003c!-- BADGE MANAGEMENT --\u003e\n    \u003cdiv style=\"padding:0 12px 10px;\"\u003e\n      \u003cdiv style=\"font-size:11px;font-weight:700;color:var(--c-text3);margin-bottom:6px;\"\u003eBadge:\u003c/div\u003e\n      \u003cdiv style=\"display:flex;gap:6px;flex-wrap:wrap;\"\u003e\n        \u003cbutton class=\"badge-btn bb-baharu\" onclick=\"setBadge(this,\u0027Seller Baharu\u0027)\"\u003eSeller Baharu\u003c/button\u003e\n        \u003cbutton class=\"badge-btn bb-aktif\" onclick=\"setBadge(this,\u0027Seller Aktif\u0027)\"\u003eSeller Aktif ✓\u003c/button\u003e\n        \u003cbutton class=\"badge-btn bb-verified\" onclick=\"setBadge(this,\u0027Verified Seller\u0027)\"\u003eVerified Seller\u003c/button\u003e\n      \u003c/div\u003e\n    \u003c/div\u003e\n    \u003cdiv class=\"card-actions\"\u003e\n      \u003cbutton class=\"btn-suspend\"\u003e⚠ Suspend\u003c/button\u003e\n      \u003cbutton class=\"btn-msg\" onclick=\"openComposer(\u0027Dapur Budak Gemok\u0027)\"\u003e✉ Hantar Mesej\u003c/button\u003e\n    \u003c/div\u003e\n  \u003c/div\u003e\n\n  \u003c!-- MSG COMPOSER --\u003e\n  \u003cdiv class=\"msg-composer\" id=\"msgComposer\" style=\"display:none;\"\u003e\n    \u003cdiv style=\"font-size:13px;font-weight:700;color:var(--c-text);margin-bottom:10px;\"\u003eHantar Mesej kepada Seller\u003c/div\u003e\n    \u003cdiv class=\"composer-to\"\u003e\n      \u003cspan\u003eKepada:\u003c/span\u003e\n      \u003cselect id=\"composerTo\"\u003e\n        \u003coption\u003eDapur Budak Gemok\u003c/option\u003e\n        \u003coption\u003eKedai Kak Mila\u003c/option\u003e\n        \u003coption\u003eDapur Kak Ros\u003c/option\u003e\n      \u003c/select\u003e\n    \u003c/div\u003e\n    \u003cdiv class=\"composer-row\" style=\"margin-bottom:8px;\"\u003e\n      \u003cselect class=\"msg-type-select\" id=\"msgType\"\u003e\n        \u003coption value=\"info\"\u003e📢 Maklumat\u003c/option\u003e\n        \u003coption value=\"warning\"\u003e⚠️ Amaran\u003c/option\u003e\n        \u003coption value=\"flag\"\u003e🚩 Aduan/Flag\u003c/option\u003e\n        \u003coption value=\"success\"\u003e✅ Kelulusan\u003c/option\u003e\n      \u003c/select\u003e\n    \u003c/div\u003e\n    \u003ctextarea class=\"composer-input\" id=\"msgBody\" placeholder=\"Taip mesej anda di sini...\"\u003e\u003c/textarea\u003e\n    \u003cdiv class=\"composer-row\"\u003e\n      \u003cbutton class=\"btn-send\" onclick=\"sendMsg()\"\u003eHantar via Email\u003c/button\u003e\n      \u003cbutton style=\"background:#f5f5f5;border:none;border-radius:8px;padding:9px 14px;font-size:12px;color:#555;cursor:pointer;font-family:inherit;\" onclick=\"document.getElementById(\u0027msgComposer\u0027).style.display=\u0027none\u0027\"\u003eBatal\u003c/button\u003e\n    \u003c/div\u003e\n  \u003c/div\u003e\n\n\u003c/div\u003e\n\n\u003c!-- TAB: DISIPLIN --\u003e\n\u003cdiv class=\"section\" id=\"tab-disiplin\"\u003e\n\n  \u003c!-- SEARCH BY WA --\u003e\n  \u003cdiv class=\"sec-head\"\u003e\u003cspan class=\"sec-title\"\u003eCari Seller by WA\u003c/span\u003e\u003c/div\u003e\n  \u003cdiv class=\"wa-search\"\u003e\n    \u003cinput class=\"wa-input\" type=\"text\" placeholder=\"cth: 0123456789\" id=\"waSearch\"\u003e\n    \u003cbutton class=\"btn-search\" onclick=\"searchWA()\"\u003eCari\u003c/button\u003e\n  \u003c/div\u003e\n  \u003cdiv id=\"waResult\" style=\"display:none;background:#fff;border-radius:10px;border:1px solid #eee;padding:12px;margin-bottom:12px;\"\u003e\n    \u003cdiv style=\"font-size:13px;font-weight:700;color:var(--c-text);margin-bottom:4px;\"\u003eKedai Kak Mila\u003c/div\u003e\n    \u003cdiv style=\"font-size:11px;color:var(--c-text3);\"\u003e017-3456789 • Taman Desa Baiduri\u003c/div\u003e\n    \u003cdiv style=\"display:flex;gap:6px;margin-top:8px;\"\u003e\n      \u003cspan class=\"status-pill pill-active\"\u003eAktif\u003c/span\u003e\n      \u003cspan style=\"font-size:10px;color:var(--c-hint);align-self:center;\"\u003eDaftar: 14 hari lepas\u003c/span\u003e\n    \u003c/div\u003e\n  \u003c/div\u003e\n\n  \u003c!-- APPEAL PENDING --\u003e\n  \u003cdiv class=\"sec-head\"\u003e\n    \u003cspan class=\"sec-title\"\u003eAppeal Pending\u003c/span\u003e\n    \u003cspan class=\"count-badge orange\"\u003e1 appeal\u003c/span\u003e\n  \u003c/div\u003e\n\n  \u003cdiv class=\"appeal-card\"\u003e\n    \u003cdiv class=\"card-header\"\u003e\n      \u003cdiv class=\"card-avatar\" style=\"background:#F0A500;font-size:12px;\"\u003eDG\u003c/div\u003e\n      \u003cdiv class=\"card-meta\"\u003e\n        \u003cdiv class=\"card-name\"\u003eDapur Budak Gemok\u003c/div\u003e\n        \u003cdiv class=\"card-sub\"\u003eDisuspend: 3 hari lepas • Sebab: Aduan pembeli\u003c/div\u003e\n        \u003cdiv class=\"card-time\"\u003eAppeal dihantar: 1 hari lepas\u003c/div\u003e\n      \u003c/div\u003e\n    \u003c/div\u003e\n    \u003cdiv class=\"card-body\" style=\"padding:0 12px 10px;\"\u003e\"Saya tidak faham kenapa disuspend. Produk saya sentiasa fresh dan saya respon semua WA. Mohon semak semula.\"\u003c/div\u003e\n    \u003cdiv class=\"card-actions\"\u003e\n      \u003cbutton class=\"btn-approve\" onclick=\"approveCard(this)\"\u003e✓ Reinstate\u003c/button\u003e\n      \u003cbutton class=\"btn-reject\" onclick=\"rejectCard(this)\"\u003e✕ Tolak Appeal\u003c/button\u003e\n    \u003c/div\u003e\n  \u003c/div\u003e\n\n  \u003c!-- COOLDOWN TRACKER --\u003e\n  \u003cdiv class=\"sec-head\" style=\"margin-top:8px;\"\u003e\n    \u003cspan class=\"sec-title\"\u003eDalam Cooldown (30 hari)\u003c/span\u003e\n    \u003cspan class=\"count-badge\"\u003e1 seller\u003c/span\u003e\n  \u003c/div\u003e\n\n  \u003cdiv class=\"card\"\u003e\n    \u003cdiv class=\"card-header\"\u003e\n      \u003cdiv class=\"card-avatar\" style=\"background:#aaa;font-size:12px;\"\u003eXX\u003c/div\u003e\n      \u003cdiv class=\"card-meta\"\u003e\n        \u003cdiv class=\"card-name\"\u003eKedai Tanpa Nama\u003c/div\u003e\n        \u003cdiv class=\"card-sub\"\u003e019-9876543 • Appeal ditolak\u003c/div\u003e\n        \u003cdiv class=\"card-time\"\u003eCooldown tamat: 18 Julai 2026\u003c/div\u003e\n      \u003c/div\u003e\n    \u003c/div\u003e\n    \u003cdiv style=\"padding:0 12px 12px;\"\u003e\n      \u003cdiv style=\"display:flex;justify-content:space-between;font-size:11px;color:var(--c-hint);margin-bottom:4px;\"\u003e\n        \u003cspan\u003eHari 12 / 30\u003c/span\u003e\n        \u003cspan\u003e18 hari lagi\u003c/span\u003e\n      \u003c/div\u003e\n      \u003cdiv class=\"cooldown-bar\"\u003e\u003cdiv class=\"cooldown-fill\" style=\"width:40%;\"\u003e\u003c/div\u003e\u003c/div\u003e\n    \u003c/div\u003e\n  \u003c/div\u003e\n\n  \u003c!-- PERMANENT BAN --\u003e\n  \u003cdiv class=\"sec-head\" style=\"margin-top:8px;\"\u003e\n    \u003cspan class=\"sec-title\"\u003eSenarai Banned Kekal\u003c/span\u003e\n    \u003cspan class=\"count-badge red\"\u003e2 banned\u003c/span\u003e\n  \u003c/div\u003e\n\n  \u003cdiv class=\"banned-item\"\u003e\n    \u003cdiv\u003e\n      \u003cdiv style=\"font-size:13px;font-weight:700;color:#A32D2D;\"\u003e011-1234567\u003c/div\u003e\n      \u003cdiv style=\"font-size:11px;color:#A32D2D;margin-top:2px;\"\u003eCuba bypass dengan nombor baru\u003c/div\u003e\n    \u003c/div\u003e\n    \u003cdiv style=\"font-size:10px;color:var(--c-hint);\"\u003eBan: 1 Jun 2026\u003c/div\u003e\n  \u003c/div\u003e\n\n  \u003cdiv class=\"banned-item\"\u003e\n    \u003cdiv\u003e\n      \u003cdiv style=\"font-size:13px;font-weight:700;color:#A32D2D;\"\u003e016-7654321\u003c/div\u003e\n      \u003cdiv style=\"font-size:11px;color:#A32D2D;margin-top:2px;\"\u003eJual barang terlarang\u003c/div\u003e\n    \u003c/div\u003e\n    \u003cdiv style=\"font-size:10px;color:var(--c-hint);\"\u003eBan: 15 Mei 2026\u003c/div\u003e\n  \u003c/div\u003e\n\n\u003c/div\u003e\n\n\u003c!-- TAB: BROADCAST --\u003e\n\u003cdiv class=\"section\" id=\"tab-broadcast\"\u003e\n\n  \u003cdiv class=\"sec-head\"\u003e\u003cspan class=\"sec-title\"\u003eHantar Broadcast Email\u003c/span\u003e\u003c/div\u003e\n\n  \u003cdiv style=\"background:#fff;border-radius:12px;border:1px solid #eee;padding:14px;margin-bottom:10px;\"\u003e\n\n    \u003cdiv style=\"font-size:12px;font-weight:700;color:var(--c-text3);margin-bottom:8px;\"\u003eHANTAR KEPADA:\u003c/div\u003e\n    \u003cdiv style=\"display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px;\" id=\"recipientGroup\"\u003e\n      \u003cbutton class=\"recipient-chip selected\" onclick=\"toggleChip(this)\"\u003eSemua Seller (7)\u003c/button\u003e\n      \u003cbutton class=\"recipient-chip\" onclick=\"toggleChip(this)\"\u003eSeller Aktif (7)\u003c/button\u003e\n      \u003cbutton class=\"recipient-chip\" onclick=\"toggleChip(this)\"\u003eSeller Baharu\u003c/button\u003e\n      \u003cbutton class=\"recipient-chip\" onclick=\"toggleChip(this)\"\u003eVerified Seller\u003c/button\u003e\n    \u003c/div\u003e\n\n    \u003cdiv style=\"font-size:12px;font-weight:700;color:var(--c-text3);margin-bottom:6px;\"\u003eJENIS MESEJ:\u003c/div\u003e\n    \u003cselect class=\"msg-type-select\" style=\"width:100%;margin-bottom:10px;\"\u003e\n      \u003coption\u003e📢 Announcement Umum\u003c/option\u003e\n      \u003coption\u003e⚠️ Amaran Platform\u003c/option\u003e\n      \u003coption\u003e🎉 Promosi / Event\u003c/option\u003e\n      \u003coption\u003e🔧 Kemaskini Platform\u003c/option\u003e\n    \u003c/select\u003e\n\n    \u003cdiv style=\"font-size:12px;font-weight:700;color:var(--c-text3);margin-bottom:6px;\"\u003eTAJUK:\u003c/div\u003e\n    \u003cinput style=\"width:100%;border:1.5px solid var(--c-border);border-radius:8px;padding:10px 12px;font-size:13px;color:var(--c-text);outline:none;font-family:inherit;margin-bottom:10px;\" type=\"text\" placeholder=\"cth: Selamat Menyambut Ramadan dari LokalGo\"\u003e\n\n    \u003cdiv style=\"font-size:12px;font-weight:700;color:var(--c-text3);margin-bottom:6px;\"\u003eISI MESEJ:\u003c/div\u003e\n    \u003ctextarea class=\"composer-input\" style=\"height:100px;\" placeholder=\"Taip kandungan broadcast anda di sini...\"\u003e\u003c/textarea\u003e\n\n    \u003cdiv style=\"margin-top:10px;display:flex;gap:8px;align-items:center;\"\u003e\n      \u003cbutton class=\"btn-send\" style=\"flex:1;\" onclick=\"sendBroadcast()\"\u003e📤 Hantar ke 7 Seller\u003c/button\u003e\n      \u003cbutton style=\"background:#f5f5f5;border:none;border-radius:8px;padding:9px 14px;font-size:12px;color:#555;cursor:pointer;font-family:inherit;\"\u003ePreview\u003c/button\u003e\n    \u003c/div\u003e\n  \u003c/div\u003e\n\n  \u003c!-- BROADCAST HISTORY --\u003e\n  \u003cdiv class=\"sec-head\"\u003e\u003cspan class=\"sec-title\"\u003eSejarah Broadcast\u003c/span\u003e\u003c/div\u003e\n\n  \u003cdiv class=\"card\"\u003e\n    \u003cdiv class=\"card-header\"\u003e\n      \u003cdiv class=\"card-avatar\" style=\"background:#185FA5;font-size:11px;\"\u003e📢\u003c/div\u003e\n      \u003cdiv class=\"card-meta\"\u003e\n        \u003cdiv class=\"card-name\"\u003eKemaskini Platform v1.1\u003c/div\u003e\n        \u003cdiv class=\"card-sub\"\u003eDihantar kepada: Semua Seller (7)\u003c/div\u003e\n        \u003cdiv class=\"card-time\"\u003eSemalam, 2:00 ptg • 7/7 delivered\u003c/div\u003e\n      \u003c/div\u003e\n    \u003c/div\u003e\n  \u003c/div\u003e\n\n  \u003cdiv class=\"card\"\u003e\n    \u003cdiv class=\"card-header\"\u003e\n      \u003cdiv class=\"card-avatar\" style=\"background:#4A7C10;font-size:11px;\"\u003e🎉\u003c/div\u003e\n      \u003cdiv class=\"card-meta\"\u003e\n        \u003cdiv class=\"card-name\"\u003eSelamat Hari Raya dari LokalGo!\u003c/div\u003e\n        \u003cdiv class=\"card-sub\"\u003eDihantar kepada: Semua Seller (5)\u003c/div\u003e\n        \u003cdiv class=\"card-time\"\u003e3 Apr 2026 • 5/5 delivered\u003c/div\u003e\n      \u003c/div\u003e\n    \u003c/div\u003e\n  \u003c/div\u003e\n\n\u003c/div\u003e\n\n\u003c!-- TAB: TESTIMONI --\u003e\n\u003cdiv class=\"section\" id=\"tab-testimoni\"\u003e\n\n  \u003cdiv class=\"sec-head\"\u003e\n    \u003cspan class=\"sec-title\"\u003eMenunggu Kelulusan\u003c/span\u003e\n    \u003cspan class=\"count-badge orange\"\u003e4 pending\u003c/span\u003e\n  \u003c/div\u003e\n\n  \u003cdiv class=\"card\"\u003e\n    \u003cdiv class=\"card-header\"\u003e\n      \u003cdiv class=\"card-avatar\" style=\"background:#F0A500;font-size:12px;\"\u003eKR\u003c/div\u003e\n      \u003cdiv class=\"card-meta\"\u003e\n        \u003cdiv class=\"card-name\"\u003eKak Ros • Taman Sri Muda\u003c/div\u003e\n        \u003cdiv class=\"card-sub\"\u003eUntuk: \u003cstrong\u003eKedai Kak Mila\u003c/strong\u003e\u003c/div\u003e\n        \u003cdiv class=\"card-time\"\u003eDihantar: 1 jam lepas • ★★★★★\u003c/div\u003e\n      \u003c/div\u003e\n    \u003c/div\u003e\n    \u003cdiv class=\"card-body\"\u003e\"Kuih lapis dia lembut sangat, anak-anak suka. Selalu order tiap minggu!\"\u003c/div\u003e\n    \u003cdiv class=\"card-actions\"\u003e\n      \u003cbutton class=\"btn-approve\" onclick=\"approveCard(this)\"\u003e✓ Luluskan\u003c/button\u003e\n      \u003cbutton class=\"btn-reject\" onclick=\"rejectCard(this)\"\u003e✕ Tolak\u003c/button\u003e\n    \u003c/div\u003e\n  \u003c/div\u003e\n\n  \u003cdiv class=\"card\"\u003e\n    \u003cdiv class=\"card-header\"\u003e\n      \u003cdiv class=\"card-avatar\" style=\"background:#856404;font-size:12px;\"\u003eAF\u003c/div\u003e\n      \u003cdiv class=\"card-meta\"\u003e\n        \u003cdiv class=\"card-name\"\u003eAbang Faris • Taman Subang Maju\u003c/div\u003e\n        \u003cdiv class=\"card-sub\"\u003eUntuk: \u003cstrong\u003eKedai Kak Mila\u003c/strong\u003e\u003c/div\u003e\n        \u003cdiv class=\"card-time\"\u003eDihantar: 3 jam lepas • ★★★★☆\u003c/div\u003e\n      \u003c/div\u003e\n    \u003c/div\u003e\n    \u003cdiv class=\"card-body\"\u003e\"Rendang sedap, rasa macam masakan rumah. COD pun mudah je.\"\u003c/div\u003e\n    \u003cdiv class=\"card-actions\"\u003e\n      \u003cbutton class=\"btn-approve\" onclick=\"approveCard(this)\"\u003e✓ Luluskan\u003c/button\u003e\n      \u003cbutton class=\"btn-reject\" onclick=\"rejectCard(this)\"\u003e✕ Tolak\u003c/button\u003e\n    \u003c/div\u003e\n  \u003c/div\u003e\n\n\u003c/div\u003e\n\n\u003c!-- TAB: GAMBAR --\u003e\n\u003cdiv class=\"section\" id=\"tab-gambar\"\u003e\n\n  \u003cdiv class=\"sec-head\"\u003e\n    \u003cspan class=\"sec-title\"\u003eGambar Produk Pending\u003c/span\u003e\n    \u003cspan class=\"count-badge orange\"\u003e5 pending\u003c/span\u003e\n  \u003c/div\u003e\n\n  \u003cdiv class=\"card\"\u003e\n    \u003cdiv class=\"card-header\"\u003e\n      \u003cdiv style=\"width:60px;height:60px;border-radius:10px;background:#f0f0f0;flex-shrink:0;display:flex;align-items:center;justify-content:center;\"\u003e\n        \u003csvg width=\"24\" height=\"24\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"#aaa\" stroke-width=\"1.5\" stroke-linecap=\"round\" stroke-linejoin=\"round\"\u003e\u003crect x=\"3\" y=\"3\" width=\"18\" height=\"18\" rx=\"2\"/\u003e\u003ccircle cx=\"8.5\" cy=\"8.5\" r=\"1.5\"/\u003e\u003cpolyline points=\"21 15 16 10 5 21\"/\u003e\u003c/svg\u003e\n      \u003c/div\u003e\n      \u003cdiv class=\"card-meta\"\u003e\n        \u003cdiv class=\"card-name\"\u003eKuih Talam — Kedai Kak Mila\u003c/div\u003e\n        \u003cdiv class=\"card-sub\"\u003e1 gambar baru dimuat naik\u003c/div\u003e\n        \u003cdiv class=\"card-time\"\u003e5 minit lepas\u003c/div\u003e\n      \u003c/div\u003e\n    \u003c/div\u003e\n    \u003cdiv class=\"card-actions\"\u003e\n      \u003cbutton class=\"btn-approve\" onclick=\"approveCard(this)\"\u003e✓ Luluskan\u003c/button\u003e\n      \u003cbutton class=\"btn-reject\" onclick=\"rejectCard(this)\"\u003e✕ Tolak\u003c/button\u003e\n    \u003c/div\u003e\n  \u003c/div\u003e\n\n  \u003cdiv class=\"card\"\u003e\n    \u003cdiv class=\"card-header\"\u003e\n      \u003cdiv style=\"width:60px;height:60px;border-radius:10px;background:#f0f0f0;flex-shrink:0;display:flex;align-items:center;justify-content:center;\"\u003e\n        \u003csvg width=\"24\" height=\"24\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"#aaa\" stroke-width=\"1.5\" stroke-linecap=\"round\" stroke-linejoin=\"round\"\u003e\u003crect x=\"3\" y=\"3\" width=\"18\" height=\"18\" rx=\"2\"/\u003e\u003ccircle cx=\"8.5\" cy=\"8.5\" r=\"1.5\"/\u003e\u003cpolyline points=\"21 15 16 10 5 21\"/\u003e\u003c/svg\u003e\n      \u003c/div\u003e\n      \u003cdiv class=\"card-meta\"\u003e\n        \u003cdiv class=\"card-name\"\u003eRendang Ayam — Dapur Kak Ros\u003c/div\u003e\n        \u003cdiv class=\"card-sub\"\u003e3 gambar baru dimuat naik\u003c/div\u003e\n        \u003cdiv class=\"card-time\"\u003e22 minit lepas\u003c/div\u003e\n      \u003c/div\u003e\n    \u003c/div\u003e\n    \u003cdiv class=\"card-actions\"\u003e\n      \u003cbutton class=\"btn-approve\" onclick=\"approveCard(this)\"\u003e✓ Luluskan\u003c/button\u003e\n      \u003cbutton class=\"btn-reject\" onclick=\"rejectCard(this)\"\u003e✕ Tolak\u003c/button\u003e\n    \u003c/div\u003e\n  \u003c/div\u003e\n\n\u003c/div\u003e\n\n\u003c!-- TAB: ADUAN --\u003e\n\u003cdiv class=\"section\" id=\"tab-aduan\"\u003e\n\n  \u003cdiv class=\"sec-head\"\u003e\n    \u003cspan class=\"sec-title\"\u003eAduan Pembeli\u003c/span\u003e\n    \u003cspan class=\"count-badge red\"\u003e2 baru\u003c/span\u003e\n  \u003c/div\u003e\n\n  \u003cdiv class=\"card\"\u003e\n    \u003cdiv class=\"card-header\"\u003e\n      \u003cdiv class=\"card-avatar\" style=\"background:#e44;font-size:12px;\"\u003e!\u003c/div\u003e\n      \u003cdiv class=\"card-meta\"\u003e\n        \u003cdiv class=\"card-name\"\u003eAduan terhadap: Dapur Budak Gemok\u003c/div\u003e\n        \u003cdiv class=\"card-sub\"\u003ePembeli: Anon • Taman Desa Baiduri\u003c/div\u003e\n        \u003cdiv class=\"card-time\"\u003eDiterima: 30 minit lepas\u003c/div\u003e\n      \u003c/div\u003e\n    \u003c/div\u003e\n    \u003cdiv class=\"card-body\"\u003e\"Produk yang diterima tidak sama dengan gambar. Kuih lapis keras dan basi. Seller tidak respond whatsapp.\"\u003c/div\u003e\n    \u003cdiv class=\"card-actions\"\u003e\n      \u003cbutton class=\"btn-suspend\"\u003e⚠ Suspend Seller\u003c/button\u003e\n      \u003cbutton class=\"btn-msg\"\u003e💬 Hubungi Seller\u003c/button\u003e\n      \u003cbutton class=\"btn-reject\"\u003eDismiss\u003c/button\u003e\n    \u003c/div\u003e\n  \u003c/div\u003e\n\n\u003c/div\u003e\n\n\u003c!-- TAB: PLATFORM STATS --\u003e\n\u003cdiv class=\"section\" id=\"tab-stats\"\u003e\n\n  \u003c!-- TOTAL USERS --\u003e\n  \u003cdiv class=\"sec-head\"\u003e\u003cspan class=\"sec-title\"\u003eJumlah Pengguna\u003c/span\u003e\u003c/div\u003e\n  \u003cdiv class=\"platform-grid\"\u003e\n    \u003cdiv class=\"p-stat\" style=\"border-left:4px solid var(--c-primary);\"\u003e\n      \u003cdiv style=\"font-size:11px;color:var(--c-hint);margin-bottom:4px;\"\u003eSELLER\u003c/div\u003e\n      \u003cdiv class=\"p-stat-num\" style=\"color:var(--c-primary);\"\u003e10\u003c/div\u003e\n      \u003cdiv style=\"display:flex;flex-direction:column;gap:2px;margin-top:6px;\"\u003e\n        \u003cdiv style=\"font-size:10px;color:#4A7C10;\"\u003e● 7 Aktif\u003c/div\u003e\n        \u003cdiv style=\"font-size:10px;color:#F0A500;\"\u003e● 3 Pending\u003c/div\u003e\n        \u003cdiv style=\"font-size:10px;color:#e44;\"\u003e● 0 Suspend\u003c/div\u003e\n      \u003c/div\u003e\n    \u003c/div\u003e\n    \u003cdiv class=\"p-stat\" style=\"border-left:4px solid #185FA5;\"\u003e\n      \u003cdiv style=\"font-size:11px;color:var(--c-hint);margin-bottom:4px;\"\u003eBUYER\u003c/div\u003e\n      \u003cdiv class=\"p-stat-num\" style=\"color:#185FA5;\"\u003e42\u003c/div\u003e\n      \u003cdiv style=\"display:flex;flex-direction:column;gap:2px;margin-top:6px;\"\u003e\n        \u003cdiv style=\"font-size:10px;color:#4A7C10;\"\u003e● 38 Aktif\u003c/div\u003e\n        \u003cdiv style=\"font-size:10px;color:#aaa;\"\u003e● 4 Tidak aktif\u003c/div\u003e\n      \u003c/div\u003e\n    \u003c/div\u003e\n  \u003c/div\u003e\n\n  \u003c!-- DAILY ACTIVITY --\u003e\n  \u003cdiv class=\"sec-head\" style=\"margin-top:8px;\"\u003e\u003cspan class=\"sec-title\"\u003eAktiviti Hari Ini\u003c/span\u003e\u003c/div\u003e\n  \u003cdiv class=\"platform-grid\"\u003e\n    \u003cdiv class=\"p-stat\"\u003e\n      \u003cdiv class=\"p-stat-num\"\u003e384\u003c/div\u003e\n      \u003cdiv class=\"p-stat-lbl\"\u003ePage Views\u003c/div\u003e\n      \u003cdiv class=\"p-stat-change\"\u003e↑ +12% semalam\u003c/div\u003e\n    \u003c/div\u003e\n    \u003cdiv class=\"p-stat\"\u003e\n      \u003cdiv class=\"p-stat-num\"\u003e67\u003c/div\u003e\n      \u003cdiv class=\"p-stat-lbl\"\u003eWA Clicks\u003c/div\u003e\n      \u003cdiv class=\"p-stat-change\"\u003e↑ +5 semalam\u003c/div\u003e\n    \u003c/div\u003e\n  \u003c/div\u003e\n\n  \u003c!-- KAWASAN STATS --\u003e\n  \u003cdiv class=\"sec-head\" style=\"margin-top:8px;\"\u003e\n    \u003cspan class=\"sec-title\"\u003eStatistik Kawasan\u003c/span\u003e\n    \u003cspan class=\"count-badge\"\u003e2 taman\u003c/span\u003e\n  \u003c/div\u003e\n\n  \u003c!-- Kawasan bar chart --\u003e\n  \u003cdiv style=\"background:#fff;border-radius:12px;border:1px solid #eee;padding:14px;margin-bottom:8px;\"\u003e\n\n    \u003cdiv style=\"margin-bottom:14px;\"\u003e\n      \u003cdiv style=\"display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;\"\u003e\n        \u003cdiv\u003e\n          \u003cdiv style=\"font-size:13px;font-weight:700;color:var(--c-text);\"\u003eTaman Desa Baiduri\u003c/div\u003e\n          \u003cdiv style=\"font-size:10px;color:var(--c-hint);margin-top:1px;\"\u003e40150 Shah Alam\u003c/div\u003e\n        \u003c/div\u003e\n        \u003cdiv style=\"text-align:right;\"\u003e\n          \u003cdiv style=\"font-size:13px;font-weight:700;color:var(--c-primary);\"\u003e6 seller\u003c/div\u003e\n          \u003cdiv style=\"font-size:10px;color:var(--c-hint);\"\u003e28 buyer\u003c/div\u003e\n        \u003c/div\u003e\n      \u003c/div\u003e\n      \u003cdiv style=\"background:#f0f0f0;border-radius:6px;height:8px;overflow:hidden;\"\u003e\n        \u003cdiv style=\"background:var(--c-primary);height:100%;width:70%;border-radius:6px;\"\u003e\u003c/div\u003e\n      \u003c/div\u003e\n      \u003cdiv style=\"display:flex;justify-content:space-between;margin-top:5px;\"\u003e\n        \u003cdiv style=\"font-size:10px;color:var(--c-hint);\"\u003e256 views hari ini\u003c/div\u003e\n        \u003cdiv style=\"font-size:10px;color:var(--c-hint);\"\u003e45 WA clicks\u003c/div\u003e\n      \u003c/div\u003e\n    \u003c/div\u003e\n\n    \u003cdiv style=\"border-top:1px solid #f5f5f5;padding-top:14px;\"\u003e\n      \u003cdiv style=\"display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;\"\u003e\n        \u003cdiv\u003e\n          \u003cdiv style=\"font-size:13px;font-weight:700;color:var(--c-text);\"\u003eTaman Sri Muda\u003c/div\u003e\n          \u003cdiv style=\"font-size:10px;color:var(--c-hint);margin-top:1px;\"\u003e40150 Shah Alam\u003c/div\u003e\n        \u003c/div\u003e\n        \u003cdiv style=\"text-align:right;\"\u003e\n          \u003cdiv style=\"font-size:13px;font-weight:700;color:var(--c-primary);\"\u003e4 seller\u003c/div\u003e\n          \u003cdiv style=\"font-size:10px;color:var(--c-hint);\"\u003e14 buyer\u003c/div\u003e\n        \u003c/div\u003e\n      \u003c/div\u003e\n      \u003cdiv style=\"background:#f0f0f0;border-radius:6px;height:8px;overflow:hidden;\"\u003e\n        \u003cdiv style=\"background:var(--c-primary);height:100%;width:40%;border-radius:6px;opacity:0.6;\"\u003e\u003c/div\u003e\n      \u003c/div\u003e\n      \u003cdiv style=\"display:flex;justify-content:space-between;margin-top:5px;\"\u003e\n        \u003cdiv style=\"font-size:10px;color:var(--c-hint);\"\u003e128 views hari ini\u003c/div\u003e\n        \u003cdiv style=\"font-size:10px;color:var(--c-hint);\"\u003e22 WA clicks\u003c/div\u003e\n      \u003c/div\u003e\n    \u003c/div\u003e\n\n  \u003c/div\u003e\n\n  \u003c!-- ACTIVITY LOG --\u003e\n  \u003cdiv class=\"sec-head\"\u003e\u003cspan class=\"sec-title\"\u003eLog Aktiviti Terkini\u003c/span\u003e\u003c/div\u003e\n  \u003cdiv class=\"activity-item\"\u003e\n    \u003cdiv class=\"activity-dot dot-green\"\u003e\u003c/div\u003e\n    \u003cdiv class=\"activity-text\"\u003eKedai Kak Mila telah diluluskan\u003c/div\u003e\n    \u003cdiv class=\"activity-time\"\u003e2j lepas\u003c/div\u003e\n  \u003c/div\u003e\n  \u003cdiv class=\"activity-item\"\u003e\n    \u003cdiv class=\"activity-dot dot-orange\"\u003e\u003c/div\u003e\n    \u003cdiv class=\"activity-text\"\u003ePermohonan baru: Dapur Kak Ros\u003c/div\u003e\n    \u003cdiv class=\"activity-time\"\u003e5j lepas\u003c/div\u003e\n  \u003c/div\u003e\n  \u003cdiv class=\"activity-item\"\u003e\n    \u003cdiv class=\"activity-dot dot-blue\"\u003e\u003c/div\u003e\n    \u003cdiv class=\"activity-text\"\u003eTestimoni Kak Ros diluluskan\u003c/div\u003e\n    \u003cdiv class=\"activity-time\"\u003e6j lepas\u003c/div\u003e\n  \u003c/div\u003e\n  \u003cdiv class=\"activity-item\"\u003e\n    \u003cdiv class=\"activity-dot dot-red\"\u003e\u003c/div\u003e\n    \u003cdiv class=\"activity-text\"\u003eAduan diterima: Dapur Budak Gemok\u003c/div\u003e\n    \u003cdiv class=\"activity-time\"\u003eSemalam\u003c/div\u003e\n  \u003c/div\u003e\n  \u003cdiv class=\"activity-item\"\u003e\n    \u003cdiv class=\"activity-dot dot-green\"\u003e\u003c/div\u003e\n    \u003cdiv class=\"activity-text\"\u003eBuyer baru daftar: 8 akaun\u003c/div\u003e\n    \u003cdiv class=\"activity-time\"\u003eSemalam\u003c/div\u003e\n  \u003c/div\u003e\n\n\u003c/div\u003e\n\n\u003c/div\u003e\n\u003c/div\u003e"
-const scripts: string[] = ["function switchTab(el, tabId) {\n  document.querySelectorAll(\u0027.tab\u0027).forEach(t =\u003e t.classList.remove(\u0027active\u0027));\n  document.querySelectorAll(\u0027.section\u0027).forEach(s =\u003e s.classList.remove(\u0027active\u0027));\n  el.classList.add(\u0027active\u0027);\n  document.getElementById(tabId).classList.add(\u0027active\u0027);\n}\n\nfunction approveCard(btn) {\n  var card = btn.closest(\u0027.card, .appeal-card\u0027);\n  card.style.opacity = \u00270.5\u0027;\n  card.style.pointerEvents = \u0027none\u0027;\n  btn.textContent = \u0027✓ Diluluskan\u0027;\n  btn.style.background = \u0027#4A7C10\u0027;\n  setTimeout(() =\u003e card.remove(), 1500);\n}\n\nfunction rejectCard(btn) {\n  var card = btn.closest(\u0027.card, .appeal-card\u0027);\n  card.style.opacity = \u00270.5\u0027;\n  card.style.pointerEvents = \u0027none\u0027;\n  btn.textContent = \u0027✕ Ditolak\u0027;\n  btn.style.background = \u0027#e44\u0027;\n  btn.style.color = \u0027#fff\u0027;\n  setTimeout(() =\u003e card.remove(), 1500);\n}\n\nfunction setBadge(btn, badge) {\n  var btns = btn.closest(\u0027div\u0027).querySelectorAll(\u0027.badge-btn\u0027);\n  btns.forEach(b =\u003e b.textContent = b.textContent.replace(\u0027 ✓\u0027,\u0027\u0027));\n  btn.textContent = badge + \u0027 ✓\u0027;\n}\n\nfunction openComposer(sellerName) {\n  var composer = document.getElementById(\u0027msgComposer\u0027);\n  composer.style.display = \u0027block\u0027;\n  composer.scrollIntoView({behavior:\u0027smooth\u0027});\n  document.getElementById(\u0027composerTo\u0027).value = sellerName;\n}\n\nfunction sendMsg() {\n  var to = document.getElementById(\u0027composerTo\u0027).value;\n  var body = document.getElementById(\u0027msgBody\u0027).value;\n  var type = document.getElementById(\u0027msgType\u0027).value;\n  if (!body.trim()) { alert(\u0027Sila taip mesej dulu.\u0027); return; }\n  alert(\u0027✓ Mesej telah dihantar kepada \u0027 + to + \u0027 via email.\u0027);\n  document.getElementById(\u0027msgBody\u0027).value = \u0027\u0027;\n  document.getElementById(\u0027msgComposer\u0027).style.display = \u0027none\u0027;\n}\n\nfunction searchWA() {\n  var val = document.getElementById(\u0027waSearch\u0027).value;\n  if (val.length \u003e 5) {\n    document.getElementById(\u0027waResult\u0027).style.display = \u0027block\u0027;\n  }\n}\n\nfunction toggleChip(btn) {\n  btn.classList.toggle(\u0027selected\u0027);\n}\n\nfunction sendBroadcast() {\n  alert(\u0027✓ Broadcast telah dihantar kepada semua seller yang dipilih via email.\u0027);\n}"]
-const externalScripts: string[] = []
-const externalStylesheets: string[] = ["https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800\u0026display=swap"]
+function filterSellers(el, f) {
+  _sellersFilter = f;
+  document.querySelectorAll('#tab-sellers .f-chip').forEach(function(c){ c.classList.remove('active'); });
+  el.classList.add('active');
+  renderSellers();
+}
 
+function filterTesti(el, f) {
+  _testiFilter = f;
+  document.querySelectorAll('#tab-testimoni .f-chip').forEach(function(c){ c.classList.remove('active'); });
+  el.classList.add('active');
+  renderTesti();
+}
+
+function setText(id, v) {
+  var el = document.getElementById(id);
+  if (el) el.textContent = v;
+}
+
+function setHtml(id, v) {
+  var el = document.getElementById(id);
+  if (el) el.innerHTML = v;
+}
+
+function adminAction(type, id, action) {
+  fetch('/api/admin/moderation', {
+    method: 'PATCH',
+    headers: {'Content-Type':'application/json'},
+    body: JSON.stringify({ type: type, id: id, action: action })
+  }).then(function(r){ return r.json(); }).then(function(payload){
+    if (payload.error) { alert('Ralat: ' + payload.error); return; }
+    loadAdminData();
+  }).catch(function(e){ alert('Ralat rangkaian: ' + e.message); });
+}
+
+function renderSellers() {
+  if (!_data) return;
+  var sellers = _data.sellers || [];
+  var filtered = _sellersFilter === 'all' ? sellers : sellers.filter(function(s){
+    var st = s.status || (s.permanent_ban ? 'suspended' : 'pending');
+    return st === _sellersFilter;
+  });
+  setText('sellers-count', filtered.length + ' rekod');
+  // Build rows
+  if (!filtered.length) { setHtml('sellers-tbody', '<tr><td colspan="7" style="text-align:center;color:#bbb;padding:20px;font-size:12px;">Tiada rekod</td></tr>'); return; }
+  var html = filtered.map(function(s) {
+    var status = s.status || (s.permanent_ban ? 'suspended' : 'pending');
+    var badge = s.badge || 'seller_baharu';
+    var badgeLabel = badge === 'verified' ? '<span style="color:#3B6D11;font-weight:700;">Verified</span>' :
+      badge === 'seller_aktif' ? '<span style="color:#185FA5;font-weight:700;">Aktif</span>' :
+      '<span style="color:#888;font-weight:700;">Baharu</span>';
+    var statusStyle = status === 'active' ? 'color:#3B6D11' : status === 'pending' ? 'color:#856404' : 'color:#A32D2D';
+    var approveBtn = status === 'pending' ?
+      '<button class="act-btn btn-green" onclick="adminAction(\'seller\',\''+s.id+'\',\'approve\')">✓</button>' : '';
+    var suspendBtn = status === 'active' ?
+      '<button class="act-btn btn-orange" onclick="adminAction(\'seller\',\''+s.id+'\',\'suspend\')">⊘</button>' :
+      status === 'suspended' ?
+      '<button class="act-btn btn-blue" onclick="adminAction(\'seller\',\''+s.id+'\',\'unsuspend\')">↑</button>' : '';
+    var delBtn = '<button class="act-btn btn-red" onclick="if(confirm(\'Padam seller ini?\'))adminAction(\'seller\',\''+s.id+'\',\'delete\')">✕</button>';
+    var nextBadge = badge === 'seller_baharu' ? 'badge_aktif' : badge === 'seller_aktif' ? 'badge_verified' : 'badge_baharu';
+    var nextLbl = nextBadge === 'badge_aktif' ? 'B→A' : nextBadge === 'badge_verified' ? 'A→V' : 'V→B';
+    var badgeBtn = '<button class="act-btn btn-badge" title="Naik badge" onclick="adminAction(\'seller\',\''+s.id+'\',\''+nextBadge+'\')">'+nextLbl+'</button>';
+    var shopName = (s.shop_name || s.name || '—').toString().slice(0,22);
+    var kawasan = (s.kawasan || '—').toString().slice(0,14);
+    var created = s.created_at ? new Date(s.created_at).toLocaleDateString('ms-MY',{day:'numeric',month:'short',year:'2-digit'}) : '—';
+    return '<tr data-id="'+s.id+'" data-status="'+status+'">' +
+      '<td class="td-name" title="'+(s.shop_name||s.name||'')+'">'+shopName+'</td>' +
+      '<td class="td-cell">'+kawasan+'</td>' +
+      '<td class="td-center">'+badgeLabel+'</td>' +
+      '<td class="td-center">'+(s.is_open ? '<span style="color:#3B6D11">●</span>' : '<span style="color:#bbb">○</span>')+'</td>' +
+      '<td class="td-center"><span class="status-pill '+(status==='active'?'pill-active':status==='pending'?'pill-pending':'pill-suspended')+'">'+status+'</span></td>' +
+      '<td class="td-cell">'+created+'</td>' +
+      '<td class="td-actions">'+approveBtn+suspendBtn+delBtn+badgeBtn+'</td>' +
+      '</tr>';
+  }).join('');
+  setHtml('sellers-tbody', html);
+}
+
+function renderBuyers() {
+  if (!_data) return;
+  var buyers = _data.buyers || [];
+  setText('buyers-count', buyers.length + ' total');
+  if (!buyers.length) { setHtml('buyers-tbody', '<tr><td colspan="5" style="text-align:center;color:#bbb;padding:20px;font-size:12px;">Tiada rekod</td></tr>'); return; }
+  var html = buyers.map(function(b) {
+    var name = (b.name || '—').toString().slice(0,20);
+    var email = (b.email || '—').toString().slice(0,22);
+    var kawasan = (b.kawasan || '—').toString().slice(0,14);
+    var created = b.created_at ? new Date(b.created_at).toLocaleDateString('ms-MY',{day:'numeric',month:'short',year:'2-digit'}) : '—';
+    return '<tr><td class="td-name">'+name+'</td><td class="td-cell" title="'+(b.email||'')+'">'+email+'</td>' +
+      '<td class="td-cell">'+kawasan+'</td><td class="td-cell">'+created+'</td>' +
+      '<td class="td-actions"><button class="act-btn btn-red" onclick="if(confirm(\'Padam buyer ini?\'))adminAction(\'buyer\',\''+b.id+'\',\'delete\')">✕</button></td></tr>';
+  }).join('');
+  setHtml('buyers-tbody', html);
+}
+
+function renderTesti() {
+  if (!_data) return;
+  var all = _data.testimonials || [];
+  var filtered = _testiFilter === 'all' ? all :
+    _testiFilter === 'pending' ? all.filter(function(t){ return !t.is_approved; }) :
+    all.filter(function(t){ return t.is_approved; });
+  setText('testi-count', filtered.length + ' rekod');
+  if (!filtered.length) { setHtml('testi-tbody', '<tr><td colspan="6" style="text-align:center;color:#bbb;padding:20px;font-size:12px;">Tiada rekod</td></tr>'); return; }
+  var sellers = _data.sellers || [];
+  var sellerMap = {};
+  sellers.forEach(function(s){ sellerMap[s.id] = s.shop_name || s.name || '—'; });
+  var html = filtered.map(function(t) {
+    var shop = (sellerMap[t.seller_id] || '—').toString().slice(0,16);
+    var buyer = (t.buyer_name || '—').toString().slice(0,16);
+    var content = (t.content || '—').toString().slice(0,30);
+    var rating = '★'.repeat(t.rating || 0);
+    var approved = t.is_approved ? '<span style="color:#3B6D11;font-weight:700;font-size:10px;">Approved</span>' : '<span style="color:#856404;font-weight:700;font-size:10px;">Pending</span>';
+    var approveBtn = !t.is_approved ? '<button class="act-btn btn-green" onclick="adminAction(\'testimonial\',\''+t.id+'\',\'approve\')">✓</button>' : '';
+    var delBtn = '<button class="act-btn btn-red" onclick="if(confirm(\'Padam testimoni ini?\'))adminAction(\'testimonial\',\''+t.id+'\',\'delete\')">✕</button>';
+    return '<tr><td class="td-cell">'+buyer+'</td><td class="td-cell">'+shop+'</td>' +
+      '<td class="td-name" title="'+(t.content||'')+'">'+content+'…</td>' +
+      '<td class="td-center" style="color:#F0A500;">'+rating+'</td>' +
+      '<td class="td-center">'+approved+'</td>' +
+      '<td class="td-actions">'+approveBtn+delBtn+'</td></tr>';
+  }).join('');
+  setHtml('testi-tbody', html);
+}
+
+function renderSaved() {
+  if (!_data) return;
+  var saved = _data.savedShops || [];
+  setText('saved-count', saved.length + ' rekod');
+  if (!saved.length) { setHtml('saved-tbody', '<tr><td colspan="3" style="text-align:center;color:#bbb;padding:20px;font-size:12px;">Tiada rekod</td></tr>'); return; }
+  var html = saved.map(function(row) {
+    var buyer = (row.buyer_display || row.buyer_id || '—').toString().slice(0,22);
+    var shop = (row.shop_display || row.shop_id || '—').toString().slice(0,22);
+    var created = row.created_at ? new Date(row.created_at).toLocaleDateString('ms-MY',{day:'numeric',month:'short',year:'2-digit'}) : '—';
+    return '<tr><td class="td-cell">'+buyer+'</td><td class="td-cell">'+shop+'</td><td class="td-cell">'+created+'</td></tr>';
+  }).join('');
+  setHtml('saved-tbody', html);
+}
+
+function renderStats() {
+  if (!_data || !_data.stats) return;
+  var s = _data.stats;
+  setText('ps-sellers', s.totalSellers || 0);
+  setText('ps-buyers', s.totalBuyers || 0);
+  setText('ps-testi', s.totalTestimonials || 0);
+  setText('ps-saved', s.totalSavedShops || 0);
+  setText('ps-b-baharu', s.sellersByBadge.seller_baharu || 0);
+  setText('ps-b-aktif', s.sellersByBadge.seller_aktif || 0);
+  setText('ps-b-verified', s.sellersByBadge.verified || 0);
+  var sb = s.sellersByStatus;
+  setHtml('ps-sellers-detail',
+    '<div class="sc-line" style="color:#3B6D11;">● '+sb.active+' Aktif</div>' +
+    '<div class="sc-line" style="color:#856404;">● '+sb.pending+' Pending</div>' +
+    '<div class="sc-line" style="color:#A32D2D;">● '+sb.suspended+' Suspended</div>'
+  );
+  var areas = s.sellersByArea || [];
+  var max = areas.length ? areas[0].count : 1;
+  var areaHtml = areas.slice(0,8).map(function(a) {
+    var pct = Math.round((a.count / max) * 100);
+    return '<div class="area-card">' +
+      '<div class="area-row"><span class="area-name">'+a.area+'</span><span class="area-count">'+a.count+' seller</span></div>' +
+      '<div class="area-bar"><div class="area-fill" style="width:'+pct+'%"></div></div>' +
+      '</div>';
+  }).join('') || '<div style="text-align:center;color:#bbb;padding:20px;font-size:12px;">Tiada data kawasan</div>';
+  setHtml('area-bars', areaHtml);
+}
+
+function loadAdminData() {
+  fetch('/api/admin/moderation', { cache: 'no-store' })
+    .then(function(r){ return r.json(); })
+    .then(function(data) {
+      if (data.error) { alert('Gagal muat data: ' + data.error); return; }
+      _data = data;
+      // Update quick stats
+      setText('st-active', data.stats.sellersByStatus.active);
+      setText('st-pending', data.stats.sellersByStatus.pending);
+      setText('st-buyers', data.stats.totalBuyers);
+      setText('st-review', (data.pendingTestimonials || []).length + (data.complaints || []).length);
+      renderSellers();
+      renderBuyers();
+      renderTesti();
+      renderSaved();
+      renderStats();
+    })
+    .catch(function(e){ alert('Ralat rangkaian: ' + e.message); });
+}
+
+function loadDbTable(table) {
+  if (!table) return;
+  _dbTable = table;
+  setHtml('db-info', 'Memuatkan ' + table + '...');
+  setHtml('db-content', '');
+  fetch('/api/admin/database?table=' + encodeURIComponent(table) + '&limit=50')
+    .then(function(r){ return r.json(); })
+    .then(function(data) {
+      if (data.error) { setHtml('db-info', 'Ralat: ' + data.error); return; }
+      var rows = data.rows || [];
+      setHtml('db-info', table + ' — ' + data.count + ' rekod (paparan: ' + rows.length + ')');
+      if (!rows.length) { setHtml('db-content', '<div style="text-align:center;color:#bbb;padding:20px;font-size:12px;">Jadual kosong</div>'); return; }
+      var cols = Object.keys(rows[0]);
+      var html = '<div class="tbl-wrap"><table class="tbl"><thead><tr>';
+      cols.forEach(function(c){ html += '<th>'+c+'</th>'; });
+      html += '<th>Del</th></tr></thead><tbody>';
+      rows.forEach(function(row) {
+        html += '<tr>';
+        cols.forEach(function(col) {
+          var val = row[col];
+          if (val === null || val === undefined) val = '—';
+          else if (typeof val === 'boolean') val = val ? '✓' : '✗';
+          else if (typeof val === 'object') val = JSON.stringify(val).slice(0,30) + '…';
+          else val = String(val).slice(0,40);
+          html += '<td class="td-cell" title="'+String(row[col]||'')+'">'+val+'</td>';
+        });
+        html += '<td><button class="act-btn btn-red" onclick="deleteDbRow(\''+row.id+'\')">✕</button></td></tr>';
+      });
+      html += '</tbody></table></div>';
+      setHtml('db-content', html);
+    })
+    .catch(function(e){ setHtml('db-info', 'Ralat: ' + e.message); });
+}
+
+function deleteDbRow(id) {
+  if (!_dbTable) { alert('Pilih jadual dahulu.'); return; }
+  if (!confirm('Padam rekod ini dari ' + _dbTable + '?')) return;
+  fetch('/api/admin/database', {
+    method: 'POST',
+    headers: {'Content-Type':'application/json'},
+    body: JSON.stringify({ action: 'delete_row', table: _dbTable, id: id })
+  }).then(function(r){ return r.json(); }).then(function(d){
+    if (d.error) { alert('Ralat: ' + d.error); return; }
+    loadDbTable(_dbTable);
+  }).catch(function(e){ alert('Ralat: ' + e.message); });
+}
+
+function clearDbTable() {
+  if (!_dbTable) { alert('Pilih jadual dahulu.'); return; }
+  if (!confirm('AMARAN: Ini akan MEMADAM SEMUA rekod dari jadual "' + _dbTable + '". Tindakan ini tidak boleh dibatalkan. Teruskan?')) return;
+  if (!confirm('Sahkan sekali lagi: Padam SEMUA rekod dari "' + _dbTable + '"?')) return;
+  fetch('/api/admin/database', {
+    method: 'POST',
+    headers: {'Content-Type':'application/json'},
+    body: JSON.stringify({ action: 'clear_table', table: _dbTable })
+  }).then(function(r){ return r.json(); }).then(function(d){
+    if (d.error) { alert('Ralat: ' + d.error); return; }
+    alert('Semua rekod dari "' + _dbTable + '" telah dipadam.');
+    loadDbTable(_dbTable);
+    loadAdminData();
+  }).catch(function(e){ alert('Ralat: ' + e.message); });
+}
+
+// Initial load
+loadAdminData();
+`]
+
+/* ─── PAGE ───────────────────────────────────────────────────────────────── */
 export default function Page() {
   useEffect(() => {
-    let cancelled = false
-
-    function setHtml(selector: string, html: string) {
-      const element = document.querySelector<HTMLElement>(selector)
-      if (element) element.innerHTML = html
-    }
-
-    function setText(selector: string, text: string | number) {
-      const element = document.querySelector<HTMLElement>(selector)
-      if (element) element.textContent = String(text)
-    }
-
-    async function loadModeration() {
-      const response = await fetch('/api/admin/moderation', { cache: 'no-store' })
-      const payload = (await response.json()) as AdminPayload & { error?: string }
-
-      if (!response.ok) {
-        throw new Error(payload.error || 'Unable to load admin data')
-      }
-
-      if (cancelled) return
-
-      setText('.stats-row .stat-box:nth-child(1) .stat-num', payload.activeSellers.length)
-      setText('.stats-row .stat-box:nth-child(2) .stat-num', payload.pendingSellers.length)
-      setText('.stats-row .stat-box:nth-child(3) .stat-num', payload.pendingTestimonials.length + payload.pendingProducts.length + payload.complaints.length)
-
-      setHtml(
-        '#tab-seller',
-        `<div class="sec-head"><span class="sec-title">Permohonan Baru</span>${badgeCount(payload.pendingSellers.length)}</div>
-        ${payload.pendingSellers.map((seller) => renderSellerCard(seller, 'pending')).join('') || emptyCard('Tiada permohonan seller pending.')}
-        <div class="sec-head" style="margin-top:16px;"><span class="sec-title">Seller Aktif</span><span class="count-badge">${payload.activeSellers.length} aktif</span></div>
-        ${payload.activeSellers.map((seller) => renderSellerCard(seller, 'active')).join('') || emptyCard('Belum ada seller aktif.')}`,
-      )
-
-      setHtml(
-        '#tab-testimoni',
-        `<div class="sec-head"><span class="sec-title">Menunggu Kelulusan</span>${badgeCount(payload.pendingTestimonials.length)}</div>
-        ${payload.pendingTestimonials.map((testimonial) => renderTestimonialCard(testimonial, payload.sellers)).join('') || emptyCard('Tiada testimoni pending.')}`,
-      )
-
-      setHtml(
-        '#tab-gambar',
-        `<div class="sec-head"><span class="sec-title">Gambar Produk Pending</span>${badgeCount(payload.pendingProducts.length)}</div>
-        ${payload.pendingProducts.map((product) => renderProductCard(product, payload.sellers)).join('') || emptyCard('Tiada produk atau gambar pending.')}`,
-      )
-
-      setHtml(
-        '#tab-aduan',
-        `<div class="sec-head"><span class="sec-title">Aduan / Rayuan Seller</span><span class="count-badge red">${payload.complaints.length} rekod</span></div>
-        ${payload.complaints.map((complaint) => renderComplaintCard(complaint, payload.sellers)).join('') || emptyCard('Tiada aduan atau rayuan.')}`,
-      )
-
-      setText('#tab-stats .platform-grid .p-stat:nth-child(1) .p-stat-num', payload.sellers.length)
-      setText('#tab-stats .platform-grid .p-stat:nth-child(2) .p-stat-num', payload.buyerCount)
-    }
-
-    const runtime = window as AdminWindow
-    runtime.__lokalgoAdminAction = async (type: string, id: string, action: string) => {
-      const response = await fetch('/api/admin/moderation', {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ type, id, action }),
-      })
-      const payload = (await response.json()) as { error?: string }
-
-      if (!response.ok) {
-        alert(payload.error || 'Tidak dapat kemaskini rekod.')
-        return
-      }
-
-      await loadModeration()
-    }
-
-    loadModeration().catch((error) => {
-      console.error(error)
-      setHtml('#tab-seller', emptyCard(error instanceof Error ? error.message : 'Tidak dapat memuat data admin.'))
-    })
-
-    return () => {
-      cancelled = true
-      delete runtime.__lokalgoAdminAction
-    }
+    // Data loading and action handlers are wired in the inline scripts above.
+    // We expose them via the scripts[] array so HtmlPrototypePage injects them.
   }, [])
 
   return (
@@ -248,8 +653,8 @@ export default function Page() {
       styles={styles}
       markup={markup}
       scripts={scripts}
-      externalScripts={externalScripts}
-      externalStylesheets={externalStylesheets}
+      externalScripts={[]}
+      externalStylesheets={['https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700;800&display=swap']}
     />
   )
 }

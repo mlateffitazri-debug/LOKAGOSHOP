@@ -10,6 +10,8 @@ type SellerOnboardingBody = {
   kawasan?: string
   email?: string
   profile_image_url?: string | null
+  latitude?: number | null
+  longitude?: number | null
 }
 
 function normalizeWhatsapp(value: string) {
@@ -57,6 +59,8 @@ export async function POST(request: Request) {
     postcode: body.postcode?.trim() || '00000',
     kawasan: body.kawasan?.trim() || body.taman_name.trim(),
     profile_image_url: body.profile_image_url || null,
+    latitude: typeof body.latitude === 'number' && !Number.isNaN(body.latitude) ? body.latitude : null,
+    longitude: typeof body.longitude === 'number' && !Number.isNaN(body.longitude) ? body.longitude : null,
     status: 'pending',
     is_open: false,
   }

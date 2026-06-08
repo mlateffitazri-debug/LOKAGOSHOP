@@ -79,6 +79,8 @@ export default function Page() {
           taman_name: baseData.taman_name,
           postcode: baseData.postcode || '00000',
           kawasan: baseData.kawasan || baseData.taman_name,
+          latitude: baseData.latitude ? parseFloat(baseData.latitude) : undefined,
+          longitude: baseData.longitude ? parseFloat(baseData.longitude) : undefined,
         }),
       })
       const result = await response.json() as { error?: string; sellerId?: string }
