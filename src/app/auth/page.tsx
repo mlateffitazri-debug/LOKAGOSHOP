@@ -154,10 +154,11 @@ export default function LoginPage() {
 
           {/* Terms */}
           <div style={{ fontSize: 12, color: '#BBB', textAlign: 'center', lineHeight: 1.8 }}>
-            Dengan meneruskan, anda bersetuju dengan{' '}
-            <a href="/terms" style={{ color: '#7B1533', textDecoration: 'none', fontWeight: 600 }}>Terma</a>
+            Dengan log masuk, anda bersetuju dengan{' '}
+            <a href="/tnc" style={{ color: '#7B1533', textDecoration: 'none', fontWeight: 600 }}>Terma & Syarat</a>
             {' '}dan{' '}
-            <a href="/privacy" style={{ color: '#7B1533', textDecoration: 'none', fontWeight: 600 }}>Privasi</a>.
+            <a href="/privacy" style={{ color: '#7B1533', textDecoration: 'none', fontWeight: 600 }}>Dasar Privasi</a>
+            {' '}LokaGo.
           </div>
         </div>
       </div>
