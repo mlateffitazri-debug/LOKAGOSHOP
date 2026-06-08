@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
@@ -9,6 +9,35 @@ import type { Buyer, Seller, Testimonial } from '@/types/database'
 type TestimonialWithShop = Testimonial & {
   shopName: string
 }
+
+const styles = `
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');
+*{box-sizing:border-box}
+body{margin:0;background:#0a0a0a;font-family:'Plus Jakarta Sans',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;color:#111}
+.page-wrap{width:100%;max-width:430px;min-height:100vh;margin:0 auto;background:#fff;overflow:hidden}
+.scroll{min-height:100vh;background:#F5F5F5}
+.header{background:#7B1533;color:#fff;padding:16px 20px 22px}
+.back-btn{width:38px;height:38px;border:1px solid rgba(255,255,255,0.18);border-radius:999px;background:rgba(255,255,255,0.12);color:#fff;font-size:20px;font-weight:800;line-height:1;display:flex;align-items:center;justify-content:center;cursor:pointer}
+.title{margin:20px 0 0;font-size:24px;font-weight:800;line-height:1.15}
+.subtitle{margin:6px 0 0;font-size:12px;font-weight:600;color:rgba(255,255,255,0.66)}
+.body{padding:4px 0 22px;background:#F5F5F5}
+.card{margin:12px 16px;padding:14px;border-radius:12px;background:#fff;box-shadow:0 2px 10px rgba(0,0,0,0.05)}
+.card-top{display:flex;align-items:flex-start;justify-content:space-between;gap:12px}
+.shop-name{min-width:0;font-size:15px;font-weight:800;color:#111;line-height:1.3}
+.date{margin-top:4px;font-size:11px;font-weight:600;color:#888}
+.stars{display:flex;gap:1px;white-space:nowrap;font-size:15px;letter-spacing:0}
+.star-filled{color:#F0C040}
+.star-empty{color:#D7D7D7}
+.review{margin:12px 0 0;font-size:13px;line-height:1.65;color:#555}
+.visit-btn{display:inline-flex;align-items:center;justify-content:center;margin-top:12px;border:1.5px solid #7B1533;border-radius:10px;background:#fff;color:#7B1533;text-decoration:none;font-size:12px;font-weight:800;padding:8px 12px}
+.state-card{margin:18px 16px;padding:28px 18px;border-radius:12px;background:#fff;text-align:center;box-shadow:0 2px 10px rgba(0,0,0,0.05)}
+.state-icon{width:56px;height:56px;margin:0 auto 14px;border-radius:999px;background:#F7F0F3;color:#7B1533;display:flex;align-items:center;justify-content:center;font-size:26px}
+.state-text{margin:0;font-size:14px;font-weight:800;color:#111;line-height:1.5}
+.state-muted{margin:0;font-size:13px;font-weight:700;color:#555}
+.error{color:#7B1533}
+@media(min-width:500px){body{padding:40px 20px;display:flex;justify-content:center}.page-wrap{min-height:812px;border:8px solid #1a1a1a;border-radius:36px;box-shadow:0 32px 80px rgba(0,0,0,0.7)}.scroll{min-height:812px}}
+@media(min-width:1024px){body{min-height:100vh;align-items:center}}
+`
 
 function formatDate(value: string) {
   const date = new Date(value)
@@ -25,9 +54,9 @@ function Stars({ rating }: { rating: number }) {
   const safeRating = Math.max(0, Math.min(5, Math.round(rating || 0)))
 
   return (
-    <span aria-label={`${safeRating} bintang`} className="flex items-center gap-0.5">
+    <span aria-label={`${safeRating} bintang`} className="stars">
       {Array.from({ length: 5 }, (_, index) => (
-        <span key={index} className={index < safeRating ? 'text-[#F0C040]' : 'text-[#D7D7D7]'}>
+        <span key={index} className={index < safeRating ? 'star-filled' : 'star-empty'}>
           {'\u2605'}
         </span>
       ))}
@@ -40,60 +69,6 @@ export default function TestimonialsPage() {
   const [items, setItems] = useState<TestimonialWithShop[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-
-  const content = useMemo(() => {
-    if (isLoading) {
-      return (
-        <div className="rounded-[18px] bg-white p-5 text-center text-sm font-semibold text-[#555555] shadow-[0_2px_10px_rgba(0,0,0,0.05)]">
-          Memuatkan testimoni...
-        </div>
-      )
-    }
-
-    if (error) {
-      return (
-        <div className="rounded-[18px] bg-white p-5 text-center text-sm font-semibold text-[#7B1533] shadow-[0_2px_10px_rgba(0,0,0,0.05)]">
-          {error}
-        </div>
-      )
-    }
-
-    if (items.length === 0) {
-      return (
-        <div className="rounded-[18px] bg-white p-6 text-center shadow-[0_2px_10px_rgba(0,0,0,0.05)]">
-          <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-[#F7F0F3] text-2xl text-[#7B1533]">
-            {'\u{1F4AC}'}
-          </div>
-          <p className="mt-4 text-sm font-bold text-[#111111]">Anda belum menulis sebarang testimoni</p>
-        </div>
-      )
-    }
-
-    return (
-      <div className="flex flex-col gap-3">
-        {items.map((item) => (
-          <article key={item.id} className="rounded-[18px] bg-white p-4 shadow-[0_2px_10px_rgba(0,0,0,0.05)]">
-            <div className="flex items-start justify-between gap-3">
-              <div className="min-w-0 flex-1">
-                <h2 className="truncate text-base font-extrabold text-[#111111]">{item.shopName}</h2>
-                <p className="mt-1 text-[11px] font-semibold text-[#888888]">{formatDate(item.created_at)}</p>
-              </div>
-              <Stars rating={item.rating} />
-            </div>
-
-            <p className="mt-3 text-sm leading-6 text-[#555555]">{item.content}</p>
-
-            <Link
-              href={`/shop/${item.seller_id}`}
-              className="mt-4 inline-flex w-full items-center justify-center rounded-xl bg-[#7B1533] px-4 py-3 text-sm font-extrabold text-white"
-            >
-              Lawati Kedai
-            </Link>
-          </article>
-        ))}
-      </div>
-    )
-  }, [error, isLoading, items])
 
   useEffect(() => {
     let cancelled = false
@@ -165,7 +140,7 @@ export default function TestimonialsPage() {
         setItems(
           testimonials.map((item) => ({
             ...item,
-            shopName: sellersById.get(item.seller_id)?.shop_name || 'Kedai LokalGo',
+            shopName: sellersById.get(item.seller_id)?.shop_name || 'Kedai LokaGo',
           })),
         )
         setIsLoading(false)
@@ -186,25 +161,52 @@ export default function TestimonialsPage() {
   }, [router])
 
   return (
-    <main className="min-h-screen bg-[#0a0a0a] font-['Plus_Jakarta_Sans',sans-serif] text-[#111111] min-[500px]:flex min-[500px]:items-start min-[500px]:justify-center min-[500px]:p-10 min-[1024px]:items-center">
-      <section className="min-h-screen w-full max-w-[430px] overflow-hidden bg-[#F5F5F5] min-[500px]:min-h-0 min-[500px]:rounded-[36px] min-[500px]:border-8 min-[500px]:border-[#1a1a1a] min-[500px]:shadow-[0_32px_80px_rgba(0,0,0,0.7)]">
-        <div className="h-[812px] overflow-y-auto pb-6">
-          <header className="bg-[#7B1533] px-5 pb-5 pt-4 text-white">
-            <button
-              type="button"
-              onClick={() => router.push('/home')}
-              className="flex h-9 w-9 items-center justify-center rounded-full border border-white/15 bg-white/10 text-lg font-bold text-white"
-              aria-label="Kembali ke home"
-            >
+    <>
+      <style dangerouslySetInnerHTML={{ __html: styles }} />
+      <main className="page-wrap">
+        <div className="scroll">
+          <header className="header">
+            <button type="button" onClick={() => router.push('/home')} className="back-btn" aria-label="Kembali ke home">
               {'<'}
             </button>
-            <h1 className="mt-5 text-2xl font-extrabold">Testimoni Saya</h1>
-            <p className="mt-1 text-xs font-semibold text-white/65">Sejarah ulasan yang pernah anda tulis</p>
+            <h1 className="title">Testimoni Saya</h1>
+            <p className="subtitle">Sejarah ulasan yang pernah anda tulis</p>
           </header>
 
-          <div className="px-5 py-5">{content}</div>
+          <section className="body">
+            {isLoading ? (
+              <div className="state-card">
+                <p className="state-muted">Memuatkan testimoni...</p>
+              </div>
+            ) : error ? (
+              <div className="state-card">
+                <p className="state-text error">{error}</p>
+              </div>
+            ) : items.length === 0 ? (
+              <div className="state-card">
+                <div className="state-icon">{'\u{1F4AC}'}</div>
+                <p className="state-text">Anda belum menulis sebarang testimoni</p>
+              </div>
+            ) : (
+              items.map((item) => (
+                <article key={item.id} className="card">
+                  <div className="card-top">
+                    <div>
+                      <h2 className="shop-name">{item.shopName}</h2>
+                      <p className="date">{formatDate(item.created_at)}</p>
+                    </div>
+                    <Stars rating={item.rating} />
+                  </div>
+                  <p className="review">{item.content}</p>
+                  <Link href={`/shop/${item.seller_id}`} className="visit-btn">
+                    Lawati Kedai
+                  </Link>
+                </article>
+              ))
+            )}
+          </section>
         </div>
-      </section>
-    </main>
+      </main>
+    </>
   )
 }
