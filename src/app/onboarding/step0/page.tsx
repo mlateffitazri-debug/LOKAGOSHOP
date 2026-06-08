@@ -1,5 +1,7 @@
 'use client'
 
+import { useEffect } from 'react'
+import { createClient } from '@/lib/supabase/client'
 import { HtmlPrototypePage } from '@/components/shared/HtmlPrototypePage'
 
 const styles = ":root{--c-primary:#7B1533;--c-primary-dark:#6A1029;--c-primary-lt:#8f1a3a;--c-accent:#ADD036;--c-bg:#F5F5F5;--c-surface:#FFFFFF;--c-border:#E5E5EA;--c-text:#111111;--c-text2:#555555;--c-text3:#888888;--c-hint:#BBBBBB;}\n*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;-webkit-font-smoothing:antialiased;}\nbody{background:#0a0a0a;min-height:100vh;font-family:\u0027Plus Jakarta Sans\u0027,-apple-system,sans-serif;font-size:14px;color:var(--c-text);}\n.page{width:100%;max-width:430px;margin:0 auto;min-height:100vh;background:var(--c-bg);overflow:hidden;}\n@media(min-width:500px){body{padding:40px 20px;display:flex;justify-content:center;align-items:flex-start;}.page{min-height:auto;border-radius:36px;border:8px solid #1a1a1a;box-shadow:0 32px 80px rgba(0,0,0,0.7);}}\n@media(min-width:1024px){body{align-items:center;padding:40px;min-height:100vh;}}\n.scroll{height:812px;overflow-y:auto;padding-bottom:32px;}.scroll::-webkit-scrollbar{display:none;}\n\n/* HEADER */\n.header{background:var(--c-primary);padding:14px 20px 12px;}\n.header-r1{display:flex;align-items:center;justify-content:space-between;margin-bottom:3px;}\n.header-sub{font-size:11px;color:rgba(255,255,255,0.55);margin-bottom:10px;}\n.header-r2{display:flex;gap:8px;align-items:center;}\n.sokong-btn{background:rgba(255,255,255,0.15);border:none;border-radius:20px;padding:6px 12px;color:#fff;font-size:11px;font-weight:600;font-family:inherit;display:flex;align-items:center;gap:5px;cursor:pointer;white-space:nowrap;}\n.search-wrap{flex:1;background:rgba(255,255,255,0.92);border-radius:10px;padding:9px 12px;display:flex;align-items:center;gap:8px;}\n.search-wrap span{font-size:13px;color:#aaa;}\n.lang-btn{background:rgba(255,255,255,0.15);border:none;border-radius:8px;padding:8px 10px;color:#fff;font-size:11px;font-weight:600;font-family:inherit;display:flex;align-items:center;gap:4px;cursor:pointer;white-space:nowrap;}\n\n/* CONTENT */\n.content{padding:24px 20px;}\n\n/* HERO TEXT */\n.hero-title{font-size:22px;font-weight:800;color:var(--c-text);text-align:center;letter-spacing:-0.3px;margin-bottom:12px;}\n.hero-desc{font-size:13px;color:var(--c-text2);line-height:1.6;text-align:center;margin-bottom:8px;}\n.hero-link{font-size:13px;color:var(--c-primary);font-weight:600;text-align:center;display:block;margin-bottom:20px;text-decoration:none;font-style:italic;}\n\n/* NOTICE BOX */\n.notice-box{background:var(--c-primary);border-radius:12px;padding:12px 20px;margin-bottom:16px;text-align:center;}\n.notice-title{font-size:14px;font-weight:700;color:#fff;margin-bottom:3px;}\n.notice-sub{font-size:11px;color:rgba(255,255,255,0.7);}\n\n/* ALLOWED SECTION */\n.section-card{background:#fff;border-radius:14px;padding:16px;margin-bottom:12px;border:1px solid #eee;}\n.section-title{font-size:13px;font-weight:700;color:var(--c-primary);margin-bottom:12px;}\n.section-title.danger{color:#A32D2D;}\n.allow-item{display:flex;align-items:flex-start;gap:10px;margin-bottom:10px;}\n.allow-item:last-child{margin-bottom:0;}\n.allow-icon{width:22px;height:22px;border-radius:50%;background:#EAF3DE;display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:1px;}\n.allow-text{font-size:13px;color:var(--c-text2);line-height:1.5;}\n.deny-item{display:flex;align-items:flex-start;gap:10px;margin-bottom:10px;}\n.deny-item:last-child{margin-bottom:0;}\n.deny-dot{width:6px;height:6px;background:var(--c-text3);border-radius:50%;flex-shrink:0;margin-top:7px;}\n.deny-text{font-size:13px;color:var(--c-text2);line-height:1.5;}\n.deny-text.red{color:#A32D2D;font-weight:600;}\n\n/* LEGAL SECTIONS */\n.legal-section{margin-bottom:14px;}\n.legal-title{font-size:13px;font-weight:700;color:var(--c-text);margin-bottom:6px;}\n.legal-body{font-size:12px;color:var(--c-text2);line-height:1.6;}\n.legal-body ol{padding-left:16px;}\n.legal-body ol li{margin-bottom:4px;}\n.platform-info{font-size:11px;color:var(--c-text3);margin-top:12px;}\n\n/* CHECKBOXES */\n.checks-section{background:#fff;border-radius:14px;padding:16px;margin-bottom:16px;border:1px solid #eee;display:flex;flex-direction:column;gap:14px;}\n.check-item{display:flex;align-items:flex-start;gap:12px;cursor:pointer;}\n.check-box{width:22px;height:22px;border-radius:6px;border:2px solid var(--c-border);display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:1px;transition:all 0.15s;cursor:pointer;}\n.check-box.checked{background:var(--c-primary);border-color:var(--c-primary);}\n.check-text{font-size:13px;color:var(--c-text2);line-height:1.6;}\n.check-text a{color:var(--c-primary);font-weight:600;text-decoration:none;}\n\n/* SUBMIT */\n.submit-btn{width:100%;background:linear-gradient(180deg,var(--c-primary-lt) 0%,var(--c-primary-dark) 100%);border:none;border-radius:14px;padding:16px 20px;display:flex;align-items:center;justify-content:center;gap:10px;color:#fff;font-size:16px;font-weight:700;font-family:inherit;cursor:pointer;position:relative;overflow:hidden;box-shadow:0 1px 0 rgba(255,255,255,0.16) inset,0 -1px 0 rgba(0,0,0,0.2) inset,0 6px 24px rgba(123,21,51,0.45);transition:transform 0.12s;opacity:0.5;}\n.submit-btn.active{opacity:1;}\n.submit-btn::after{content:\u0027\u0027;position:absolute;top:0;left:0;right:0;height:50%;background:linear-gradient(180deg,rgba(255,255,255,0.12) 0%,transparent 100%);border-radius:14px 14px 0 0;pointer-events:none;}\n.submit-btn:active{transform:scale(0.985);}\n.back-btn{width:32px;height:32px;border-radius:50%;background:rgba(255,255,255,0.15);border:none;display:flex;align-items:center;justify-content:center;cursor:pointer;flex-shrink:0;}"
@@ -9,6 +11,33 @@ const externalScripts: string[] = []
 const externalStylesheets: string[] = []
 
 export default function Page() {
+  useEffect(() => {
+    let cancelled = false
+    const supabase = createClient()
+
+    async function checkAuth() {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (cancelled) return
+      if (!user) {
+        window.location.href = '/auth'
+        return
+      }
+      // If already a seller, redirect to dashboard
+      const { data: seller } = await supabase
+        .from('sellers')
+        .select('id')
+        .eq('user_id', user.id)
+        .maybeSingle()
+      if (cancelled) return
+      if (seller) {
+        window.location.href = '/seller/dashboard'
+      }
+    }
+
+    checkAuth().catch(console.error)
+    return () => { cancelled = true }
+  }, [])
+
   return (
     <HtmlPrototypePage
       styles={styles}

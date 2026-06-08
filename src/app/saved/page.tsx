@@ -85,6 +85,20 @@ export default function Page() {
     }
 
     async function loadSaved() {
+      // Show loading state immediately
+      const listEl = document.querySelector<HTMLElement>('.shop-list')
+      if (listEl) {
+        listEl.classList.add('empty')
+        listEl.innerHTML = '<div class="empty-state"><div class="empty-icon">⏳</div><div class="empty-title">Memuatkan kedai disimpan...</div></div>'
+      }
+
+      // Auth guard
+      const { data: { user: savedUser } } = await supabase.auth.getUser()
+      if (!savedUser) {
+        window.location.href = '/auth'
+        return
+      }
+
       const ids = getSavedIds()
 
       if (!ids.length) {

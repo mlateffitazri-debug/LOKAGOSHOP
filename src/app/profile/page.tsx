@@ -84,6 +84,7 @@ export default function ProfilePage() {
     createdAt: null,
   })
   const [counts, setCounts] = useState<Counts>({ savedShops: 0, testimonials: 0 })
+  const [isLoading, setIsLoading] = useState(true)
 
   const daysActive = useMemo(() => activeDays(profile.createdAt), [profile.createdAt])
 
@@ -152,10 +153,14 @@ export default function ProfilePage() {
           savedShops: savedCount ?? localSavedCount,
           testimonials: testimonialCount ?? 0,
         })
+        setIsLoading(false)
       }
     }
 
-    loadProfile().catch(console.error)
+    loadProfile().catch((err) => {
+      console.error(err)
+      if (!cancelled) setIsLoading(false)
+    })
 
     return () => {
       cancelled = true
@@ -212,15 +217,15 @@ export default function ProfilePage() {
 
             <div className="relative z-10 mx-5 mt-4 grid grid-cols-3 overflow-hidden rounded-2xl border border-white/10 bg-black/20">
               <div className="border-r border-white/10 p-3 text-center">
-                <p className="text-xl font-extrabold text-white">{counts.savedShops}</p>
+                <p className="text-xl font-extrabold text-white">{isLoading ? '—' : counts.savedShops}</p>
                 <p className="mt-1 text-[9px] font-bold uppercase tracking-wide text-white/45">Kedai Disimpan</p>
               </div>
               <div className="border-r border-white/10 p-3 text-center">
-                <p className="text-xl font-extrabold text-white">{counts.testimonials}</p>
+                <p className="text-xl font-extrabold text-white">{isLoading ? '—' : counts.testimonials}</p>
                 <p className="mt-1 text-[9px] font-bold uppercase tracking-wide text-white/45">Testimoni</p>
               </div>
               <div className="p-3 text-center">
-                <p className="text-xl font-extrabold text-white">{daysActive}</p>
+                <p className="text-xl font-extrabold text-white">{isLoading ? '—' : daysActive}</p>
                 <p className="mt-1 text-[9px] font-bold uppercase tracking-wide text-white/45">Hari Aktif</p>
               </div>
             </div>
