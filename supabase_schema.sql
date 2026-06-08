@@ -20,6 +20,7 @@ create table sellers (
   id uuid primary key default gen_random_uuid(),
   user_id uuid references auth.users(id) on delete set null,
   shop_name text not null,
+  email text,
   whatsapp_number text not null unique,
   taman_name text not null,
   postcode text not null,

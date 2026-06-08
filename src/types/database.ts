@@ -8,6 +8,7 @@ export interface Seller {
   id: string
   user_id: string
   shop_name: string
+  email: string | null
   whatsapp_number: string
   kawasan: string
   postcode: string

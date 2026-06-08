@@ -8,6 +8,7 @@ type SellerOnboardingBody = {
   taman_name?: string
   postcode?: string
   kawasan?: string
+  email?: string
   profile_image_url?: string | null
 }
 
@@ -47,6 +48,7 @@ export async function POST(request: Request) {
   const sellerPayload = {
     user_id: user.id,
     shop_name: body.shop_name.trim(),
+    email: body.email?.trim() || user.email || null,
     whatsapp_number: normalizeWhatsapp(body.whatsapp_number),
     taman_name: body.taman_name.trim(),
     postcode: body.postcode?.trim() || '00000',
