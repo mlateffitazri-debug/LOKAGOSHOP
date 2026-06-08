@@ -1,4 +1,4 @@
-import { createServerClient } from '@supabase/ssr'
+import { createServerClient, type CookieOptions } from '@supabase/ssr'
 import { cookies } from 'next/headers'
 
 export function createClient() {
@@ -17,19 +17,24 @@ export function createClient() {
         secure: process.env.NODE_ENV === 'production',
       },
       cookies: {
-        getAll() {
-          return cookieStore.getAll()
+        get(name: string) {
+          return cookieStore.get(name)?.value
         },
-        setAll(cookiesToSet: { name: string; value: string; options?: Record<string, unknown> }[]) {
+        set(name: string, value: string, options: CookieOptions) {
           try {
-            cookiesToSet.forEach(({ name, value, options }) =>
-              cookieStore.set(name, value, options as Parameters<typeof cookieStore.set>[2])
-            )
+            cookieStore.set(name, value, options as Parameters<typeof cookieStore.set>[2])
           } catch {
-            // Server Component — boleh ignore
+            // Server Components cannot always write cookies.
+          }
+        },
+        remove(name: string, options: CookieOptions) {
+          try {
+            cookieStore.set(name, '', { ...options, maxAge: 0 } as Parameters<typeof cookieStore.set>[2])
+          } catch {
+            // Server Components cannot always write cookies.
           }
         },
       },
-    }
+    },
   )
 }
