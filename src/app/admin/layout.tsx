@@ -1,5 +1,6 @@
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
+import { isAdminEmail } from '@/lib/admin/access'
 
 export default async function AdminLayout({
   children,
@@ -15,10 +16,7 @@ export default async function AdminLayout({
     redirect('/auth?next=/admin')
   }
 
-  const adminEmail = process.env.ADMIN_EMAIL?.trim().toLowerCase()
-  const userEmail = user.email?.trim().toLowerCase()
-
-  if (!adminEmail || userEmail !== adminEmail) {
+  if (!isAdminEmail(user.email)) {
     redirect('/home')
   }
 

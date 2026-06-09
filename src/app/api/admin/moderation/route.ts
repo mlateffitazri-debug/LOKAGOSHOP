@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server'
+import { requireAdmin } from '@/lib/admin/access'
 import { createAdminClient } from '@/lib/supabase/admin'
 
 type ModerationType = 'seller' | 'testimonial' | 'product' | 'complaint' | 'buyer'
@@ -27,6 +28,9 @@ function getSellerStatus(seller: Record<string, unknown>) {
 
 export async function GET() {
   try {
+    const admin = await requireAdmin()
+    if (!admin.ok) return admin.response
+
     const supabase = createAdminClient()
 
     const [
@@ -131,6 +135,9 @@ export async function GET() {
 
 export async function PATCH(request: Request) {
   try {
+    const admin = await requireAdmin()
+    if (!admin.ok) return admin.response
+
     const body = (await request.json()) as ModerationBody
 
     if (!body.type || !body.id || !body.action) {

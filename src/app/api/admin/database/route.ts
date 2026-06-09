@@ -1,10 +1,14 @@
 import { NextResponse } from 'next/server'
+import { requireAdmin } from '@/lib/admin/access'
 import { createAdminClient } from '@/lib/supabase/admin'
 
 const ALLOWED_TABLES = ['sellers', 'buyers', 'testimonials', 'saved_shops', 'products', 'suspended_sellers'] as const
 
 export async function GET(request: Request) {
   try {
+    const admin = await requireAdmin()
+    if (!admin.ok) return admin.response
+
     const url = new URL(request.url)
     const table = url.searchParams.get('table')
     const limit = Math.min(parseInt(url.searchParams.get('limit') ?? '50', 10), 200)
@@ -33,6 +37,9 @@ export async function GET(request: Request) {
 
 export async function POST(request: Request) {
   try {
+    const admin = await requireAdmin()
+    if (!admin.ok) return admin.response
+
     const body = await request.json() as { action?: string; table?: string; id?: string }
     const { action, table, id } = body
 
