@@ -381,6 +381,18 @@ export default function Page() {
       setText('.stats .stat:nth-child(4) .stat-num', seller.wa_click_count ?? 0)
       setHtml('.cat-filter', renderCategoryTabs(sellerProducts))
       setHtml('.produk-list', renderProductCards(sellerProducts))
+
+      // Attach filter listeners directly to each tab button
+      document.querySelectorAll<HTMLElement>('.cat-filter .cat-tab').forEach((btn) => {
+        btn.addEventListener('click', () => {
+          document.querySelectorAll<HTMLElement>('.cat-filter .cat-tab').forEach((t) => t.classList.remove('active'))
+          btn.classList.add('active')
+          const cat = btn.textContent?.trim() ?? ''
+          document.querySelectorAll<HTMLElement>('.produk-card').forEach((card) => {
+            card.style.display = (!cat || cat === 'Semua' || card.getAttribute('data-category') === cat) ? '' : 'none'
+          })
+        })
+      })
       setText('.testi-count', `${sellerTestimonials.length} ulasan`)
       setHtml('.testi-inner', renderTestimonials(sellerTestimonials))
       // WhatsApp CTA button
