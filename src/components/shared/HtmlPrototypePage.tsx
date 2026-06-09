@@ -183,6 +183,27 @@ export function HtmlPrototypePage({
     }
   }, [externalScripts, scripts])
 
+  useEffect(() => {
+    function handleCatTabClick(e: Event) {
+      const target = e.target as HTMLElement
+      const tab = target.closest<HTMLElement>('.cat-tab, .pill')
+      if (!tab) return
+      const group = tab.closest('.cat-filter, .filter-row')
+      group?.querySelectorAll<HTMLElement>('.cat-tab, .pill').forEach((item) => item.classList.remove('active'))
+      tab.classList.add('active')
+      const cat = tab.textContent?.trim() ?? ''
+      document.querySelectorAll<HTMLElement>('.produk-card').forEach((card) => {
+        if (!cat || cat === 'Semua') {
+          card.style.display = ''
+        } else {
+          card.style.display = card.getAttribute('data-category') === cat ? '' : 'none'
+        }
+      })
+    }
+    document.addEventListener('click', handleCatTabClick)
+    return () => document.removeEventListener('click', handleCatTabClick)
+  }, [])
+
   function handleClick(event: MouseEvent<HTMLDivElement>) {
     const target = event.target as HTMLElement
 
@@ -193,22 +214,6 @@ export function HtmlPrototypePage({
 
     if (target.closest('.sokong-btn')) {
       window.location.href = '/sokong'
-      return
-    }
-
-    const tab = target.closest<HTMLElement>('.cat-tab, .pill')
-    if (tab) {
-      const group = tab.closest('.cat-filter, .filter-row')
-      group?.querySelectorAll('.cat-tab, .pill').forEach((item) => item.classList.remove('active'))
-      tab.classList.add('active')
-      const cat = tab.textContent?.trim() ?? ''
-      document.querySelectorAll<HTMLElement>('.produk-card').forEach((card) => {
-        if (!cat || cat === 'Semua') {
-          card.style.display = ''
-        } else {
-          card.style.display = card.getAttribute('data-category') === cat ? '' : 'none'
-        }
-      })
       return
     }
 
