@@ -88,8 +88,9 @@ function renderProductCards(products: Product[]) {
 
 function renderCategoryTabs(products: Product[]) {
   const categories = Array.from(new Set(products.map((product) => product.category).filter(Boolean)))
+  const onclick = `document.querySelectorAll('.cat-filter .cat-tab').forEach(function(t){t.classList.remove('active')});this.classList.add('active');var cat=this.getAttribute('data-cat');document.querySelectorAll('.produk-card').forEach(function(c){c.classList.toggle('cat-hidden',cat!=='Semua'&amp;&amp;c.getAttribute('data-category')!==cat)})`
   return ['Semua', ...categories].map((category, index) => (
-    `<button class="cat-tab${index === 0 ? ' active' : ''}">${escapeHtml(category)}</button>`
+    `<button class="cat-tab${index === 0 ? ' active' : ''}" data-cat="${escapeHtml(category)}" onclick="${onclick}">${escapeHtml(category)}</button>`
   )).join('')
 }
 
@@ -301,6 +302,7 @@ const uxStyles = `
 .produk-price-mini{font-size:13px;font-weight:800;color:#fff;margin-bottom:3px;line-height:1.2}
 .produk-price-mini span{font-size:11px;font-weight:700;color:rgba(255,255,255,0.78)}
 .produk-price-mini.muted{font-size:12px;color:rgba(255,255,255,0.72)}
+.cat-hidden{display:none!important}
 `
 
 export default function Page() {
@@ -382,17 +384,6 @@ export default function Page() {
       setHtml('.cat-filter', renderCategoryTabs(sellerProducts))
       setHtml('.produk-list', renderProductCards(sellerProducts))
 
-      // Attach filter listeners directly to each tab button
-      document.querySelectorAll<HTMLElement>('.cat-filter .cat-tab').forEach((btn) => {
-        btn.addEventListener('click', () => {
-          document.querySelectorAll<HTMLElement>('.cat-filter .cat-tab').forEach((t) => t.classList.remove('active'))
-          btn.classList.add('active')
-          const cat = btn.textContent?.trim() ?? ''
-          document.querySelectorAll<HTMLElement>('.produk-card').forEach((card) => {
-            card.style.display = (!cat || cat === 'Semua' || card.getAttribute('data-category') === cat) ? '' : 'none'
-          })
-        })
-      })
       setText('.testi-count', `${sellerTestimonials.length} ulasan`)
       setHtml('.testi-inner', renderTestimonials(sellerTestimonials))
       // WhatsApp CTA button
