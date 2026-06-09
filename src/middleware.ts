@@ -1,6 +1,35 @@
 import { createServerClient, type CookieOptions } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
 
+const protectedPathPrefixes = [
+  '/alamat',
+  '/dashboard',
+  '/home',
+  '/inbox',
+  '/notifikasi',
+  '/onboarding/step2',
+  '/onboarding/step3',
+  '/produk',
+  '/profile',
+  '/saved',
+  '/seller',
+  '/shop',
+  '/testimoni',
+  '/testimonials',
+]
+
+function isProtectedPath(pathname: string) {
+  return protectedPathPrefixes.some((path) => pathname === path || pathname.startsWith(`${path}/`))
+}
+
+function redirectToAuth(request: NextRequest) {
+  const url = request.nextUrl.clone()
+  url.pathname = '/auth'
+  url.search = ''
+  url.searchParams.set('next', `${request.nextUrl.pathname}${request.nextUrl.search}`)
+  return NextResponse.redirect(url)
+}
+
 export async function middleware(request: NextRequest) {
   let response = NextResponse.next({
     request: {
@@ -11,10 +40,9 @@ export async function middleware(request: NextRequest) {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
   const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
 
-  // If env vars are missing, pass the request through rather than crashing.
   if (!supabaseUrl || !supabaseAnonKey) {
-    console.error('middleware: missing Supabase env vars — skipping auth refresh')
-    return response
+    console.error('middleware: missing Supabase env vars; skipping auth refresh')
+    return isProtectedPath(request.nextUrl.pathname) ? redirectToAuth(request) : response
   }
 
   try {
@@ -56,10 +84,18 @@ export async function middleware(request: NextRequest) {
       },
     )
 
-    await supabase.auth.getUser()
+    const {
+      data: { user },
+    } = await supabase.auth.getUser()
+
+    if (isProtectedPath(request.nextUrl.pathname) && !user) {
+      return redirectToAuth(request)
+    }
   } catch (err) {
-    // Never let middleware crash a request — log and pass through.
     console.error('middleware: Supabase auth refresh failed', err)
+    if (isProtectedPath(request.nextUrl.pathname)) {
+      return redirectToAuth(request)
+    }
   }
 
   return response
