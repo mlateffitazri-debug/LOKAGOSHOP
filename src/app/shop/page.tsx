@@ -89,7 +89,7 @@ function renderProductCards(products: Product[]) {
 function renderCategoryTabs(products: Product[]) {
   const categories = Array.from(new Set(products.map((product) => product.category).filter(Boolean)))
   return ['Semua', ...categories].map((category, index) => (
-    `<button class="cat-tab${index === 0 ? ' active' : ''}" onclick="filterTab(this)">${escapeHtml(category)}</button>`
+    `<button class="cat-tab${index === 0 ? ' active' : ''}">${escapeHtml(category)}</button>`
   )).join('')
 }
 
@@ -294,18 +294,6 @@ function toggleTesti(header) {
   chevron.classList.toggle('open');
 }
 
-function filterTab(el) {
-  document.querySelectorAll('.cat-tab').forEach(t => t.classList.remove('active'));
-  el.classList.add('active');
-  var cat = el.textContent.trim();
-  document.querySelectorAll('.produk-card').forEach(function(card) {
-    if (cat === 'Semua') {
-      card.style.display = '';
-    } else {
-      card.style.display = card.getAttribute('data-category') === cat ? '' : 'none';
-    }
-  });
-}
 `]
 const externalScripts: string[] = ["https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"]
 const externalStylesheets: string[] = ["https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"]
