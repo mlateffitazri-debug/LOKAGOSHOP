@@ -712,7 +712,7 @@ function loadDbTable(table) {
           else val = String(val).slice(0,40);
           html += '<td class="td-cell" title="'+String(row[col]||'')+'">'+val+'</td>';
         });
-        html += '<td><button class="act-btn btn-red" onclick="deleteDbRow(\''+row.id+'\')">✕</button></td></tr>';
+        html += '<td><button class="act-btn btn-red" data-id="'+row.id+'" onclick="deleteDbRow(this.dataset.id)">Del</button></td></tr>';
       });
       html += '</tbody></table></div>';
       setHtml('db-content', html);
