@@ -201,6 +201,14 @@ export function HtmlPrototypePage({
       const group = tab.closest('.cat-filter, .filter-row')
       group?.querySelectorAll('.cat-tab, .pill').forEach((item) => item.classList.remove('active'))
       tab.classList.add('active')
+      const cat = tab.textContent?.trim() ?? ''
+      document.querySelectorAll<HTMLElement>('.produk-card').forEach((card) => {
+        if (!cat || cat === 'Semua') {
+          card.style.display = ''
+        } else {
+          card.style.display = card.getAttribute('data-category') === cat ? '' : 'none'
+        }
+      })
       return
     }
 
