@@ -413,6 +413,14 @@ function setHtml(id, v) {
   if (el) el.innerHTML = v;
 }
 
+function adminActionCall(type, id, action) {
+  return "adminAction('" + type + "','" + id + "','" + action + "')";
+}
+
+function adminDeleteCall(type, id, label) {
+  return "adminDelete('" + type + "','" + id + "','" + label + "')";
+}
+
 function adminAction(type, id, action) {
   fetch('/api/admin/moderation', {
     method: 'PATCH',
@@ -424,6 +432,11 @@ function adminAction(type, id, action) {
   }).catch(function(e){ alert('Ralat rangkaian: ' + e.message); });
 }
 
+function adminDelete(type, id, label) {
+  if (confirm('Padam ' + label + ' ini?')) adminAction(type, id, 'delete');
+}
+
+/*
 function renderSellers() {
   if (!_data) return;
   var sellers = _data.sellers || [];
@@ -505,6 +518,105 @@ function renderTesti() {
     var delBtn = '<button class="act-btn btn-red" onclick="if(confirm(\'Padam testimoni ini?\'))adminAction(\'testimonial\',\''+t.id+'\',\'delete\')">✕</button>';
     return '<tr><td class="td-cell">'+buyer+'</td><td class="td-cell">'+shop+'</td>' +
       '<td class="td-name" title="'+(t.content||'')+'">'+content+'…</td>' +
+      '<td class="td-center" style="color:#F0A500;">'+rating+'</td>' +
+      '<td class="td-center">'+approved+'</td>' +
+      '<td class="td-actions">'+approveBtn+delBtn+'</td></tr>';
+  }).join('');
+  setHtml('testi-tbody', html);
+}
+
+*/
+
+function renderSellers() {
+  if (!_data) return;
+  var sellers = _data.sellers || [];
+  var filtered = _sellersFilter === 'all' ? sellers : sellers.filter(function(s){
+    var st = s.status || (s.permanent_ban ? 'suspended' : 'pending');
+    return st === _sellersFilter;
+  });
+  setText('sellers-count', filtered.length + ' rekod');
+  if (!filtered.length) {
+    setHtml('sellers-tbody', '<tr><td colspan="7" style="text-align:center;color:#bbb;padding:20px;font-size:12px;">Tiada rekod</td></tr>');
+    return;
+  }
+  var html = filtered.map(function(s) {
+    var status = s.status || (s.permanent_ban ? 'suspended' : 'pending');
+    var badge = s.badge || 'seller_baharu';
+    var badgeLabel = badge === 'verified' || badge === 'verified_seller'
+      ? '<span style="color:#3B6D11;font-weight:700;">Verified</span>'
+      : badge === 'seller_aktif'
+        ? '<span style="color:#185FA5;font-weight:700;">Aktif</span>'
+        : '<span style="color:#888;font-weight:700;">Baharu</span>';
+    var approveBtn = status === 'pending' ? '<button class="act-btn btn-green" onclick="'+adminActionCall('seller', s.id, 'approve')+'">OK</button>' : '';
+    var suspendBtn = status === 'active'
+      ? '<button class="act-btn btn-orange" onclick="'+adminActionCall('seller', s.id, 'suspend')+'">Ban</button>'
+      : status === 'suspended'
+        ? '<button class="act-btn btn-blue" onclick="'+adminActionCall('seller', s.id, 'unsuspend')+'">On</button>'
+        : '';
+    var delBtn = '<button class="act-btn btn-red" onclick="'+adminDeleteCall('seller', s.id, 'seller')+'">Del</button>';
+    var nextBadge = badge === 'seller_baharu' ? 'badge_aktif' : badge === 'seller_aktif' ? 'badge_verified' : 'badge_baharu';
+    var nextLbl = nextBadge === 'badge_aktif' ? 'B-A' : nextBadge === 'badge_verified' ? 'A-V' : 'V-B';
+    var badgeBtn = '<button class="act-btn btn-badge" title="Naik badge" onclick="'+adminActionCall('seller', s.id, nextBadge)+'">'+nextLbl+'</button>';
+    var shopName = (s.shop_name || s.name || '-').toString().slice(0,22);
+    var kawasan = (s.kawasan || '-').toString().slice(0,14);
+    var created = s.created_at ? new Date(s.created_at).toLocaleDateString('ms-MY',{day:'numeric',month:'short',year:'2-digit'}) : '-';
+    return '<tr data-id="'+s.id+'" data-status="'+status+'">' +
+      '<td class="td-name" title="'+(s.shop_name||s.name||'')+'">'+shopName+'</td>' +
+      '<td class="td-cell">'+kawasan+'</td>' +
+      '<td class="td-center">'+badgeLabel+'</td>' +
+      '<td class="td-center">'+(s.is_open ? '<span style="color:#3B6D11">open</span>' : '<span style="color:#bbb">closed</span>')+'</td>' +
+      '<td class="td-center"><span class="status-pill '+(status==='active'?'pill-active':status==='pending'?'pill-pending':'pill-suspended')+'">'+status+'</span></td>' +
+      '<td class="td-cell">'+created+'</td>' +
+      '<td class="td-actions">'+approveBtn+suspendBtn+delBtn+badgeBtn+'</td>' +
+      '</tr>';
+  }).join('');
+  setHtml('sellers-tbody', html);
+}
+
+function renderBuyers() {
+  if (!_data) return;
+  var buyers = _data.buyers || [];
+  setText('buyers-count', buyers.length + ' total');
+  if (!buyers.length) {
+    setHtml('buyers-tbody', '<tr><td colspan="5" style="text-align:center;color:#bbb;padding:20px;font-size:12px;">Tiada rekod</td></tr>');
+    return;
+  }
+  var html = buyers.map(function(b) {
+    var name = (b.name || '-').toString().slice(0,20);
+    var email = (b.email || '-').toString().slice(0,22);
+    var kawasan = (b.kawasan || '-').toString().slice(0,14);
+    var created = b.created_at ? new Date(b.created_at).toLocaleDateString('ms-MY',{day:'numeric',month:'short',year:'2-digit'}) : '-';
+    return '<tr><td class="td-name">'+name+'</td><td class="td-cell" title="'+(b.email||'')+'">'+email+'</td>' +
+      '<td class="td-cell">'+kawasan+'</td><td class="td-cell">'+created+'</td>' +
+      '<td class="td-actions"><button class="act-btn btn-red" onclick="'+adminDeleteCall('buyer', b.id, 'buyer')+'">Del</button></td></tr>';
+  }).join('');
+  setHtml('buyers-tbody', html);
+}
+
+function renderTesti() {
+  if (!_data) return;
+  var all = _data.testimonials || [];
+  var filtered = _testiFilter === 'all' ? all :
+    _testiFilter === 'pending' ? all.filter(function(t){ return !t.is_approved; }) :
+    all.filter(function(t){ return t.is_approved; });
+  setText('testi-count', filtered.length + ' rekod');
+  if (!filtered.length) {
+    setHtml('testi-tbody', '<tr><td colspan="6" style="text-align:center;color:#bbb;padding:20px;font-size:12px;">Tiada rekod</td></tr>');
+    return;
+  }
+  var sellers = _data.sellers || [];
+  var sellerMap = {};
+  sellers.forEach(function(s){ sellerMap[s.id] = s.shop_name || s.name || '-'; });
+  var html = filtered.map(function(t) {
+    var shop = (sellerMap[t.seller_id] || '-').toString().slice(0,16);
+    var buyer = (t.buyer_name || '-').toString().slice(0,16);
+    var content = (t.content || '-').toString().slice(0,30);
+    var rating = 'star '.repeat(t.rating || 0);
+    var approved = t.is_approved ? '<span style="color:#3B6D11;font-weight:700;font-size:10px;">Approved</span>' : '<span style="color:#856404;font-weight:700;font-size:10px;">Pending</span>';
+    var approveBtn = !t.is_approved ? '<button class="act-btn btn-green" onclick="'+adminActionCall('testimonial', t.id, 'approve')+'">OK</button>' : '';
+    var delBtn = '<button class="act-btn btn-red" onclick="'+adminDeleteCall('testimonial', t.id, 'testimoni')+'">Del</button>';
+    return '<tr><td class="td-cell">'+buyer+'</td><td class="td-cell">'+shop+'</td>' +
+      '<td class="td-name" title="'+(t.content||'')+'">'+content+'</td>' +
       '<td class="td-center" style="color:#F0A500;">'+rating+'</td>' +
       '<td class="td-center">'+approved+'</td>' +
       '<td class="td-actions">'+approveBtn+delBtn+'</td></tr>';

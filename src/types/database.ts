@@ -29,9 +29,11 @@ export interface Seller {
 export interface Product {
   id: string
   seller_id: string
+  name?: string | null
   category: string
   description: string | null
   price_from: number | null
+  unit?: string | null
   images: string[]
   is_available: boolean
   is_preorder: boolean

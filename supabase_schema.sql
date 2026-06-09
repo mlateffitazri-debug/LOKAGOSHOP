@@ -43,9 +43,11 @@ create table sellers (
 create table products (
   id uuid primary key default gen_random_uuid(),
   seller_id uuid references sellers(id) on delete cascade,
+  name text,
   category text not null,
   description text,
   price_from decimal(10,2),
+  unit text,
   images text[] default '{}',
   is_available boolean default true,
   is_preorder boolean default false,

@@ -77,7 +77,11 @@ function productName(product: ProductRow) {
 }
 
 function productUnit(product: ProductRow) {
-  return optionalString(product, ['unit', 'unit_label', 'selling_unit']) || 'unit'
+  const configured = optionalString(product, ['unit', 'unit_label', 'selling_unit'])
+  if (configured) return configured
+
+  const descriptionUnit = product.description?.match(/\/\s*([A-Za-zÀ-ÿ]+(?:\s+[A-Za-zÀ-ÿ]+)?)/)?.[1]
+  return descriptionUnit?.trim() || 'unit'
 }
 
 function productPrice(product: ProductRow) {

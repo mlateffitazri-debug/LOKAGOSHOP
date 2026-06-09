@@ -30,6 +30,19 @@ function redirectToAuth(request: NextRequest) {
   return NextResponse.redirect(url)
 }
 
+function clearSupabaseAuthCookies(request: NextRequest, response: NextResponse) {
+  request.cookies.getAll().forEach((cookie) => {
+    if (!cookie.name.startsWith('sb-')) return
+    request.cookies.set(cookie.name, '')
+    response.cookies.set(cookie.name, '', {
+      path: '/',
+      sameSite: 'lax',
+      secure: process.env.NODE_ENV === 'production',
+      maxAge: 0,
+    })
+  })
+}
+
 export async function middleware(request: NextRequest) {
   let response = NextResponse.next({
     request: {
@@ -92,7 +105,11 @@ export async function middleware(request: NextRequest) {
       return redirectToAuth(request)
     }
   } catch (err) {
-    console.error('middleware: Supabase auth refresh failed', err)
+    const message = err instanceof Error ? err.message : String(err)
+    if (!message.toLowerCase().includes('refresh token')) {
+      console.error('middleware: Supabase auth refresh failed', err)
+    }
+    clearSupabaseAuthCookies(request, response)
     if (isProtectedPath(request.nextUrl.pathname)) {
       return redirectToAuth(request)
     }
