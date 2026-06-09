@@ -1,3 +1,14 @@
+export const PRODUCT_CATEGORIES = [
+  'Pastri & Kek',
+  'Set Makanan & Lauk',
+  'Frozen & Simpanan',
+  'Minuman',
+  'Fresh & Semulajadi',
+  'Snek',
+] as const
+
+export type ProductCategory = typeof PRODUCT_CATEGORIES[number]
+
 export type BadgeLevel = 'seller_baharu' | 'seller_aktif' | 'verified_seller'
 export type ShopStatus = 'pending' | 'active' | 'suspended' | 'rejected'
 export type AppealStatus = 'pending' | 'approved' | 'rejected'
