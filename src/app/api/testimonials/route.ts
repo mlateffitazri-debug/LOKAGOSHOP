@@ -23,6 +23,21 @@ export async function POST(request: Request) {
     }
 
     const supabase = createAdminClient()
+
+    const { data: seller, error: sellerError } = await supabase
+      .from('sellers')
+      .select('id')
+      .eq('id', body.seller_id)
+      .maybeSingle()
+
+    if (sellerError) {
+      return NextResponse.json({ error: 'Unable to verify seller' }, { status: 500 })
+    }
+
+    if (!seller) {
+      return NextResponse.json({ error: 'Seller not found' }, { status: 404 })
+    }
+
     const { error } = await supabase.from('testimonials').insert({
       seller_id: body.seller_id,
       buyer_name: body.buyer_name?.trim() || 'Pembeli LokalGo',

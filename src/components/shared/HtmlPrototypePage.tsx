@@ -93,6 +93,11 @@ function normalizeScript(script: string) {
     'setTimeout(function() {$1}, 0);',
   )
 
+  normalized = normalized.replace(
+    /^function\s+([A-Za-z_$][\w$]*)\s*\(/gm,
+    'window.$1 = function $1(',
+  )
+
   return normalized
 }
 
@@ -183,6 +188,44 @@ export function HtmlPrototypePage({
 
     if (target.closest('.lang-btn')) {
       toggle()
+      return
+    }
+
+    if (target.closest('.sokong-btn')) {
+      window.location.href = '/sokong'
+      return
+    }
+
+    const tab = target.closest<HTMLElement>('.cat-tab, .pill')
+    if (tab) {
+      const group = tab.closest('.cat-filter, .filter-row')
+      group?.querySelectorAll('.cat-tab, .pill').forEach((item) => item.classList.remove('active'))
+      tab.classList.add('active')
+      return
+    }
+
+    if (target.closest('.submit-btn') && document.querySelector('.form-card')) {
+      window.setTimeout(() => {
+        const existing = document.querySelector<HTMLElement>('.form-message')
+        if (existing && existing.style.display !== 'none' && existing.textContent?.trim()) return
+
+        const formCard = document.querySelector<HTMLElement>('.form-card')
+        if (!formCard) return
+
+        const fields = document.querySelectorAll<HTMLInputElement | HTMLTextAreaElement>('.field-input')
+        const content = fields[2]?.value.trim()
+        const message = existing || document.createElement('div')
+        message.className = 'form-message error'
+        message.textContent = content
+          ? 'Seller tidak ditemui. Sila buka borang testimoni dari halaman kedai.'
+          : 'Sila tulis ulasan anda dahulu.'
+        message.setAttribute(
+          'style',
+          'display:block;margin:12px 24px 0;border-radius:12px;padding:11px 13px;font-size:13px;font-weight:700;line-height:1.4;background:#fff0f3;color:#7B1533;border:1px solid #f3c4d2;',
+        )
+
+        if (!existing) formCard.insertAdjacentElement('afterend', message)
+      }, 50)
     }
   }
 

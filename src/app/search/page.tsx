@@ -34,6 +34,11 @@ const markup = "\u003cdiv class=\"phone\"\u003e\n \u003cdiv class=\"scroll-area\
 const scripts: string[] = []
 const externalScripts: string[] = []
 const externalStylesheets: string[] = []
+const uxStyles = `
+.back-btn,.clear-btn,.icon-btn{min-width:44px;min-height:44px}
+.pill{min-height:44px;display:flex;align-items:center;font-weight:700}
+.shop-card{cursor:pointer}
+`
 
 export default function Page() {
   useEffect(() => {
@@ -61,7 +66,7 @@ export default function Page() {
 
       if (filterRow) {
         filterRow.innerHTML = categories
-          .map((category) => `<div class="pill ${category === selectedCategory ? 'active' : ''}" data-category="${category}">${category}</div>`)
+          .map((category) => `<button type="button" class="pill ${category === selectedCategory ? 'active' : ''}" data-category="${category}">${category}</button>`)
           .join('')
 
         filterRow.querySelectorAll<HTMLElement>('.pill').forEach((pill) => {
@@ -139,12 +144,16 @@ export default function Page() {
       void search()
     })
 
+    document.querySelector<HTMLElement>('.back-btn')?.addEventListener('click', () => {
+      window.location.href = '/home'
+    })
+
     loadCategories().then(search).catch(console.error)
   }, [])
 
   return (
     <HtmlPrototypePage
-      styles={styles}
+      styles={`${styles}${uxStyles}`}
       markup={markup}
       scripts={scripts}
       externalScripts={externalScripts}

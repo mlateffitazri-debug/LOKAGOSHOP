@@ -19,6 +19,14 @@ const markup = "\u003cdiv class=\"page\"\u003e\n\u003cdiv class=\"scroll\"\u003e
 const scripts: string[] = ["var currentRating = 4;\nvar labels = [\u0027\u0027,\u0027Kurang baik\u0027,\u0027Boleh tahan\u0027,\u0027Bagus\u0027,\u0027Sangat baik!\u0027,\u0027Terbaik! ⭐\u0027];\n\nfunction setRating(n) {\n  currentRating = n;\n  var stars = document.querySelectorAll(\u0027.star svg\u0027);\n  stars.forEach(function(s, i) {\n    s.setAttribute(\u0027fill\u0027, i \u003c n ? \u0027#F0C040\u0027 : \u0027rgba(255,255,255,0.25)\u0027);\n  });\n  document.getElementById(\u0027ratingDesc\u0027).textContent = labels[n];\n}"]
 const externalScripts: string[] = []
 const externalStylesheets: string[] = ["https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800\u0026display=swap"]
+const uxStyles = `
+.back-btn,.sokong-btn,.star{min-width:44px;min-height:44px}
+.form-message{margin:12px 24px 0;border-radius:12px;padding:11px 13px;font-size:13px;font-weight:700;line-height:1.4}
+.form-message.error{background:#fff0f3;color:#7B1533;border:1px solid #f3c4d2}
+.form-message.success{background:#edf8df;color:#3d7520;border:1px solid #cfe9b6}
+.field-input.invalid{box-shadow:0 0 0 2px #f3c4d2}
+.submit-btn:disabled{opacity:.7;cursor:not-allowed}
+`
 
 export default function Page() {
   useEffect(() => {
@@ -27,6 +35,21 @@ export default function Page() {
     const params = new URLSearchParams(window.location.search)
     const sellerId = params.get('seller') || params.get('seller_id') || params.get('shop') || params.get('id')
     const submitButton = document.querySelector<HTMLButtonElement>('.submit-btn')
+    const formCard = document.querySelector<HTMLElement>('.form-card')
+    const message = document.createElement('div')
+    message.className = 'form-message'
+    message.style.display = 'none'
+    formCard?.insertAdjacentElement('afterend', message)
+
+    function showMessage(text: string, type: 'error' | 'success' = 'error') {
+      message.textContent = text
+      message.className = `form-message ${type}`
+      message.style.display = 'block'
+    }
+
+    document.querySelector<HTMLButtonElement>('.sokong-btn')?.addEventListener('click', () => {
+      window.location.href = '/sokong'
+    })
 
     async function loadSeller() {
       if (!sellerId) return
@@ -50,7 +73,7 @@ export default function Page() {
 
     async function submitTestimonial() {
       if (!currentSeller?.id) {
-        alert('Seller tidak ditemui. Sila buka borang dari halaman kedai.')
+        showMessage('Seller tidak ditemui. Sila buka borang testimoni dari halaman kedai.')
         return
       }
 
@@ -61,11 +84,14 @@ export default function Page() {
       const rating = (window as TestimoniWindow).currentRating || 4
 
       if (!content) {
-        alert('Sila tulis ulasan anda dahulu.')
+        fields[2]?.classList.add('invalid')
+        showMessage('Sila tulis ulasan anda dahulu.')
         return
       }
 
+      fields[2]?.classList.remove('invalid')
       submitButton?.setAttribute('disabled', 'true')
+      if (submitButton) submitButton.textContent = 'Menghantar...'
 
       const response = await fetch('/api/testimonials', {
         method: 'POST',
@@ -81,13 +107,14 @@ export default function Page() {
       const payload = (await response.json()) as { error?: string }
 
       submitButton?.removeAttribute('disabled')
+      if (submitButton) submitButton.textContent = 'Hantar testimoni'
 
       if (!response.ok) {
-        alert(payload.error || 'Testimoni tidak dapat dihantar.')
+        showMessage(payload.error || 'Testimoni tidak dapat dihantar.')
         return
       }
 
-      alert('Terima kasih. Testimoni anda akan dipaparkan selepas diluluskan admin.')
+      showMessage('Terima kasih. Testimoni anda akan dipaparkan selepas diluluskan admin.', 'success')
       window.location.href = `/shop?seller=${currentSeller.id}`
     }
 
@@ -96,12 +123,13 @@ export default function Page() {
 
     return () => {
       submitButton?.removeEventListener('click', submitTestimonial)
+      message.remove()
     }
   }, [])
 
   return (
     <HtmlPrototypePage
-      styles={styles}
+      styles={`${styles}${uxStyles}`}
       markup={markup}
       scripts={scripts}
       externalScripts={externalScripts}
