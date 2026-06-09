@@ -297,6 +297,14 @@ function toggleTesti(header) {
 function filterTab(el) {
   document.querySelectorAll('.cat-tab').forEach(t => t.classList.remove('active'));
   el.classList.add('active');
+  var cat = el.textContent.trim();
+  document.querySelectorAll('.produk-card').forEach(function(card) {
+    if (cat === 'Semua') {
+      card.style.display = '';
+    } else {
+      card.style.display = card.getAttribute('data-category') === cat ? '' : 'none';
+    }
+  });
 }
 `]
 const externalScripts: string[] = ["https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"]
