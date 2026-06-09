@@ -6,6 +6,7 @@ import { createClient } from '@/lib/supabase/client'
 import type { Product, Seller, Testimonial } from '@/types/database'
 
 type SellerWithCoordinates = Seller & Record<string, unknown>
+type ProductRow = Product & Record<string, unknown>
 type ShopWindow = Window & {
   __renderShopMap?: (sellerLat: number, sellerLng: number, shopName: string, tamanName: string) => void
 }
@@ -29,15 +30,44 @@ function productStatus(product: Product) {
   return { className: 's-unavail', label: 'Produk Tidak Tersedia' }
 }
 
+function optionalString(row: Record<string, unknown>, keys: string[]) {
+  for (const key of keys) {
+    const value = row[key]
+    if (typeof value === 'string' && value.trim()) return value.trim()
+  }
+  return null
+}
+
+function productName(product: ProductRow) {
+  return optionalString(product, ['name', 'product_name', 'title']) || product.category || 'Produk'
+}
+
+function productUnit(product: ProductRow) {
+  return optionalString(product, ['unit', 'unit_label', 'selling_unit']) || 'unit'
+}
+
+function productPrice(product: ProductRow) {
+  const raw = product.price ?? product.price_from
+  const value = typeof raw === 'number' ? raw : typeof raw === 'string' ? Number(raw) : Number.NaN
+  return Number.isFinite(value) && value > 0 ? value : 0
+}
+
 function renderProductCards(products: Product[]) {
   if (products.length === 0) {
     return '<div style="background:#fff;border-radius:12px;padding:18px;text-align:center;color:#888;font-size:13px;">Belum ada produk diluluskan.</div>'
   }
 
   return products.map((product, index) => {
+    const row = product as ProductRow
     const status = productStatus(product)
-    const description = product.description || product.category
+    const name = productName(row)
+    const unit = productUnit(row)
+    const price = productPrice(row)
+    const description = product.description || name
     const image = product.images?.[0]
+    const priceHtml = price
+      ? `<div class="produk-price-mini">RM${price.toFixed(2)}<span>/${escapeHtml(unit)}</span></div>`
+      : '<div class="produk-price-mini muted">Harga ikut pesanan</div>'
     const imageHtml = image
       ? `<img src="${escapeHtml(image)}" alt="" style="width:100%;height:100%;object-fit:cover;">`
       : '<svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.22)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>'
@@ -45,7 +75,7 @@ function renderProductCards(products: Product[]) {
     return `<div class="produk-card" data-category="${escapeHtml(product.category)}" onclick="window.location.href='/produk?product=${escapeHtml(product.id)}&seller=${escapeHtml(product.seller_id)}'">
     <div class="produk-img pi${(index % 3) + 1}">${imageHtml}</div>
     <div class="produk-body">
-      <div class="produk-info"><div class="produk-name">${escapeHtml(product.category)}</div><div class="produk-desc">${escapeHtml(description)}</div></div>
+      <div class="produk-info"><div class="produk-name">${escapeHtml(name)}</div>${priceHtml}<div class="produk-desc">${escapeHtml(description)}</div></div>
       <div class="produk-footer"><span class="produk-status ${status.className}">${status.label}</span></div>
     </div>
   </div>`
@@ -267,6 +297,11 @@ function filterTab(el) {
 `]
 const externalScripts: string[] = ["https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"]
 const externalStylesheets: string[] = ["https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"]
+const uxStyles = `
+.produk-price-mini{font-size:13px;font-weight:800;color:#fff;margin-bottom:3px;line-height:1.2}
+.produk-price-mini span{font-size:11px;font-weight:700;color:rgba(255,255,255,0.78)}
+.produk-price-mini.muted{font-size:12px;color:rgba(255,255,255,0.72)}
+`
 
 export default function Page() {
   useEffect(() => {
@@ -471,7 +506,7 @@ export default function Page() {
 
   return (
     <HtmlPrototypePage
-      styles={styles}
+      styles={`${styles}${uxStyles}`}
       markup={markup}
       scripts={scripts}
       externalScripts={externalScripts}

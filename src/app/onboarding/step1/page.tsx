@@ -199,7 +199,7 @@ export default function Page() {
     async function checkAuth() {
       const { data: { user } } = await supabase.auth.getUser()
       if (cancelled) return
-      if (!user) { window.location.href = '/auth'; return }
+      if (!user) return
       const { data: seller } = await supabase
         .from('sellers').select('id').eq('user_id', user.id).maybeSingle()
       if (cancelled) return

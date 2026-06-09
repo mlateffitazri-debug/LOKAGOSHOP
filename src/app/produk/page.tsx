@@ -37,6 +37,206 @@ function statusBadge(product: Product) {
   return { className: 'badge-unavail', label: 'Tidak Tersedia' }
 }
 
+type ProductRow = Product & Record<string, unknown>
+
+type BuyerProfile = {
+  name: string | null
+  whatsapp_number: string | null
+  address_rumah: string | null
+  address_pejabat: string | null
+}
+
+type CartItem = {
+  sellerId: string
+  sellerName: string
+  sellerWhatsapp: string
+  shopUrl: string
+  productId: string
+  name: string
+  unit: string
+  price: number
+  qty: number
+  pickupDate: string | null
+  isPreorder: boolean
+}
+
+type ProductContext = Pick<CartItem, 'sellerId' | 'sellerName' | 'sellerWhatsapp' | 'shopUrl' | 'productId' | 'name' | 'unit' | 'price'>
+
+const CART_KEY = 'lokalgo_cart_v1'
+
+function optionalString(row: Record<string, unknown>, keys: string[]) {
+  for (const key of keys) {
+    const value = row[key]
+    if (typeof value === 'string' && value.trim()) return value.trim()
+  }
+  return null
+}
+
+function productName(product: ProductRow) {
+  return optionalString(product, ['name', 'product_name', 'title']) || product.category || 'Produk'
+}
+
+function productUnit(product: ProductRow) {
+  return optionalString(product, ['unit', 'unit_label', 'selling_unit']) || 'unit'
+}
+
+function productPrice(product: ProductRow) {
+  const raw = product.price ?? product.price_from
+  const value = typeof raw === 'number' ? raw : typeof raw === 'string' ? Number(raw) : Number.NaN
+  return Number.isFinite(value) && value > 0 ? value : 0
+}
+
+function money(value: number) {
+  return value.toFixed(2)
+}
+
+function readCart() {
+  try {
+    const parsed = JSON.parse(window.localStorage.getItem(CART_KEY) || '[]')
+    return Array.isArray(parsed) ? parsed.filter((item): item is CartItem => Boolean(item?.sellerId && item?.productId)) : []
+  } catch {
+    return []
+  }
+}
+
+function writeCart(items: CartItem[]) {
+  window.localStorage.setItem(CART_KEY, JSON.stringify(items))
+}
+
+function cartSubtotal(items: CartItem[]) {
+  return items.reduce((sum, item) => sum + item.price * item.qty, 0)
+}
+
+function renderCartFlow(runtime: ProductWindow, buyer: BuyerProfile | null, trackWhatsAppClick: () => void) {
+  const currentSellerId = runtime.__lokalgoProductContext?.sellerId
+  const cart = readCart().filter((item) => !currentSellerId || item.sellerId === currentSellerId)
+  const cartBar = document.getElementById('cartBar')
+  const orderPreview = document.getElementById('orderPreview')
+  const list = document.getElementById('orderItemsList')
+  const totalQty = cart.reduce((sum, item) => sum + item.qty, 0)
+
+  if (!cartBar || !orderPreview || !list) return
+
+  if (cart.length === 0) {
+    cartBar.classList.remove('visible')
+    orderPreview.style.display = 'none'
+    list.innerHTML = ''
+    return
+  }
+
+  cartBar.classList.add('visible')
+  orderPreview.style.display = 'block'
+  setText('#cartCount', `${totalQty} item dalam pesanan`)
+  setText('#cartPreview', `Subtotal RM${money(cartSubtotal(cart))}`)
+  list.innerHTML = cart.map((item, idx) => `
+    <div class="order-item">
+      <div>
+        <div class="order-item-name">${escapeHtml(item.name)}</div>
+        <div class="order-item-qty">x${item.qty} - RM${money(item.price * item.qty)} (RM${money(item.price)}/${escapeHtml(item.unit)})</div>
+      </div>
+      <button class="remove-item" onclick="removeItem(${idx})" aria-label="Remove item">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#999" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+    </div>
+  `).join('')
+
+  runtime.__lokalgoCartQty = (index, delta) => {
+    const next = readCart()
+    const target = cart[index]
+    const actualIndex = next.findIndex((item) => item.productId === target?.productId && item.pickupDate === target?.pickupDate && item.isPreorder === target?.isPreorder)
+    if (actualIndex < 0) return
+    next[actualIndex].qty = Math.max(1, next[actualIndex].qty + delta)
+    writeCart(next)
+    renderCartFlow(runtime, buyer, trackWhatsAppClick)
+  }
+
+  runtime.__lokalgoCartRemove = (index) => {
+    const target = cart[index]
+    const next = readCart().filter((item) => !(item.productId === target?.productId && item.pickupDate === target?.pickupDate && item.isPreorder === target?.isPreorder))
+    writeCart(next)
+    renderCartFlow(runtime, buyer, trackWhatsAppClick)
+  }
+
+  runtime.__lokalgoCloseCart = () => {
+    document.getElementById('cartReviewOverlay')?.remove()
+  }
+
+  runtime.__lokalgoCartCheckout = (method) => {
+    const checkoutItems = readCart().filter((item) => item.sellerId === cart[0]?.sellerId)
+    if (checkoutItems.length === 0) return
+    const seller = checkoutItems[0]
+    const address = buyer?.address_rumah?.trim()
+
+    if (method === 'cod' && !address) {
+      alert('Sila isi alamat rumah dulu untuk COD.')
+      window.location.href = '/alamat'
+      return
+    }
+
+    const lines = checkoutItems.map((item) => `- ${item.name} x${item.qty} - RM${money(item.price * item.qty)} (RM${money(item.price)}/${item.unit})`)
+    const subtotal = money(cartSubtotal(checkoutItems))
+    const methodLabel = method === 'cod' ? 'COD - Hantar ke Rumah' : 'Self Collect'
+    const message = [
+      `Salam ${seller.sellerName} 👋`,
+      '',
+      '*Pesanan Baru dari LokaGo*',
+      '-----------------------------',
+      ...lines,
+      '-----------------------------',
+      `Subtotal: RM${subtotal}`,
+      method === 'cod' ? 'Penghantaran: Seller tentukan' : null,
+      '-----------------------------',
+      `Kaedah: ${methodLabel}`,
+      method === 'cod' ? `Alamat: ${address}` : null,
+      buyer?.name ? `Nama: ${buyer.name}` : null,
+      buyer?.whatsapp_number ? `No Telefon: ${buyer.whatsapp_number}` : null,
+      '-----------------------------',
+      'Pesanan dari LokaGo Shop',
+      seller.shopUrl,
+    ].filter(Boolean).join('\n')
+
+    trackWhatsAppClick()
+    const sellerPhone = normalizeWhatsapp(seller.sellerWhatsapp)
+    window.localStorage.removeItem(CART_KEY)
+    window.location.href = `https://wa.me/${sellerPhone}?text=${encodeURIComponent(message)}`
+  }
+
+  runtime.sendWhatsApp = () => {
+    document.getElementById('cartReviewOverlay')?.remove()
+    const rows = cart.map((item, index) => `
+      <div style="display:grid;grid-template-columns:1fr auto;gap:10px;padding:12px 0;border-bottom:1px solid #eee;">
+        <div>
+          <div style="font-size:13px;font-weight:700;color:#111;">${escapeHtml(item.name)}</div>
+          <div style="font-size:12px;color:#666;margin-top:3px;">RM${money(item.price)}/${escapeHtml(item.unit)} - Subtotal RM${money(item.price * item.qty)}</div>
+        </div>
+        <div style="display:flex;align-items:center;gap:8px;">
+          <button onclick="window.__lokalgoCartQty(${index},-1)" style="width:30px;height:30px;border:1px solid #ddd;background:#fff;border-radius:8px;">-</button>
+          <strong style="min-width:18px;text-align:center;">${item.qty}</strong>
+          <button onclick="window.__lokalgoCartQty(${index},1)" style="width:30px;height:30px;border:1px solid #ddd;background:#fff;border-radius:8px;">+</button>
+          <button onclick="window.__lokalgoCartRemove(${index})" style="width:30px;height:30px;border:0;background:#f5f5f5;border-radius:8px;color:#777;">x</button>
+        </div>
+      </div>
+    `).join('')
+
+    document.body.insertAdjacentHTML('beforeend', `
+      <div id="cartReviewOverlay" style="position:fixed;inset:0;background:rgba(0,0,0,0.55);z-index:120;display:flex;align-items:flex-end;justify-content:center;">
+        <div style="background:#fff;width:100%;max-width:430px;border-radius:20px 20px 0 0;padding:18px 18px 20px;max-height:88vh;overflow:auto;">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
+            <div style="font-size:16px;font-weight:800;color:#111;">Semak Pesanan</div>
+            <button onclick="window.__lokalgoCloseCart()" style="width:34px;height:34px;border:0;border-radius:10px;background:#f5f5f5;color:#555;font-size:18px;">x</button>
+          </div>
+          ${rows}
+          <div style="display:flex;justify-content:space-between;align-items:center;padding:14px 0;font-size:15px;font-weight:800;color:#111;">
+            <span>Subtotal</span><span>RM${money(cartSubtotal(cart))}</span>
+          </div>
+          <button onclick="window.__lokalgoCartCheckout('pickup')" style="width:100%;border:1.5px solid #ddd;background:#fff;border-radius:12px;padding:13px;font-size:14px;font-weight:700;margin-bottom:9px;">Self Collect</button>
+          <button onclick="window.__lokalgoCartCheckout('cod')" style="width:100%;border:0;background:#25D366;color:#fff;border-radius:12px;padding:14px;font-size:14px;font-weight:800;">COD - Order via WhatsApp</button>
+        </div>
+      </div>
+    `)
+  }
+}
+
 function renderGallery(images: string[]) {
   if (images.length === 0) return
 
@@ -58,6 +258,15 @@ type ProductWindow = Window & {
   PICKUP_INSTRUCTION?: string
   totalSlides?: number
   __lokalgoImages?: string[]
+  __lokalgoProductContext?: ProductContext
+  __lokalgoBuyerProfile?: BuyerProfile | null
+  __lokalgoCartQty?: (index: number, delta: number) => void
+  __lokalgoCartRemove?: (index: number) => void
+  __lokalgoCartCheckout?: (method: 'pickup' | 'cod') => void
+  __lokalgoCloseCart?: () => void
+  addToOrder?: () => void
+  removeItem?: (index: number) => void
+  updateCartUI?: () => void
   sendWhatsApp?: () => void
 }
 
@@ -108,31 +317,57 @@ export default function Page() {
         .eq('id', sellerId || product.seller_id)
         .single()
 
+      const {
+        data: { user },
+      } = await supabase.auth.getUser()
+      const { data: buyerProfile } = user
+        ? await supabase
+          .from('buyers')
+          .select('name, whatsapp_number, address_rumah, address_pejabat')
+          .eq('user_id', user.id)
+          .maybeSingle()
+        : { data: null }
+
       if (cancelled) return
 
-      const currentProduct = product as Product
+      const currentProduct = product as ProductRow
       const currentSeller = seller as Seller | null
       const badge = statusBadge(currentProduct)
-      const price = currentProduct.price_from
-        ? `Dari RM ${Number(currentProduct.price_from).toFixed(2)}`
+      const displayName = productName(currentProduct)
+      const unit = productUnit(currentProduct)
+      const exactPrice = productPrice(currentProduct)
+      const price = exactPrice
+        ? `RM ${money(exactPrice)}/${unit}`
         : 'Harga ikut pesanan'
 
-      setText('.produk-name', currentProduct.category)
+      setText('.produk-name', displayName)
       setHtml('.produk-status-badge', badge.label)
       document.querySelector('.produk-status-badge')?.classList.remove('badge-avail', 'badge-unavail', 'badge-preorder')
       document.querySelector('.produk-status-badge')?.classList.add(badge.className)
       setText('.produk-shop', currentSeller ? `${currentSeller.shop_name} • ${currentSeller.taman_name}` : 'Kedai LokalGo')
       setText('.produk-price', price)
-      setText('.produk-desc-full', currentProduct.description || currentProduct.category)
+      setText('.produk-desc-full', currentProduct.description || displayName)
+      setText('#addBtnTxt', 'Tambah ke Pesanan')
 
       const runtime = window as ProductWindow
       runtime.SHOP_NAME = currentSeller?.shop_name || 'Seller LokalGo'
       runtime.WA_NUMBER = normalizeWhatsapp(currentSeller?.whatsapp_number || '')
-      runtime.PRODUK_NAME = currentProduct.category
+      runtime.PRODUK_NAME = displayName
       runtime.PICKUP_INSTRUCTION = currentSeller?.pickup_instruction || ''
       runtime.PREORDER_MIN = currentProduct.min_qty_preorder || 10
       runtime.totalSlides = Math.max(currentProduct.images?.length || 1, 1)
       runtime.__lokalgoImages = currentProduct.images || []
+      runtime.__lokalgoBuyerProfile = buyerProfile as BuyerProfile | null
+      runtime.__lokalgoProductContext = {
+        sellerId: currentSeller?.id || currentProduct.seller_id,
+        sellerName: currentSeller?.shop_name || 'Seller LokalGo',
+        sellerWhatsapp: currentSeller?.whatsapp_number || '',
+        shopUrl: `${window.location.origin}/shop?seller=${currentSeller?.id || currentProduct.seller_id}`,
+        productId: currentProduct.id,
+        name: displayName,
+        unit,
+        price: exactPrice,
+      }
 
       renderGallery(currentProduct.images || [])
 
@@ -141,16 +376,67 @@ export default function Page() {
         preorderButton?.click()
       }
 
-      const originalSend = runtime.sendWhatsApp
-      runtime.sendWhatsApp = () => {
+      const trackWhatsAppClick = () => {
         if (currentSeller) {
           void supabase
             .from('sellers')
             .update({ wa_click_count: (currentSeller.wa_click_count ?? 0) + 1 })
             .eq('id', currentSeller.id)
         }
-        originalSend?.()
       }
+      runtime.addToOrder = () => {
+        const ctx = runtime.__lokalgoProductContext
+        if (!ctx) return
+        if (!ctx.sellerWhatsapp) {
+          alert('Nombor WhatsApp seller belum tersedia.')
+          return
+        }
+        if (ctx.price <= 0) {
+          alert('Harga produk belum lengkap. Seller perlu isi harga dahulu.')
+          return
+        }
+
+        const isPreorder = document.getElementById('btnPreorder')?.classList.contains('active') || false
+        const qtyInput = document.getElementById('qtyInput') as HTMLInputElement | null
+        const qty = Math.max(1, Number(qtyInput?.value || 1))
+        const pickupDate = isPreorder ? ((document.getElementById('pickupDate') as HTMLInputElement | null)?.value || null) : null
+
+        if (isPreorder && !pickupDate) {
+          alert('Sila pilih tarikh pickup / delivery terlebih dahulu.')
+          return
+        }
+
+        let items = readCart()
+        const hasDifferentSeller = items.some((item) => item.sellerId !== ctx.sellerId)
+        if (hasDifferentSeller) {
+          const replace = window.confirm('Cart hanya boleh campur produk dari kedai yang sama. Ganti cart dengan kedai ini?')
+          if (!replace) return
+          items = []
+        }
+
+        const existing = items.find((item) => item.productId === ctx.productId && item.pickupDate === pickupDate && item.isPreorder === isPreorder)
+        if (existing) {
+          existing.qty += qty
+        } else {
+          items.push({ ...ctx, qty, pickupDate, isPreorder })
+        }
+
+        writeCart(items)
+        renderCartFlow(runtime, runtime.__lokalgoBuyerProfile || null, trackWhatsAppClick)
+
+        const btn = document.getElementById('addBtn')
+        if (btn) {
+          btn.classList.add('added')
+          btn.textContent = 'Ditambah!'
+          window.setTimeout(() => {
+            btn.classList.remove('added')
+            btn.textContent = 'Tambah ke Pesanan'
+          }, 1200)
+        }
+      }
+      runtime.removeItem = (index) => runtime.__lokalgoCartRemove?.(index)
+      runtime.updateCartUI = () => renderCartFlow(runtime, runtime.__lokalgoBuyerProfile || null, trackWhatsAppClick)
+      runtime.updateCartUI()
     }
 
     const supportButton = document.querySelector<HTMLButtonElement>('.sokong-btn')
