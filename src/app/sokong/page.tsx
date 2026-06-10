@@ -94,13 +94,12 @@ export default function FounderPage() {
 
         {/* Founder row */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16 }}>
-          <div style={{
-            width: 42, height: 42, borderRadius: '50%', background: PRIMARY,
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            fontWeight: 800, fontSize: 18, flexShrink: 0,
-          }}>
-            <span style={{ color: ACCENT }}>L</span>
-          </div>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src="/icons/dev.png"
+            alt="Lateffi"
+            style={{ width: 42, height: 42, borderRadius: '50%', objectFit: 'cover', flexShrink: 0 }}
+          />
           <div>
             <div style={{ fontWeight: 800, fontSize: 15, color: '#111' }}>Lateffi</div>
             <div style={{ fontSize: 11, color: '#888', marginTop: 1 }}>Pengasas LokalGo™ · NS0308474-A</div>
@@ -142,10 +141,8 @@ export default function FounderPage() {
 
         {/* Signature */}
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', marginBottom: 14 }}>
-          <svg width="110" height="34" viewBox="0 0 110 34" fill="none">
-            <path d="M6 26 Q16 6 26 18 Q36 30 46 14 Q56 0 66 18 Q76 34 86 20 Q96 8 104 16" stroke={PRIMARY} strokeWidth="2" strokeLinecap="round" fill="none" opacity="0.65"/>
-            <path d="M4 28 Q24 26 44 24 Q64 22 84 24 Q96 24 106 22" stroke={PRIMARY} strokeWidth="1" strokeLinecap="round" fill="none" opacity="0.3"/>
-          </svg>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src="/icons/signature.png" alt="Signature" style={{ height: 34, width: 'auto' }} />
           <div style={{ fontSize: 11, color: '#888', marginTop: 3 }}>Mohd Lateffi Tazri</div>
         </div>
 
@@ -200,11 +197,8 @@ export default function FounderPage() {
               boxShadow: '0 6px 20px rgba(123,21,51,0.4)',
             }}
           >
-            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-              <polyline points="7 10 12 15 17 10" />
-              <line x1="12" y1="15" x2="12" y2="3" />
-            </svg>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src="/icons/coin.png" alt="" style={{ width: 20, height: 20, objectFit: 'contain' }} />
             {downloading ? 'Sedang dimuat turun...' : 'Muat Turun QR Code'}
           </button>
         </div>
