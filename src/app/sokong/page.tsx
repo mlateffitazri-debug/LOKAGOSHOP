@@ -121,10 +121,10 @@ export default function FounderPage() {
           fontSize: 12, color: '#444', lineHeight: 1.75, fontStyle: 'italic',
           marginBottom: 12,
         }}>
-          "Setiap kita ada bakat tersendiri — ada yang pandai membuat kek, ada yang
+          &ldquo;Setiap kita ada bakat tersendiri — ada yang pandai membuat kek, ada yang
           pandai memasak lauk. Akan tetapi{' '}
           <strong style={{ fontStyle: 'normal', color: PRIMARY }}>kekangan modal menjadi penghalang.</strong>
-          {' '}LokalGo™ wujud untuk memecahkan halangan itu — percuma, dan sentiasa akan percuma."
+          {' '}LokalGo™ wujud untuk memecahkan halangan itu — percuma, dan sentiasa akan percuma.&rdquo;
         </blockquote>
 
         <p style={{ fontSize: 12, color: '#555', lineHeight: 1.75, marginBottom: 16 }}>
