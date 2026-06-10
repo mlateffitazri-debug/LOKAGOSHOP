@@ -109,7 +109,7 @@ export default function FounderPage() {
 
         {/* Body text */}
         <p style={{ fontSize: 12, color: '#555', lineHeight: 1.75, marginBottom: 12 }}>
-          Saya faham tekanan ekonomi yang kita hadapi. Ramai di antara kita yang mencari
+          Saya faham tekanan ekonomi yang kita hadapi. Ramai di antara jiran kita yang mencari
           rezeki bukan untuk menjadi kaya, tetapi sekadar untuk{' '}
           <strong style={{ color: '#111' }}>dapat tidur lena pada hari esok.</strong>
         </p>
@@ -121,17 +121,20 @@ export default function FounderPage() {
           fontSize: 12, color: '#444', lineHeight: 1.75, fontStyle: 'italic',
           marginBottom: 12,
         }}>
-          &ldquo;Setiap kita ada bakat tersendiri — ada yang pandai membuat kek, ada yang
-          pandai memasak lauk. Akan tetapi{' '}
-          <strong style={{ fontStyle: 'normal', color: PRIMARY }}>kekangan modal menjadi penghalang.</strong>
-          {' '}LokalGo™ wujud untuk memecahkan halangan itu — percuma, dan sentiasa akan percuma.&rdquo;
+          &ldquo;Setiap kita ada bakat tersendiri. Ada yang pandai membuat kek, ada yang
+          pandai memasak lauk dan ada yang mencari masa lapang menjual kecil-kecilan untuk
+          mengisi masa tua. Akan tetapi{' '}
+          <strong style={{ fontStyle: 'normal', color: PRIMARY }}>kekangan modal dan faktor tekanan menjadi penghalang.</strong>
+          {' '}LokalGo™ wujud untuk memecahkan halangan itu — ianya percuma, dan sentiasa akan percuma.&rdquo;
         </blockquote>
 
         <p style={{ fontSize: 12, color: '#555', lineHeight: 1.75, marginBottom: 16 }}>
-          Walau bagaimanapun, kos penyelenggaraan platform ini tidak murah. Jika ia
-          memberi nilai kepada anda dan komuniti,{' '}
+          Walau bagaimanapun, kos penyelenggaraan platform ini tidak murah. Untuk menjadi
+          sebuah platform yang mampu berdiri sebelah platform yang sedia ada, ia pastinya
+          memerlukan modal yang besar. Jika ia memberi nilai kepada anda dan komuniti,{' '}
           <strong style={{ color: '#111' }}>secangkir kopi dari anda</strong>{' '}
-          sudah cukup untuk memastikan ia terus berjalan.
+          sudah cukup untuk memastikan ia terus bergerak ke hadapan untuk kebaikan semua
+          dan sekaligus membantu memudahkan insan lain.
         </p>
 
         {/* Spacer */}
