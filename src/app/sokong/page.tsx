@@ -42,7 +42,9 @@ export default function FounderPage() {
     const link = document.createElement('a')
     link.href = '/assets/lokago-sokong-qr.jpg'
     link.download = 'LokalGo_QR_Sokong_Lateffi.jpg'
+    document.body.appendChild(link)
     link.click()
+    document.body.removeChild(link)
 
     localStorage.setItem('qrDownloadCount', String(newCount))
     try {
@@ -51,6 +53,8 @@ export default function FounderPage() {
     } catch { /* ignore */ }
 
     setDownloading(false)
+    // Give browser time to start the download before navigating away
+    await new Promise(resolve => setTimeout(resolve, 1500))
     window.history.length > 1 ? window.history.back() : (window.location.href = '/home')
   }
 
