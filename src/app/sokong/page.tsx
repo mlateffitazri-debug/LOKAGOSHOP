@@ -51,6 +51,7 @@ export default function FounderPage() {
     } catch { /* ignore */ }
 
     setDownloading(false)
+    window.history.length > 1 ? window.history.back() : (window.location.href = '/home')
   }
 
   return (
