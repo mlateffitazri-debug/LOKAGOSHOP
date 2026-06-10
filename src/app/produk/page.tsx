@@ -202,6 +202,20 @@ function renderCartFlow(runtime: ProductWindow, buyer: BuyerProfile | null, trac
     trackWhatsAppClick()
     const sellerPhone = normalizeWhatsapp(seller.sellerWhatsapp)
     window.localStorage.removeItem(CART_KEY)
+
+    // Save pending review — shown when user returns from WhatsApp
+    window.localStorage.setItem('lokalgo_pending_review', JSON.stringify({
+      sellerId: seller.sellerId,
+      sellerName: seller.sellerName,
+    }))
+    const onReturn = () => {
+      if (document.visibilityState === 'visible') {
+        document.removeEventListener('visibilitychange', onReturn)
+        window.setTimeout(() => { runtime.__showReviewPrompt?.() }, 600)
+      }
+    }
+    document.addEventListener('visibilitychange', onReturn)
+
     window.location.href = `https://wa.me/${sellerPhone}?text=${encodeURIComponent(message)}`
   }
 
@@ -287,6 +301,7 @@ type ProductWindow = Window & {
   __lokalgoCartRemove?: (index: number) => void
   __lokalgoCartCheckout?: (method: 'pickup' | 'cod') => void
   __lokalgoCloseCart?: () => void
+  __showReviewPrompt?: () => void
   addToOrder?: () => void
   removeItem?: (index: number) => void
   updateCartUI?: () => void
@@ -487,6 +502,87 @@ export default function Page() {
       runtime.removeItem = (index) => runtime.__lokalgoCartRemove?.(index)
       runtime.updateCartUI = () => renderCartFlow(runtime, runtime.__lokalgoBuyerProfile || null, trackWhatsAppClick)
       runtime.updateCartUI()
+
+      // ── POST-ORDER REVIEW PROMPT ──
+      runtime.__showReviewPrompt = () => {
+        const raw = window.localStorage.getItem('lokalgo_pending_review')
+        if (!raw) return
+        let pending: { sellerId: string; sellerName: string }
+        try { pending = JSON.parse(raw) } catch { return }
+        window.localStorage.removeItem('lokalgo_pending_review')
+
+        let selectedRating = 0
+
+        const overlay = document.createElement('div')
+        overlay.id = 'reviewPromptOverlay'
+        overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.65);z-index:9999;display:flex;align-items:flex-end;justify-content:center;backdrop-filter:blur(4px);'
+        overlay.innerHTML = `
+          <div style="background:#fff;border-radius:24px 24px 0 0;padding:28px 24px 40px;width:100%;max-width:430px;font-family:'Plus Jakarta Sans',sans-serif;">
+            <div style="text-align:center;margin-bottom:20px;">
+              <div style="font-size:40px;margin-bottom:8px;">🎉</div>
+              <div style="font-size:17px;font-weight:800;color:#111;margin-bottom:4px;">Pesanan Berjaya Dihantar!</div>
+              <div style="font-size:13px;color:#666;">Bagaimana pengalaman anda dengan</div>
+              <div style="font-size:14px;font-weight:700;color:#7B1533;margin-top:2px;">${pending.sellerName}</div>
+            </div>
+
+            <div style="display:flex;justify-content:center;gap:8px;margin-bottom:20px;" id="starRow">
+              ${[1,2,3,4,5].map(n => `
+                <button data-star="${n}" onclick="__rateSelect(${n})" style="background:none;border:none;font-size:36px;cursor:pointer;padding:4px;line-height:1;transition:transform 0.1s;" aria-label="${n} bintang">☆</button>
+              `).join('')}
+            </div>
+
+            <textarea id="reviewText" placeholder="Ceritakan pengalaman anda... (pilihan)" style="width:100%;box-sizing:border-box;border:1.5px solid #E5E5EA;border-radius:12px;padding:12px 14px;font-size:13px;font-family:inherit;color:#111;resize:none;outline:none;height:90px;background:#fafafa;margin-bottom:16px;" oninput="this.style.borderColor='#7B1533'"></textarea>
+
+            <button id="submitReviewBtn" onclick="__submitReview()" style="width:100%;background:linear-gradient(180deg,#8f1a3a 0%,#6a1029 100%);border:none;border-radius:14px;padding:15px;font-size:15px;font-weight:700;color:#fff;font-family:inherit;cursor:pointer;margin-bottom:12px;opacity:0.45;pointer-events:none;">
+              Hantar Ulasan
+            </button>
+            <button onclick="window.location.href='/home'" style="width:100%;background:none;border:none;font-size:13px;color:#888;font-family:inherit;cursor:pointer;padding:8px;">
+              Langkau → Ke Halaman Utama
+            </button>
+          </div>
+        `
+        document.body.appendChild(overlay)
+
+        // Star rating interaction
+        ;(window as Window & { __rateSelect?: (n: number) => void }).__rateSelect = (n: number) => {
+          selectedRating = n
+          overlay.querySelectorAll<HTMLButtonElement>('[data-star]').forEach((btn) => {
+            const s = Number(btn.dataset.star)
+            btn.textContent = s <= n ? '★' : '☆'
+            btn.style.color = s <= n ? '#F7C948' : '#ccc'
+            btn.style.transform = s === n ? 'scale(1.2)' : 'scale(1)'
+          })
+          const submitBtn = overlay.querySelector<HTMLButtonElement>('#submitReviewBtn')
+          if (submitBtn) { submitBtn.style.opacity = '1'; submitBtn.style.pointerEvents = 'auto' }
+        }
+
+        ;(window as Window & { __submitReview?: () => Promise<void> }).__submitReview = async () => {
+          if (selectedRating === 0) return
+          const content = (overlay.querySelector<HTMLTextAreaElement>('#reviewText')?.value || '').trim()
+          const submitBtn = overlay.querySelector<HTMLButtonElement>('#submitReviewBtn')
+          if (submitBtn) { submitBtn.textContent = 'Menghantar...'; submitBtn.style.opacity = '0.7'; submitBtn.style.pointerEvents = 'none' }
+
+          try {
+            const supabaseR = createClient()
+            await supabaseR.from('testimonials').insert({
+              seller_id: pending.sellerId,
+              buyer_id: null,
+              buyer_name: buyerProfile?.name || 'Pembeli LokalGo™',
+              buyer_kawasan: null,
+              rating: selectedRating,
+              content: content || 'Pengalaman yang menyenangkan!',
+              is_approved: false,
+            })
+          } catch { /* ignore — navigate anyway */ }
+
+          window.location.href = '/home'
+        }
+      }
+
+      // Show review prompt if returning from a previous WA order
+      if (window.localStorage.getItem('lokalgo_pending_review')) {
+        window.setTimeout(() => { runtime.__showReviewPrompt?.() }, 800)
+      }
     }
 
     const supportButton = document.querySelector<HTMLButtonElement>('.sokong-btn')
