@@ -22,13 +22,28 @@
   -webkit-font-smoothing: antialiased;
 }
 
+html {
+  height: 100%;
+  overflow: hidden;
+  overscroll-behavior: none;
+}
+
 body {
   font-family: 'Plus Jakarta Sans', -apple-system, sans-serif;
   font-size: 14px;
   color: var(--c-text);
   line-height: 1.6;
   background: #0a0a0a;
-  min-height: 100vh;
+  height: 100%;
+  overflow: hidden;
+  overscroll-behavior: none;
+  -webkit-overflow-scrolling: touch;
+  touch-action: pan-y;
+  /* Safe area for iPhone notch / Dynamic Island / Android status bar */
+  padding-top: env(safe-area-inset-top);
+  padding-bottom: env(safe-area-inset-bottom);
+  padding-left: env(safe-area-inset-left);
+  padding-right: env(safe-area-inset-right);
 }
 
 /* Phone frame wrapper — semua page guna ini */
@@ -39,6 +54,7 @@ body {
   min-height: 100vh;
   background: var(--c-bg);
   overflow: hidden;
+  touch-action: pan-y;
 }
 
 @media (min-width: 500px) {
@@ -68,6 +84,8 @@ body {
 .page-scroll {
   height: 812px;
   overflow-y: auto;
+  overflow-x: hidden;
+  overscroll-behavior-y: contain;
 }
 .page-scroll::-webkit-scrollbar { display: none; }
 

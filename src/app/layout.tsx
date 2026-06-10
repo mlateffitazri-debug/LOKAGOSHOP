@@ -20,6 +20,8 @@ export const viewport: Viewport = {
   width: 'device-width',
   initialScale: 1,
   maximumScale: 1,
+  userScalable: false,
+  viewportFit: 'cover',
   themeColor: '#7B1533',
 }
 
@@ -30,7 +32,7 @@ export default function RootLayout({
 }) {
   return (
     <html lang="ms">
-      <body>{children}</body>
+      <body style={{ touchAction: 'pan-y' }}>{children}</body>
     </html>
   )
 }

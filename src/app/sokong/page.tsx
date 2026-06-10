@@ -92,9 +92,12 @@ export default function FounderPage() {
 
   return (
     <div style={{
-      display: 'flex', flexDirection: 'column', height: '100dvh', maxWidth: 430,
+      position: 'fixed', top: 0, left: 0, width: '100%', height: '100dvh',
+      display: 'flex', flexDirection: 'column', maxWidth: 430,
       margin: '0 auto', fontFamily: "'Plus Jakarta Sans', -apple-system, sans-serif",
       overflow: 'hidden', background: PRIMARY,
+      paddingTop: 'env(safe-area-inset-top)',
+      paddingBottom: 'env(safe-area-inset-bottom)',
     }}>
 
       {/* ── HEADER ── */}
@@ -126,7 +129,7 @@ export default function FounderPage() {
       <div style={{
         background: '#fff', borderRadius: '20px 20px 0 0', flex: 1,
         display: 'flex', flexDirection: 'column', padding: '20px 22px 0',
-        overflowY: 'auto',
+        overflowY: 'auto', overflowX: 'hidden', overscrollBehaviorY: 'contain',
       }}>
 
         {/* Founder row */}
