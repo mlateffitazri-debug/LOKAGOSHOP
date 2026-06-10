@@ -1,6 +1,6 @@
 'use client'
 
-import { FormEvent, MouseEvent, useEffect, useMemo, useState } from 'react'
+import { MouseEvent, useEffect, useMemo, useState } from 'react'
 import { translations, useLang, type Lang } from '@/lib/i18n'
 import { createClient } from '@/lib/supabase/client'
 import type { Buyer, Seller, Product } from '@/types/database'
@@ -12,7 +12,6 @@ type HomeProfile = {
   email: string
   kawasan: string
   avatarUrl: string | null
-  whatsappNumber: string
 }
 
 // SVG icons per category
@@ -88,15 +87,9 @@ body{background:#0a0a0a;min-height:100vh;font-family:'Plus Jakarta Sans',-apple-
 .sidebar-chip{display:inline-flex;max-width:100%;margin-top:8px;border-radius:999px;background:rgba(255,255,255,0.15);padding:4px 10px;font-size:11px;font-weight:600;color:rgba(255,255,255,0.85);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
 .sidebar-body{flex:1;background:#fff;}
 .sidebar-link,.sidebar-lang{display:flex;width:100%;align-items:center;gap:12px;border:0;border-bottom:1px solid #f5f5f5;background:#fff;padding:14px 20px;font-family:'Plus Jakarta Sans',sans-serif;font-size:14px;color:#111;text-align:left;text-decoration:none;cursor:pointer;}
-.sidebar-icon{width:24px;font-size:16px;line-height:1;}
+.sidebar-icon{width:24px;height:24px;object-fit:contain;flex-shrink:0;}
 .sidebar-label{flex:1;font-weight:600;}
 .sidebar-arrow{color:#bbb;}
-.whatsapp-form{border-bottom:1px solid #f5f5f5;background:#fff;padding:14px 20px;}
-.whatsapp-label{display:flex;align-items:center;gap:12px;font-family:'Plus Jakarta Sans',sans-serif;font-size:14px;font-weight:600;color:#111;}
-.whatsapp-input{width:100%;margin-top:12px;border:1px solid #E5E5EA;border-radius:12px;background:#FAFAFA;padding:10px 12px;font-family:'Plus Jakarta Sans',sans-serif;font-size:14px;color:#111;outline:none;}
-.whatsapp-input:focus{border-color:#7B1533;background:#fff;}
-.whatsapp-save{width:100%;margin-top:8px;border:0;border-radius:12px;background:#7B1533;padding:10px 12px;font-family:'Plus Jakarta Sans',sans-serif;font-size:12px;font-weight:800;color:#fff;cursor:pointer;}
-.whatsapp-status{margin-top:8px;font-size:11px;font-weight:700;color:#7B1533;}
 .sidebar-lang-pill{border-radius:999px;background:#ADD036;padding:4px 10px;font-size:10px;font-weight:800;color:#3D4D0E;}
 .sidebar-footer{background:#fff;padding:16px;}
 .logout-btn{width:100%;border:1.5px solid #7B1533;border-radius:12px;background:#fff;padding:12px;font-family:'Plus Jakarta Sans',sans-serif;font-size:14px;font-weight:800;color:#7B1533;cursor:pointer;}
@@ -305,10 +298,11 @@ function AvatarCircle({ profile, size = 60 }: { profile: HomeProfile | null; siz
   )
 }
 
-function SidebarLink({ href, icon, label }: { href: string; icon: string; label: string }) {
+function SidebarLink({ href, iconSrc, label }: { href: string; iconSrc: string; label: string }) {
   return (
     <a href={href} className="sidebar-link">
-      <span className="sidebar-icon">{icon}</span>
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img src={iconSrc} alt="" className="sidebar-icon" />
       <span className="sidebar-label">{label}</span>
       <span className="sidebar-arrow">&gt;</span>
     </a>
@@ -322,8 +316,6 @@ export default function HomePage() {
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null)
   const [profile, setProfile] = useState<HomeProfile | null>(null)
   const [isSidebarOpen, setIsSidebarOpen] = useState(false)
-  const [whatsappNumber, setWhatsappNumber] = useState('')
-  const [whatsappStatus, setWhatsappStatus] = useState('')
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [savedShopIds, setSavedShopIds] = useState<Set<string>>(new Set())
@@ -358,17 +350,13 @@ export default function HomePage() {
       if (cancelled) return
 
       const buyer = buyerData as Buyer | null
-      const buyerWhatsapp = typeof buyer?.whatsapp_number === 'string' ? buyer.whatsapp_number : ''
-
       setProfile({
         buyerId: buyer?.id ?? null,
         name: metadataName || metadataFallbackName || user.email || 'LokalGo',
         email: user.email || buyer?.email || '',
         kawasan: buyer?.kawasan || 'Kawasan belum ditetapkan',
         avatarUrl: metadataAvatar,
-        whatsappNumber: buyerWhatsapp,
       })
-      setWhatsappNumber(buyerWhatsapp)
 
       if (buyer?.id) {
         const { data: savedData } = await supabase
@@ -497,17 +485,7 @@ export default function HomePage() {
     void fetch('/auth/signout', { method: 'POST' }).then(() => { window.location.href = '/auth' })
   }
 
-  async function handleWhatsappSubmit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault()
-    setWhatsappStatus('')
-    if (!profile?.buyerId) { setWhatsappStatus('Profil pembeli belum tersedia'); return }
-    const supabase = createClient()
-    const { error: updateError } = await supabase
-      .from('buyers').update({ whatsapp_number: whatsappNumber.trim() }).eq('id', profile.buyerId)
-    if (updateError) { setWhatsappStatus('Gagal simpan nombor WhatsApp'); return }
-    setProfile({ ...profile, whatsappNumber: whatsappNumber.trim() })
-    setWhatsappStatus('Nombor WhatsApp disimpan')
-  }
+
 
   return (
     <>
@@ -534,28 +512,14 @@ export default function HomePage() {
           </header>
 
           <div className="sidebar-body">
-            <SidebarLink href="/profile/address" icon={'\u{1F4CD}'} label="Alamat Penghantaran" />
-            <form onSubmit={handleWhatsappSubmit} className="whatsapp-form">
-              <label htmlFor="buyer-whatsapp" className="whatsapp-label">
-                <span className="sidebar-icon">{'\u{1F4F1}'}</span>
-                <span>Tetapan WhatsApp</span>
-              </label>
-              <input
-                id="buyer-whatsapp"
-                value={whatsappNumber}
-                onChange={(e) => setWhatsappNumber(e.target.value)}
-                placeholder="cth: 60123456789"
-                className="whatsapp-input"
-              />
-              <button type="submit" className="whatsapp-save">Simpan</button>
-              {whatsappStatus ? <p className="whatsapp-status">{whatsappStatus}</p> : null}
-            </form>
-            <SidebarLink href="/saved" icon={'\u{2764}\u{FE0F}'} label="Kedai Disimpan" />
-            <SidebarLink href="/testimonials" icon={'\u{1F4AC}'} label="Testimoni Saya" />
-            <SidebarLink href="/sokong" icon={'\u{1F64F}'} label="Sokong Pembangun" />
-            <SidebarLink href="/about" icon={'\u{2139}\u{FE0F}'} label="Tentang LokalGo™" />
+            <SidebarLink href="/profile/address" iconSrc="/icons/setting%20icon/icon-home.png" label="Alamat Penghantaran" />
+            <SidebarLink href="/saved" iconSrc="/icons/setting%20icon/icon-love.png" label="Kedai Disimpan" />
+            <SidebarLink href="/testimonials" iconSrc="/icons/setting%20icon/icon-testimoni.png" label="Testimoni Saya" />
+            <SidebarLink href="/sokong" iconSrc="/icons/setting%20icon/icon-support.png" label="Sokong Pembangun" />
+            <SidebarLink href="/about" iconSrc="/icons/setting%20icon/icon-about.png" label="Tentang LokalGo™" />
             <button type="button" onClick={toggle} className="sidebar-lang">
-              <span className="sidebar-icon">{'\u{1F310}'}</span>
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src="/icons/setting%20icon/icon-global.png" alt="" className="sidebar-icon" />
               <span className="sidebar-label">Tukar Bahasa</span>
               <span className="sidebar-lang-pill">{lang === 'ms' ? 'English' : 'BM'}</span>
             </button>
