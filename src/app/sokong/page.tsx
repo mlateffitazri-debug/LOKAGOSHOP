@@ -1,21 +1,226 @@
 'use client'
 
-import { HtmlPrototypePage } from '@/components/shared/HtmlPrototypePage'
+import { useEffect, useRef, useState } from 'react'
+import { createClient } from '@/lib/supabase/client'
 
-const styles = ":root{--c-primary:#7B1533;--c-primary-dark:#6A1029;--c-primary-lt:#8f1a3a;--c-accent:#ADD036;--c-bg:#F5F5F5;--c-surface:#FFFFFF;--c-border:#E5E5EA;--c-text:#111111;--c-text2:#555555;--c-text3:#888888;--c-hint:#BBBBBB;}\n*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;-webkit-font-smoothing:antialiased;}\nbody{background:#0a0a0a;min-height:100vh;font-family:\u0027Plus Jakarta Sans\u0027,-apple-system,sans-serif;font-size:14px;color:var(--c-text);}\n.page{width:100%;max-width:430px;margin:0 auto;min-height:100vh;background:var(--c-bg);overflow:hidden;}\n@media(min-width:500px){body{padding:40px 20px;display:flex;justify-content:center;align-items:flex-start;}.page{min-height:auto;border-radius:36px;border:8px solid #1a1a1a;box-shadow:0 32px 80px rgba(0,0,0,0.7);}}\n@media(min-width:1024px){body{align-items:center;padding:40px;min-height:100vh;}}\n.scroll{height:812px;overflow-y:auto;padding-bottom:40px;}.scroll::-webkit-scrollbar{display:none;}\n\n/* HERO */\n.hero{background:var(--c-primary);padding:40px 24px 0;display:flex;flex-direction:column;align-items:center;position:relative;overflow:hidden;}\n.hero::before{content:\u0027\u0027;position:absolute;top:-40px;right:-40px;width:200px;height:200px;background:rgba(255,255,255,0.03);border-radius:50%;}\n.logo-wrap{margin-bottom:20px;}\n.tagline{font-size:13px;color:rgba(255,255,255,0.55);text-align:center;margin-bottom:20px;}\n.mascot-wrap{width:100%;display:flex;justify-content:center;}\n.mascot-wrap img{width:75%;max-width:280px;object-fit:contain;margin-bottom:-4px;}\n\n/* STORY SECTION */\n.story{background:#fff;padding:36px 48px;border-bottom:1px solid #eee;}\n.story-text{font-size:13px;color:var(--c-text2);line-height:1.6;margin-bottom:28px;text-align:center;}\n.story-text strong{color:var(--c-text);font-weight:700;}\n.story-text br+br{display:none;}\n\n/* SIGNATURE */\n.signature-wrap{display:flex;flex-direction:column;align-items:flex-end;gap:4px;}\n\n.signature-title{font-size:11px;color:var(--c-text3);font-weight:500;}\n.signature-line{width:120px;height:1.5px;background:var(--c-border);margin-bottom:6px;}\n\n/* AMOUNT BUTTONS */\n.amount-section{background:#fff;padding:20px 24px;border-bottom:1px solid #eee;margin-top:1px;}\n.amount-label{font-size:13px;font-weight:700;color:var(--c-text);text-align:center;margin-bottom:14px;}\n.amount-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:14px;}\n.amount-btn{border:2px solid var(--c-border);border-radius:12px;padding:14px 8px;min-height:58px;background:#fff;font-family:inherit;cursor:pointer;text-align:center;transition:all 0.15s;}\n.amount-btn.selected{border-color:var(--c-primary);background:#fff5f7;}\n.amount-price{font-size:18px;font-weight:800;color:var(--c-primary);}\n.amount-label-sm{font-size:10px;color:var(--c-hint);margin-top:3px;}\n.amount-btn.selected .amount-price{color:var(--c-primary);}\n\n/* QR SECTION */\n.qr-section{background:#fff;padding:24px;margin-top:1px;}\n.qr-title{font-size:14px;font-weight:700;color:var(--c-text);text-align:center;margin-bottom:6px;}\n.qr-sub{font-size:12px;color:var(--c-text3);text-align:center;margin-bottom:16px;line-height:1.6;}\n.qr-wrap{display:flex;justify-content:center;margin-bottom:14px;}\n.qr-img{width:220px;height:auto;border-radius:16px;box-shadow:0 4px 20px rgba(0,0,0,0.12);}\n.qr-hint{font-size:11px;color:var(--c-hint);text-align:center;line-height:1.6;}\n\n/* DOWNLOAD BTN */\n.dl-btn{width:100%;min-height:48px;margin-top:14px;background:linear-gradient(180deg,#8f1a3a 0%,#6a1029 100%);border:none;border-radius:14px;padding:15px 20px;display:flex;align-items:center;justify-content:center;gap:10px;color:#fff;font-size:15px;font-weight:700;font-family:inherit;cursor:pointer;position:relative;overflow:hidden;box-shadow:0 1px 0 rgba(255,255,255,0.16) inset,0 -1px 0 rgba(0,0,0,0.2) inset,0 6px 20px rgba(123,21,51,0.45);transition:transform 0.12s;}\n.dl-btn::after{content:\u0027\u0027;position:absolute;top:0;left:0;right:0;height:50%;background:linear-gradient(180deg,rgba(255,255,255,0.12) 0%,transparent 100%);border-radius:14px 14px 0 0;pointer-events:none;}\n.dl-btn:active{transform:scale(0.985);}\n\n/* COUNTER */\n.counter-section{background:var(--c-primary);padding:16px 24px;margin-top:1px;display:flex;align-items:center;justify-content:center;gap:12px;}\n.counter-num{font-size:28px;font-weight:800;color:#fff;}\n.counter-text{font-size:12px;color:rgba(255,255,255,0.7);line-height:1.5;}\n\n/* DOAS */\n.doa-section{background:#fff;padding:20px 24px;margin-top:1px;text-align:center;}\n.doa-text{font-size:12px;color:var(--c-text3);line-height:1.6;font-style:italic;}\n.back-btn{width:44px;height:44px;border-radius:50%;background:rgba(255,255,255,0.15);border:none;display:flex;align-items:center;justify-content:center;cursor:pointer;flex-shrink:0;}"
-const markup = "\u003cdiv class=\"page\"\u003e\n\u003cdiv class=\"scroll\"\u003e\n\n  \u003c!-- HERO --\u003e\n  \u003cdiv class=\"hero\"\u003e\n  \u003cdiv style=\"position:absolute;top:20px;left:20px;z-index:10;\"\u003e\u003cbutton class=\"back-btn\" onclick=\"window.location.href=\u0027lokalgo_home.html\u0027\" title=\"Ke Halaman Utama\"\u003e\u003csvg width=\"16\" height=\"16\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"#fff\" stroke-width=\"2.5\" stroke-linecap=\"round\" stroke-linejoin=\"round\"\u003e\u003cpolyline points=\"15 18 9 12 15 6\"/\u003e\u003c/svg\u003e\u003c/button\u003e\u003c/div\u003e\n    \u003cdiv class=\"logo-wrap\"\u003e\u003cimg src=\"/icons/Logo-LOKALGO.png\" alt=\"LokalGo\u2122\" style=\"width:160px;height:auto;display:block;\"\u003e\u003c/div\u003e\n    \u003cdiv class=\"tagline\"\u003e\u003cspan data-i18n=\"tagline\"\u003ePlatform perniagaan lokal setempat\u003c/span\u003e\u003c/div\u003e\n    \u003cdiv class=\"mascot-wrap\"\u003e\n      \u003cimg src=\"/assets/lokago-sokong-mascot.png\" alt=\"LokalGo Maskot\"\u003e\n    \u003c/div\u003e\n  \u003c/div\u003e\n\n  \u003c!-- STORY --\u003e\n  \u003cdiv class=\"story\"\u003e\n    \u003cdiv class=\"story-text\"\u003e\n      Saya \u003cstrong\u003eLateffi\u003c/strong\u003e. Seorang usahawan dan sentiasa melihat cahaya di setiap sudut yang gelap.\u003cbr\u003e\n      Saya faham ekonomi menekan, dan ada di antara kita yang mencari usaha bukan untuk menjadi kaya, akan tetapi untuk \u003cstrong\u003edapat tidur lena pada hari esok\u003c/strong\u003e.\u003cbr\u003e\n      Setiap kita ada bakat dan kemahiran sendiri — ada di antara anda pandai membuat anak orang lain ceria dengan membuat kek yang cantik, ada yang pandai membuat ahli keluarga lain tersenyum dengan lauk yang sedap. Akan tetapi \u003cstrong\u003ekekangan modal menjadi penghalang utama\u003c/strong\u003e dengan tekanan ekonomi zaman sekarang.\u003cbr\u003e\n      Dengan itu saya mewujudkan \u003cstrong\u003eLokalGo\u003c/strong\u003e — sebuah platform jual beli yang \u003cstrong\u003epercuma dan sentiasa akan percuma\u003c/strong\u003e untuk anda.\u003cbr\u003e\n      Akan tetapi segala kos penyelenggaraan, pengiklanan dan pembangunan memerlukan kos yang tinggi. Jika anda rasa platform ini memberi nilai pada anda dan komuniti, \u003cstrong\u003esecangkir kopi dari anda\u003c/strong\u003e dapat membantu membina platform ini ke arah yang lebih baik.\n    \u003c/div\u003e\n\n    \u003c!-- SIGNATURE --\u003e\n    \u003cdiv class=\"signature-wrap\"\u003e\n      \u003cimg src=\"/assets/lokago-sokong-qr-small.png\" alt=\"Tandatangan Lateffi\" style=\"width:160px;height:auto;display:block;margin-left:auto;filter:opacity(0.85);mix-blend-mode:multiply;\"\u003e\n      \u003cdiv class=\"signature-title\"\u003ePengasas LokalGo™ • NS0308474-A\u003c/div\u003e\n    \u003c/div\u003e\n  \u003c/div\u003e\n\n  \u003c!-- AMOUNT SELECT removed --\u003e\n\n  \u003c!-- QR CODE --\u003e\n  \u003cdiv class=\"qr-section\" style=\"padding:28px 48px;\"\u003e\n    \u003cdiv class=\"qr-title\"\u003e\u003cspan data-i18n=\"imbas_qr\"\u003eImbas QR untuk menyokong\u003c/span\u003e\u003c/div\u003e\n    \u003cdiv class=\"qr-sub\"\u003eGunakan mana-mana perbankan dalam talian atau eWallet Malaysia.\u003cbr\u003eTNG eWallet • Maybank • CIMB • dan lain-lain.\u003c/div\u003e\n    \u003cdiv class=\"qr-wrap\" style=\"display:none\"\u003e\n      \u003cimg class=\"qr-img\" src=\"/assets/lokago-sokong-qr.jpg\" alt=\"QR Code TNG Lateffi\" id=\"qrImg\"\u003e\n    \u003c/div\u003e\n    \u003cdiv class=\"qr-hint\" style=\"display:none\"\u003eQR ini adalah milik \u003cstrong\u003eMOHD LATEFFI BIN MOHD TAZRI\u003c/strong\u003e.\u003cbr\u003eSokongan anda amat dihargai. Terima kasih. 🙏\u003c/div\u003e\n    \u003cbutton class=\"dl-btn\" onclick=\"downloadQR()\"\u003e\n      \u003csvg width=\"18\" height=\"18\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"#fff\" stroke-width=\"2.5\" stroke-linecap=\"round\" stroke-linejoin=\"round\"\u003e\u003cpath d=\"M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4\"/\u003e\u003cpolyline points=\"7 10 12 15 17 10\"/\u003e\u003cline x1=\"12\" y1=\"15\" x2=\"12\" y2=\"3\"/\u003e\u003c/svg\u003e\n      Muat Turun QR Code\n    \u003c/button\u003e\n  \u003c/div\u003e\n\n  \u003c!-- COUNTER --\u003e\n  \u003cdiv class=\"counter-section\"\u003e\n    \u003cdiv class=\"counter-num\" id=\"downloadCount\"\u003e0\u003c/div\u003e\n    \u003cdiv class=\"counter-text\"\u003ekali QR\u003cbr\u003edimuat turun\u003c/div\u003e\n    \u003csvg width=\"32\" height=\"32\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"rgba(255,255,255,0.4)\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\"\u003e\u003cpath d=\"M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z\"/\u003e\u003c/svg\u003e\n    \u003cdiv class=\"counter-text\"\u003eterima kasih\u003cbr\u003eatas sokongan\u003c/div\u003e\n  \u003c/div\u003e\n\n\u003c/div\u003e\n\u003c/div\u003e"
-const scripts: string[] = ["// Download counter using localStorage\nvar count = parseInt(localStorage.getItem(\u0027qrDownloadCount\u0027) || \u00270\u0027);\ndocument.getElementById(\u0027downloadCount\u0027).textContent = count;\n\nfunction selectAmount(btn, amount) {\n  document.querySelectorAll(\u0027.amount-btn\u0027).forEach(b =\u003e b.classList.remove(\u0027selected\u0027));\n  btn.classList.add(\u0027selected\u0027);\n}\n\nfunction downloadQR() {\n  var qrWrap = document.querySelector('.qr-wrap');\n  var qrHint = document.querySelector('.qr-hint');\n  if (qrWrap) qrWrap.style.display = 'flex';\n  if (qrHint) qrHint.style.display = 'block';\n  count++;\n  localStorage.setItem(\u0027qrDownloadCount\u0027, count);\n  document.getElementById(\u0027downloadCount\u0027).textContent = count;\n\n  // Trigger download\n  var link = document.createElement(\u0027a\u0027);\n  link.href = document.getElementById(\u0027qrImg\u0027).src;\n  link.download = \u0027LokalGo_QR_Sokong_Lateffi.jpg\u0027;\n  link.click();\n}"]
-const externalScripts: string[] = []
-const externalStylesheets: string[] = ["https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800\u0026display=swap"]
+const PRIMARY = '#7B1533'
+const ACCENT = '#ADD036'
 
-export default function Page() {
+export default function FounderPage() {
+  const [dlCount, setDlCount] = useState<number>(0)
+  const [downloading, setDownloading] = useState(false)
+  const [qrVisible, setQrVisible] = useState(false)
+  const qrRef = useRef<HTMLImageElement>(null)
+
+  useEffect(() => {
+    async function fetchCount() {
+      try {
+        const supabase = createClient()
+        const { data } = await supabase
+          .from('support_stats')
+          .select('qr_download_count')
+          .eq('id', 1)
+          .maybeSingle()
+        if (data?.qr_download_count != null) {
+          setDlCount(Number(data.qr_download_count))
+          return
+        }
+      } catch { /* table may not exist */ }
+      const local = parseInt(localStorage.getItem('qrDownloadCount') || '0', 10)
+      setDlCount(local)
+    }
+    fetchCount()
+  }, [])
+
+  async function handleDownload() {
+    if (downloading) return
+    setDownloading(true)
+    setQrVisible(true)
+    const newCount = dlCount + 1
+    setDlCount(newCount)
+
+    const link = document.createElement('a')
+    link.href = '/assets/lokago-sokong-qr.jpg'
+    link.download = 'LokalGo_QR_Sokong_Lateffi.jpg'
+    link.click()
+
+    localStorage.setItem('qrDownloadCount', String(newCount))
+    try {
+      const supabase = createClient()
+      await supabase.from('support_stats').upsert({ id: 1, qr_download_count: newCount })
+    } catch { /* ignore */ }
+
+    setDownloading(false)
+  }
+
   return (
-    <HtmlPrototypePage
-      styles={styles}
-      markup={markup}
-      scripts={scripts}
-      externalScripts={externalScripts}
-      externalStylesheets={externalStylesheets}
-    />
+    <div style={{
+      display: 'flex', flexDirection: 'column', height: '100dvh', maxWidth: 430,
+      margin: '0 auto', fontFamily: "'Plus Jakarta Sans', -apple-system, sans-serif",
+      overflow: 'hidden', background: PRIMARY,
+    }}>
+
+      {/* ── HEADER ── */}
+      <div style={{ background: PRIMARY, padding: '18px 20px 14px', flexShrink: 0 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+          <button
+            onClick={() => window.history.length > 1 ? window.history.back() : (window.location.href = '/home')}
+            style={{
+              width: 38, height: 38, borderRadius: '50%', border: 'none',
+              background: 'rgba(255,255,255,0.15)', color: '#fff',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              cursor: 'pointer', flexShrink: 0,
+            }}
+            aria-label="Kembali"
+          >
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <polyline points="15 18 9 12 15 6" />
+            </svg>
+          </button>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src="/icons/Logo-LOKALGO.png" alt="LokalGo™" style={{ height: 36, width: 'auto', display: 'block' }} />
+        </div>
+        <p style={{ marginTop: 8, fontSize: 12, color: 'rgba(255,255,255,0.55)', fontWeight: 500 }}>
+          Platform perniagaan lokal setempat
+        </p>
+      </div>
+
+      {/* ── WHITE CARD ── */}
+      <div style={{
+        background: '#fff', borderRadius: '20px 20px 0 0', flex: 1,
+        display: 'flex', flexDirection: 'column', padding: '20px 22px 0',
+        overflowY: 'auto',
+      }}>
+
+        {/* Founder row */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16 }}>
+          <div style={{
+            width: 42, height: 42, borderRadius: '50%', background: PRIMARY,
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            fontWeight: 800, fontSize: 18, flexShrink: 0,
+          }}>
+            <span style={{ color: ACCENT }}>L</span>
+          </div>
+          <div>
+            <div style={{ fontWeight: 800, fontSize: 15, color: '#111' }}>Lateffi</div>
+            <div style={{ fontSize: 11, color: '#888', marginTop: 1 }}>Pengasas LokalGo™ · NS0308474-A</div>
+          </div>
+        </div>
+
+        {/* Body text */}
+        <p style={{ fontSize: 12, color: '#555', lineHeight: 1.75, marginBottom: 12 }}>
+          Saya faham tekanan ekonomi yang kita hadapi. Ramai di antara kita yang mencari
+          rezeki bukan untuk menjadi kaya, tetapi sekadar untuk{' '}
+          <strong style={{ color: '#111' }}>dapat tidur lena pada hari esok.</strong>
+        </p>
+
+        {/* Blockquote */}
+        <blockquote style={{
+          borderLeft: `3px solid ${PRIMARY}`, background: '#fdf4f5',
+          padding: '10px 14px', borderRadius: '0 10px 10px 0',
+          fontSize: 12, color: '#444', lineHeight: 1.75, fontStyle: 'italic',
+          marginBottom: 12,
+        }}>
+          "Setiap kita ada bakat tersendiri — ada yang pandai membuat kek, ada yang
+          pandai memasak lauk. Akan tetapi{' '}
+          <strong style={{ fontStyle: 'normal', color: PRIMARY }}>kekangan modal menjadi penghalang.</strong>
+          {' '}LokalGo™ wujud untuk memecahkan halangan itu — percuma, dan sentiasa akan percuma."
+        </blockquote>
+
+        <p style={{ fontSize: 12, color: '#555', lineHeight: 1.75, marginBottom: 16 }}>
+          Walau bagaimanapun, kos penyelenggaraan platform ini tidak murah. Jika ia
+          memberi nilai kepada anda dan komuniti,{' '}
+          <strong style={{ color: '#111' }}>secangkir kopi dari anda</strong>{' '}
+          sudah cukup untuk memastikan ia terus berjalan.
+        </p>
+
+        {/* Spacer */}
+        <div style={{ flex: 1 }} />
+
+        {/* Signature */}
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', marginBottom: 14 }}>
+          <svg width="110" height="34" viewBox="0 0 110 34" fill="none">
+            <path d="M6 26 Q16 6 26 18 Q36 30 46 14 Q56 0 66 18 Q76 34 86 20 Q96 8 104 16" stroke={PRIMARY} strokeWidth="2" strokeLinecap="round" fill="none" opacity="0.65"/>
+            <path d="M4 28 Q24 26 44 24 Q64 22 84 24 Q96 24 106 22" stroke={PRIMARY} strokeWidth="1" strokeLinecap="round" fill="none" opacity="0.3"/>
+          </svg>
+          <div style={{ fontSize: 11, color: '#888', marginTop: 3 }}>Mohd Lateffi Tazri</div>
+        </div>
+
+        {/* Divider */}
+        <div style={{ height: 1, background: '#f0f0f0', marginBottom: 16 }} />
+
+        {/* QR Section */}
+        <div style={{ marginBottom: 22 }}>
+          <div style={{ fontSize: 13, fontWeight: 700, color: '#111', textAlign: 'center', marginBottom: 4 }}>
+            Imbas QR untuk menyokong
+          </div>
+          <div style={{ fontSize: 11, color: '#888', textAlign: 'center', marginBottom: 14 }}>
+            Sokongan anda amat dihargai. Terima kasih 🙏
+          </div>
+
+          {/* QR image — shown after download */}
+          {qrVisible && (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              ref={qrRef}
+              src="/assets/lokago-sokong-qr.jpg"
+              alt="QR TNG LokalGo™"
+              style={{
+                display: 'block', width: 180, height: 'auto', borderRadius: 14,
+                margin: '0 auto 16px', boxShadow: '0 4px 16px rgba(0,0,0,0.12)',
+              }}
+            />
+          )}
+
+          {/* TNG logo + other banks label */}
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, marginBottom: 12 }}>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src="/icons/touch-n-go-ewallet-seeklogo.png"
+              alt="TNG eWallet"
+              style={{ height: 24, width: 'auto', borderRadius: 6 }}
+            />
+            <span style={{ fontSize: 11, color: '#888' }}>Maybank · CIMB · dan lain-lain</span>
+          </div>
+
+          <button
+            onClick={handleDownload}
+            disabled={downloading}
+            style={{
+              width: '100%',
+              background: 'linear-gradient(180deg, #8f1a3a 0%, #6a1029 100%)',
+              border: 'none', borderRadius: 14, padding: '14px 20px',
+              display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10,
+              color: '#fff', fontSize: 14, fontWeight: 700, fontFamily: 'inherit',
+              cursor: downloading ? 'default' : 'pointer',
+              opacity: downloading ? 0.75 : 1,
+              boxShadow: '0 6px 20px rgba(123,21,51,0.4)',
+            }}
+          >
+            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+              <polyline points="7 10 12 15 17 10" />
+              <line x1="12" y1="15" x2="12" y2="3" />
+            </svg>
+            {downloading ? 'Sedang dimuat turun...' : 'Muat Turun QR Code'}
+          </button>
+        </div>
+      </div>
+
+      {/* ── STATS BAR ── */}
+      <div style={{
+        background: PRIMARY, padding: '12px 24px', flexShrink: 0,
+        display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 14,
+      }}>
+        <div style={{ fontSize: 26, fontWeight: 800, color: '#fff', lineHeight: 1 }}>{dlCount}</div>
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="rgba(255,255,255,0.4)">
+          <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" />
+        </svg>
+        <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.7)', lineHeight: 1.5 }}>
+          kali QR dimuat turun<br />terima kasih atas sokongan anda
+        </div>
+      </div>
+
+    </div>
   )
 }
