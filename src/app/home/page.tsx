@@ -56,9 +56,6 @@ body{background:#0a0a0a;min-height:100vh;font-family:'Plus Jakarta Sans',-apple-
 .sec-head{padding:14px 20px 10px;display:flex;justify-content:space-between;align-items:center;}
 .sec-head-title{font-size:14px;font-weight:700;color:var(--c-text);}
 .sec-head-link{font-size:12px;color:var(--c-primary);font-weight:500;text-decoration:none;display:flex;align-items:center;gap:3px;}
-.filter-active-bar{background:#fff5f7;border-bottom:1px solid #f0d0d8;padding:8px 20px;display:flex;align-items:center;justify-content:space-between;}
-.filter-active-label{font-size:12px;color:#7B1533;font-weight:600;}
-.filter-clear-btn{font-size:11px;color:#888;background:none;border:none;cursor:pointer;font-family:inherit;padding:2px 6px;border-radius:6px;}
 .shop-list{padding:0 20px 24px;display:flex;flex-direction:column;gap:12px;}
 .shop-card{background:#fff;border-radius:14px;overflow:hidden;box-shadow:0 2px 10px rgba(0,0,0,0.07);}
 .img-wrap{position:relative;height:150px;}
@@ -150,14 +147,6 @@ function renderCatSection(selectedCategory: string | null) {
   return `<div class="cat-section"><div class="cat-scroll">${items}</div></div>`
 }
 
-function renderFilterBar(selectedCategory: string | null) {
-  if (!selectedCategory) return ''
-  return `
-  <div class="filter-active-bar">
-    <span class="filter-active-label">Filter: ${escapeHtml(selectedCategory)}</span>
-    <button class="filter-clear-btn" data-clear-filter="1">Papar Semua ×</button>
-  </div>`
-}
 
 function renderSellerCard(
   seller: Seller,
@@ -176,8 +165,9 @@ function renderSellerCard(
     .map((tag) => `<span class="tag">${escapeHtml(tag)}</span>`)
     .join('')
 
+  const catsAttr = escapeHtml(cats.join(','))
   return `
-  <div class="shop-card" data-seller-id="${escapeHtml(seller.id)}">
+  <div class="shop-card" data-seller-id="${escapeHtml(seller.id)}" data-cats="${catsAttr}">
     <div class="img-wrap">
       <div class="${imageClass}"${imageStyle}></div>
       <div class="img-overlay"></div>
@@ -213,7 +203,6 @@ function renderShopList(
   error: string | null,
   savedShopIds: Set<string>,
   sellerCategories: Map<string, string[]>,
-  selectedCategory: string | null,
 ) {
   if (isLoading) {
     return '<div class="shop-card"><div class="shop-footer"><span class="shop-name">Loading sellers...</span></div></div>'
@@ -222,18 +211,11 @@ function renderShopList(
     return `<div class="shop-card"><div class="shop-footer"><span class="shop-name">${escapeHtml(error)}</span></div></div>`
   }
 
-  const filtered = selectedCategory
-    ? sellers.filter((s) => sellerCategories.get(s.id)?.includes(selectedCategory))
-    : sellers
-
-  if (filtered.length === 0) {
-    const msg = selectedCategory
-      ? `Tiada kedai dengan produk "${selectedCategory}" buat masa ini.`
-      : 'Tiada penjual aktif buat masa ini.'
-    return `<div class="shop-card"><div class="shop-footer"><span class="shop-name">${escapeHtml(msg)}</span></div></div>`
+  if (sellers.length === 0) {
+    return `<div class="shop-card"><div class="shop-footer"><span class="shop-name">Tiada penjual aktif buat masa ini.</span></div></div>`
   }
 
-  return filtered
+  return sellers
     .map((seller, index) => renderSellerCard(seller, index, lang, savedShopIds, sellerCategories))
     .join('')
 }
@@ -253,7 +235,7 @@ function renderHomeMarkup(
     : `<span class="home-avatar-initial">${escapeHtml(firstInitial(profile?.name ?? 'LokalGo'))}</span>`
 
   const langBtnTxt = lang === 'ms' ? 'English' : 'BM'
-  const shopListHtml = renderShopList(lang, sellers, isLoading, error, savedShopIds, sellerCategories, selectedCategory)
+  const shopListHtml = renderShopList(lang, sellers, isLoading, error, savedShopIds, sellerCategories)
 
   return `
 <div class="scroll">
@@ -289,7 +271,6 @@ function renderHomeMarkup(
 
 <!-- CATEGORY FILTER -->
 ${renderCatSection(selectedCategory)}
-${renderFilterBar(selectedCategory)}
 
 <!-- POPULAR -->
 <div class="sec-head">
@@ -462,17 +443,22 @@ export default function HomePage() {
     if (target.closest('.coin-btn')) { window.location.href = '/sokong'; return }
     if (target.closest('.home-avatar')) { setIsSidebarOpen(true); return }
 
-    // Category filter
+    // Category filter — DOM show/hide
     const catItem = target.closest<HTMLElement>('.cat-item[data-cat]')
     if (catItem) {
       const cat = catItem.dataset.cat ?? null
-      setSelectedCategory((prev) => (prev === cat ? null : cat))
-      return
-    }
-
-    // Clear filter
-    if (target.closest('[data-clear-filter]')) {
-      setSelectedCategory(null)
+      setSelectedCategory((prev) => {
+        const newCat = prev === cat ? null : cat
+        // DOM show/hide — after React re-render flushes
+        setTimeout(() => {
+          document.querySelectorAll<HTMLElement>('.shop-card[data-cats]').forEach((card) => {
+            if (!newCat) { card.style.display = ''; return }
+            const cats = card.dataset.cats?.split(',') ?? []
+            card.style.display = cats.includes(newCat) ? '' : 'none'
+          })
+        }, 0)
+        return newCat
+      })
       return
     }
 
