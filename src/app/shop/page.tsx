@@ -464,8 +464,8 @@ export default function Page() {
     if (headerR1 && !headerR1.querySelector('.back-btn')) {
       const backBtn = document.createElement('button')
       backBtn.className = 'back-btn'
-      backBtn.setAttribute('aria-label', 'Kembali ke halaman utama')
-      backBtn.onclick = () => { window.location.href = '/home' }
+      backBtn.setAttribute('aria-label', 'Kembali')
+      backBtn.onclick = () => { if (window.history.length > 1) { window.history.back() } else { window.location.href = '/home' } }
       backBtn.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>'
       headerR1.insertBefore(backBtn, headerR1.firstChild)
     }
