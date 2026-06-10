@@ -37,10 +37,18 @@ function relativeTime(value: string | null) {
   return formatMonth(value)
 }
 
-function productStatus(product: Product) {
-  if (product.is_preorder) return { className: 's-preorder', label: 'Produk Pra Tempahan' }
-  if (product.is_available) return { className: 's-avail', label: 'Produk Tersedia' }
-  return { className: 's-unavail', label: 'Produk Tidak Tersedia' }
+const CHIP_ZAP = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 14a1 1 0 0 1-.78-1.63l9.9-10.2a.5.5 0 0 1 .86.46l-1.92 6.02A1 1 0 0 0 13 10h7a1 1 0 0 1 .78 1.63l-9.9 10.2a.5.5 0 0 1-.86-.46l1.92-6.02A1 1 0 0 0 11 14z"/></svg>'
+const CHIP_CAL = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 7.5V6a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h3.5"/><path d="M16 2v4"/><path d="M8 2v4"/><path d="M3 10h5"/><path d="M17.5 17.5 16 16.3V14"/><circle cx="16" cy="16" r="6"/></svg>'
+const CHIP_BASE = 'display:inline-flex;align-items:center;gap:4px;font-size:10px;font-weight:600;border-radius:999px;padding:2px 8px;'
+
+function saleModeChips(product: Product) {
+  const direct = product.is_available
+    ? `<span style="${CHIP_BASE}background:#EDF7ED;color:#2E7D32;">${CHIP_ZAP} Jual Terus</span>`
+    : ''
+  const preorder = product.is_preorder
+    ? `<span style="${CHIP_BASE}background:#FFF3E0;color:#B45D00;">${CHIP_CAL} Pre-Order</span>`
+    : ''
+  return [direct, preorder].filter(Boolean).join('')
 }
 
 function optionalString(row: Record<string, unknown>, keys: string[]) {
@@ -76,7 +84,6 @@ function renderProductCards(products: Product[]) {
 
   return products.map((product, index) => {
     const row = product as ProductRow
-    const status = productStatus(product)
     const name = productName(row)
     const unit = productUnit(row)
     const price = productPrice(row)
@@ -93,7 +100,7 @@ function renderProductCards(products: Product[]) {
     <div class="produk-img pi${(index % 3) + 1}">${imageHtml}</div>
     <div class="produk-body">
       <div class="produk-info"><div class="produk-name">${escapeHtml(name)}</div>${priceHtml}<div class="produk-desc">${escapeHtml(description)}</div></div>
-      <div class="produk-footer"><span class="produk-status ${status.className}">${status.label}</span></div>
+      <div class="produk-footer" style="gap:4px;">${saleModeChips(product)}</div>
     </div>
   </div>`
   }).join('')
@@ -368,6 +375,7 @@ export default function Page() {
           .select('*')
           .eq('seller_id', seller.id)
           .eq('status', 'approved')
+          .or('is_available.eq.true,is_preorder.eq.true')
           .order('created_at', { ascending: false }),
         supabase
           .from('testimonials')
@@ -412,8 +420,13 @@ export default function Page() {
       setText('.stats .stat:nth-child(2) .stat-num', sellerTestimonials.length || seller.testimonial_count || 0)
       setText('.stats .stat:nth-child(3) .stat-num', (seller.view_count ?? 0) + 1)
       setText('.stats .stat:nth-child(4) .stat-num', seller.wa_click_count ?? 0)
-      setHtml('.cat-filter', renderCategoryTabs(sellerProducts))
-      setHtml('.produk-list', renderProductCards(sellerProducts))
+      if (!seller.is_open) {
+        setHtml('.cat-filter', '')
+        setHtml('.produk-list', '<div style="background:#fff;border-radius:12px;padding:24px 18px;text-align:center;color:#888;font-size:13px;">Kedai ini ditutup buat masa ini</div>')
+      } else {
+        setHtml('.cat-filter', renderCategoryTabs(sellerProducts))
+        setHtml('.produk-list', renderProductCards(sellerProducts))
+      }
 
       setText('.testi-count', `${sellerTestimonials.length} ulasan`)
       setHtml('.testi-inner', renderTestimonials(sellerTestimonials))

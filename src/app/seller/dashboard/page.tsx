@@ -29,23 +29,30 @@ function renderDashboardProducts(products: Product[]) {
     return '<div class="produk-row"><div class="produk-meta"><div class="produk-name">Belum ada produk diluluskan</div><div class="produk-status-txt ps-unavail">Tambah produk selepas kedai diluluskan.</div></div></div>'
   }
 
-  return products.map((product, index) => {
-    const statusClass = product.is_available ? 'ps-avail' : 'ps-unavail'
-    const statusText = product.is_preorder ? 'Pra Tempahan' : product.is_available ? 'Tersedia' : 'Tidak Tersedia'
-
+  const rows = products.map((product, index) => {
     const displayName = (product as Product & { name?: string | null }).name?.trim() || product.category || 'Produk'
-    return `<div class="produk-row">
+    return `<div class="produk-row" data-product-row="${escapeHtml(product.id)}">
     <div class="produk-thumb">${product.images?.[0] ? `<img src="${escapeHtml(product.images[0])}" alt="" style="width:100%;height:100%;object-fit:cover;border-radius:10px;">` : '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#7B1533" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>'}</div>
     <div class="produk-meta">
       <div class="produk-name">${escapeHtml(displayName)}</div>
-      <div class="produk-status-txt ${statusClass}" id="product-status-${index}">● ${statusText}</div>
+      <div class="produk-status-txt" id="product-status-${index}" data-mode-label="${escapeHtml(product.id)}">● ${productModeLabel(product)}</div>
+      <a class="edit-btn" href="/produk?product=${escapeHtml(product.id)}&seller=${escapeHtml(product.seller_id)}" style="width:auto;height:auto;background:none;border:none;font-size:10px;color:#7B1533;font-weight:600;text-decoration:underline;display:inline;">Lihat</a>
     </div>
-    <div class="produk-actions">
-      <label class="p-switch"><input type="checkbox" ${product.is_available ? 'checked' : ''} disabled><span class="p-slider"></span></label>
-      <a class="edit-btn" href="/produk?product=${escapeHtml(product.id)}&seller=${escapeHtml(product.seller_id)}"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#555" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg></a>
+    <div class="produk-actions" style="flex-direction:column;align-items:flex-end;gap:5px;">
+      <div style="display:flex;align-items:center;gap:6px;"><span style="font-size:9px;color:#888;font-weight:600;">Jual Terus</span><label class="p-switch"><input type="checkbox" data-product-id="${escapeHtml(product.id)}" data-field="is_available" ${product.is_available ? 'checked' : ''}><span class="p-slider"></span></label></div>
+      <div style="display:flex;align-items:center;gap:6px;"><span style="font-size:9px;color:#888;font-weight:600;">Terima Pre-Order</span><label class="p-switch"><input type="checkbox" data-product-id="${escapeHtml(product.id)}" data-field="is_preorder" ${product.is_preorder ? 'checked' : ''}><span class="p-slider"></span></label></div>
     </div>
   </div>`
   }).join('')
+
+  return `${rows}<div style="font-size:11px;color:#999;line-height:1.6;padding:4px 2px 0;">Jual Terus = pesanan hari ini. Pre-Order = tempahan esok dan seterusnya.</div>`
+}
+
+function productModeLabel(flags: { is_available: boolean; is_preorder: boolean }) {
+  if (flags.is_available && flags.is_preorder) return 'Jual Terus + Pre-Order'
+  if (flags.is_preorder) return 'Pre-Order Sahaja'
+  if (flags.is_available) return 'Jual Terus'
+  return 'Tidak Aktif (tersembunyi dari pembeli)'
 }
 
 type DashboardWindow = Window & {
@@ -115,6 +122,28 @@ export default function Page() {
       setText('.stats-grid .stat-card:nth-child(3) .stat-num', sellerTestimonials.length || currentSeller.testimonial_count || 0)
       setText('.stats-grid .stat-card:nth-child(4) .stat-num', `${Math.min(100, Math.round(((currentSeller.view_count ?? 0) + (currentSeller.wa_click_count ?? 0) + (sellerTestimonials.length * 10)) / 5))}%`)
       setHtml('.produk-list', renderDashboardProducts(sellerProducts))
+
+      // Product mode toggles — Jual Terus / Terima Pre-Order
+      const flagsById = new Map(sellerProducts.map((p) => [p.id, { is_available: p.is_available, is_preorder: p.is_preorder }]))
+      document.querySelectorAll<HTMLInputElement>('.produk-list input[data-field]').forEach((toggle) => {
+        toggle.addEventListener('change', async () => {
+          const id = toggle.dataset.productId
+          const field = toggle.dataset.field as 'is_available' | 'is_preorder'
+          const flags = id ? flagsById.get(id) : undefined
+          if (!id || !flags) return
+          const previous = flags[field]
+          flags[field] = toggle.checked
+          const label = document.querySelector<HTMLElement>(`[data-mode-label="${id}"]`)
+          if (label) label.textContent = `● ${productModeLabel(flags)}`
+          const { error } = await supabase.from('products').update({ [field]: toggle.checked }).eq('id', id)
+          if (error) {
+            flags[field] = previous
+            toggle.checked = previous
+            if (label) label.textContent = `● ${productModeLabel(flags)}`
+            alert('Tidak dapat kemaskini produk. Cuba lagi.')
+          }
+        })
+      })
 
       // ── Nota Kedai ─────────────────────────────────────────────
       const notaView = document.getElementById('notaView')

@@ -27,11 +27,18 @@ const CAT_ICONS: Record<string, string> = {
 
 const styles = `:root{--c-primary:#7B1533;--c-primary-dark:#6A1029;--c-primary-lt:#8f1a3a;--c-accent:#ADD036;--c-green:#25D366;--c-bg:#F5F5F5;--c-surface:#FFFFFF;--c-border:#E5E5EA;--c-text:#111111;--c-text2:#555555;--c-text3:#888888;--c-hint:#BBBBBB;}
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;-webkit-font-smoothing:antialiased;}
-body{background:#0a0a0a;min-height:100vh;font-family:'Plus Jakarta Sans',-apple-system,sans-serif;font-size:14px;color:var(--c-text);}
-.page{position:relative;width:100%;max-width:430px;margin:0 auto;min-height:100vh;background:var(--c-bg);overflow:hidden;}
-@media(min-width:500px){body{padding:40px 20px;display:flex;justify-content:center;align-items:flex-start;}.page{min-height:100vh;border-radius:36px;border:8px solid #1a1a1a;box-shadow:0 32px 80px rgba(0,0,0,0.7);}}
-@media(min-width:1024px){body{align-items:center;padding:40px;min-height:100vh;}}
-.scroll{height:812px;overflow-y:auto;}.scroll::-webkit-scrollbar{display:none;}
+html,body{overflow:hidden;height:100%;}
+body{background:#0a0a0a;font-family:'Plus Jakarta Sans',-apple-system,sans-serif;font-size:14px;color:var(--c-text);}
+.page{position:relative;width:100%;max-width:430px;margin:0 auto;height:100dvh;background:var(--c-bg);overflow:hidden;}
+@media(min-width:500px){body{padding:40px 20px;display:flex;justify-content:center;align-items:flex-start;}.page{height:calc(100dvh - 80px);border-radius:36px;border:8px solid #1a1a1a;box-shadow:0 32px 80px rgba(0,0,0,0.7);}}
+@media(min-width:1024px){body{align-items:center;padding:40px;}}
+.home-shell{height:100%;display:flex;flex-direction:column;overflow:hidden;padding-top:env(safe-area-inset-top);}
+.home-fixed{flex-shrink:0;position:relative;z-index:10;transition:box-shadow 0.2s;}
+.home-fixed.scrolled{box-shadow:0 2px 8px rgba(0,0,0,0.05);}
+.home-scroll{flex:1;min-height:0;overflow-y:auto;overscroll-behavior-y:contain;-webkit-overflow-scrolling:touch;padding-bottom:env(safe-area-inset-bottom);}
+.home-scroll::-webkit-scrollbar{display:none;}
+.empty-state{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;padding:48px 24px;text-align:center;}
+.empty-state-txt{font-size:13px;color:#888;line-height:1.6;}
 .header{background:var(--c-primary);padding:14px 20px 12px;}
 .header-r1{display:flex;align-items:center;justify-content:space-between;margin-bottom:3px;}
 .header-sub{font-size:11px;color:rgba(255,255,255,0.55);margin-bottom:10px;}
@@ -215,7 +222,10 @@ function renderShopList(
   }
 
   if (sellers.length === 0) {
-    return `<div class="shop-card"><div class="shop-footer"><span class="shop-name">Tiada penjual aktif buat masa ini.</span></div></div>`
+    return `<div class="empty-state">
+      <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#CCC" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m2 7 4.41-4.41A2 2 0 0 1 7.83 2h8.34a2 2 0 0 1 1.42.59L22 7"/><path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"/><path d="M15 22v-4a2 2 0 0 0-2-2h-2a2 2 0 0 0-2 2v4"/><path d="M2 7h20"/><path d="M22 7v3a2 2 0 0 1-2 2a2.7 2.7 0 0 1-1.59-.63.7.7 0 0 0-.82 0A2.7 2.7 0 0 1 16 12a2.7 2.7 0 0 1-1.59-.63.7.7 0 0 0-.82 0A2.7 2.7 0 0 1 12 12a2.7 2.7 0 0 1-1.59-.63.7.7 0 0 0-.82 0A2.7 2.7 0 0 1 8 12a2.7 2.7 0 0 1-1.59-.63.7.7 0 0 0-.82 0A2.7 2.7 0 0 1 4 12a2 2 0 0 1-2-2V7"/></svg>
+      <span class="empty-state-txt">Tiada kedai dibuka sekarang.<br>Sila kembali semula nanti.</span>
+    </div>`
   }
 
   return sellers
@@ -241,7 +251,8 @@ function renderHomeMarkup(
   const shopListHtml = renderShopList(lang, sellers, isLoading, error, savedShopIds, sellerCategories)
 
   return `
-<div class="scroll">
+<div class="home-shell">
+<header class="home-fixed">
 <!-- HEADER -->
 <div class="header">
   <div class="header-r1">
@@ -266,7 +277,9 @@ function renderHomeMarkup(
 
 <!-- CATEGORY FILTER -->
 ${renderCatSection(selectedCategory)}
+</header>
 
+<main class="home-scroll" onscroll="document.querySelector('.home-fixed').classList.toggle('scrolled', this.scrollTop > 4)">
 <!-- POPULAR -->
 <div class="sec-head">
   <span class="sec-head-title">${copy('popular_title', lang)}</span>
@@ -275,6 +288,8 @@ ${renderCatSection(selectedCategory)}
 
 <div class="shop-list">
 ${shopListHtml}
+</div>
+</main>
 </div>
 `
 }
@@ -382,7 +397,7 @@ export default function HomePage() {
           .from('sellers')
           .select('*')
           .eq('status', 'active')
-          .order('is_open', { ascending: false })
+          .eq('is_open', true)
           .order('approved_at', { ascending: false, nullsFirst: false })
           .order('created_at', { ascending: false })
           .limit(20),
@@ -390,7 +405,7 @@ export default function HomePage() {
           .from('products')
           .select('seller_id,category')
           .eq('status', 'approved')
-          .eq('is_available', true),
+          .or('is_available.eq.true,is_preorder.eq.true'),
       ])
 
       if (cancelled) return

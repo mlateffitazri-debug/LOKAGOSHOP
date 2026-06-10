@@ -60,6 +60,7 @@ export default function Page() {
         .from('products')
         .select('*')
         .eq('status', 'approved')
+        .or('is_available.eq.true,is_preorder.eq.true')
 
       products = (data ?? []) as Product[]
       const categories = ['Semua', ...Array.from(new Set(products.map((product) => product.category).filter(Boolean))).slice(0, 8)]
@@ -100,6 +101,7 @@ export default function Page() {
         .from('sellers')
         .select('*')
         .eq('status', 'active')
+        .eq('is_open', true)
         .order('created_at', { ascending: false })
 
       if (query) {
