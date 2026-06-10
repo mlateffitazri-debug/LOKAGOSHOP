@@ -140,7 +140,7 @@ export default function TestimonialsPage() {
         setItems(
           testimonials.map((item) => ({
             ...item,
-            shopName: sellersById.get(item.seller_id)?.shop_name || 'Kedai LokaGo',
+            shopName: sellersById.get(item.seller_id)?.shop_name || 'Kedai LokalGo™',
           })),
         )
         setIsLoading(false)

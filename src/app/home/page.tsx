@@ -466,10 +466,10 @@ export default function HomePage() {
       event.stopPropagation()
       const card = target.closest<HTMLElement>('.shop-card')
       const sellerId = card?.dataset.sellerId
-      const shopName = card?.querySelector('.shop-name')?.textContent?.trim() || 'Kedai LokaGo'
+      const shopName = card?.querySelector('.shop-name')?.textContent?.trim() || 'Kedai LokalGo™'
       const url = `https://lokagoshop-dm2m.vercel.app/shop/${sellerId}`
       if (navigator.share) {
-        try { await navigator.share({ title: shopName, text: 'Tengok kedai ini di LokaGo!', url }) } catch { /* dismissed */ }
+        try { await navigator.share({ title: shopName, text: 'Tengok kedai ini di LokalGo™!', url }) } catch { /* dismissed */ }
       } else {
         try { await navigator.clipboard.writeText(url) } catch { /* ignore */ }
         showToast('Pautan disalin!')
@@ -561,7 +561,7 @@ export default function HomePage() {
             <SidebarLink href="/saved" icon={'\u{2764}\u{FE0F}'} label="Kedai Disimpan" />
             <SidebarLink href="/testimonials" icon={'\u{1F4AC}'} label="Testimoni Saya" />
             <SidebarLink href="/sokong" icon={'\u{1F64F}'} label="Sokong Pembangun" />
-            <SidebarLink href="/about" icon={'\u{2139}\u{FE0F}'} label="Tentang LokaGo" />
+            <SidebarLink href="/about" icon={'\u{2139}\u{FE0F}'} label="Tentang LokalGo™" />
             <button type="button" onClick={toggle} className="sidebar-lang">
               <span className="sidebar-icon">{'\u{1F310}'}</span>
               <span className="sidebar-label">Tukar Bahasa</span>

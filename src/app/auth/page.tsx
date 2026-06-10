@@ -184,7 +184,7 @@ export default function LoginPage() {
             <a href="/tnc" style={{ color: '#7B1533', textDecoration: 'none', fontWeight: 600 }}>Terma & Syarat</a>
             {' '}dan{' '}
             <a href="/privacy" style={{ color: '#7B1533', textDecoration: 'none', fontWeight: 600 }}>Dasar Privasi</a>
-            {' '}LokaGo.
+            {' '}LokalGo™.
           </div>
         </div>
       </div>

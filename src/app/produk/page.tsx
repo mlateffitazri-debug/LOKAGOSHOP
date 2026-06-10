@@ -183,7 +183,7 @@ function renderCartFlow(runtime: ProductWindow, buyer: BuyerProfile | null, trac
     const message = [
       `Salam ${seller.sellerName} 👋`,
       '',
-      '*Pesanan Baru dari LokaGo*',
+      '*Pesanan Baru dari LokalGo™*',
       '-----------------------------',
       ...lines,
       '-----------------------------',
@@ -195,7 +195,7 @@ function renderCartFlow(runtime: ProductWindow, buyer: BuyerProfile | null, trac
       buyer?.name ? `Nama: ${buyer.name}` : null,
       buyer?.whatsapp_number ? `No Telefon: ${buyer.whatsapp_number}` : null,
       '-----------------------------',
-      'Pesanan dari LokaGo Shop',
+      'Pesanan dari LokalGo™',
       seller.shopUrl,
     ].filter(Boolean).join('\n')
 

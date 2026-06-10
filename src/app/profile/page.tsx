@@ -271,7 +271,7 @@ export default function ProfilePage() {
                   <span className="text-lg text-[#856404]">♡</span>
                 </MenuIcon>
               </MenuRow>
-              <MenuRow href="/about" title="Tentang LokaGo" subtitle="Versi 1.1 | NS0308474-A">
+              <MenuRow href="/about" title="Tentang LokalGo™" subtitle="Versi 1.1 | NS0308474-A">
                 <MenuIcon tone="bg-[#F5F5F5]">
                   <span className="text-lg text-[#888888]">i</span>
                 </MenuIcon>

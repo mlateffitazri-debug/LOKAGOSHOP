@@ -433,7 +433,7 @@ export default function Page() {
         shareBtn.onclick = async () => {
           const url = `${window.location.origin}/shop?seller=${seller.id}`
           if (navigator.share) {
-            try { await navigator.share({ title: seller.shop_name, text: 'Tengok kedai ini di LokaGo!', url }) } catch { /* dismissed */ }
+            try { await navigator.share({ title: seller.shop_name, text: 'Tengok kedai ini di LokalGo™!', url }) } catch { /* dismissed */ }
           } else {
             try { await navigator.clipboard.writeText(url); showShopToast('Pautan disalin!') } catch { showShopToast('Gagal salin pautan') }
           }

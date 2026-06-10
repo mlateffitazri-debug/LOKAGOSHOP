@@ -30,7 +30,7 @@ body{margin:0;background:#0a0a0a;font-family:'Plus Jakarta Sans',-apple-system,B
 
 function LogoSvg() {
   return (
-    <svg className="logo" viewBox="0 0 1080 365" xmlns="http://www.w3.org/2000/svg" aria-label="LokaGo">
+    <svg className="logo" viewBox="0 0 1080 365" xmlns="http://www.w3.org/2000/svg" aria-label="LokalGo™">
       <style>{'.s0{fill:#FFF}.s1{fill:#ADD036}'}</style>
       <path className="s0" d="M133,61v175c0,13-11,24-24,24h-4c-13,0-24-11-24-24V61c0-13,11-24,24-24h4C122,37,133,48,133,61z" />
       <path className="s0" d="M180,251c-13-7-23-17-31-30c-8-13-11-28-11-46c0-17,4-32,11-46s18-23,31-30c13-7,28-11,45-11s31,4,45,11c13,7,24,17,31,30s11,28,11,46c0,17-4,32-12,46c-8,13-18,23-32,30c-13,7-28,11-45,11S193,258,180,251z M249,207c7-7,10-18,10-31s-3-24-10-31c-7-7-15-11-25-11c-10,0-18,4-25,11c-7,7-10,18-10,31c0,13,3,24,10,31c7,7,15,11,25,11C234,218,242,214,249,207z" />
@@ -73,7 +73,7 @@ export default function AboutPage() {
 
           <section className="content">
             <div className="card">
-              <InfoRow label="Platform" value="LokaGo Shop" />
+              <InfoRow label="Platform" value="LokalGo™ Shop" />
               <InfoRow label="Versi" value="1.1" />
               <InfoRow label="SSM" value="NS0308474-A" />
               <InfoRow label="Domain" value="lokago.app" />
