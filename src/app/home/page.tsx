@@ -204,7 +204,7 @@ function renderShopList(
   sellerCategories: Map<string, string[]>,
 ) {
   if (isLoading) {
-    return '<div class="shop-card"><div class="shop-footer"><span class="shop-name">Loading sellers...</span></div></div>'
+    return '<div class="shop-card"><div class="shop-footer"><span class="shop-name">Memuatkan kedai...</span></div></div>'
   }
   if (error) {
     return `<div class="shop-card"><div class="shop-footer"><span class="shop-name">${escapeHtml(error)}</span></div></div>`
@@ -241,15 +241,7 @@ function renderHomeMarkup(
 <!-- HEADER -->
 <div class="header">
   <div class="header-r1">
-    <svg viewBox="0 0 1080 365" xmlns="http://www.w3.org/2000/svg" style="height:40px;width:auto;">
-      <style>.s0{fill:#FFF}.s1{fill:#ADD036}</style>
-      <path class="s0" d="M133,61v175c0,13-11,24-24,24h-4c-13,0-24-11-24-24V61c0-13,11-24,24-24h4C122,37,133,48,133,61z"/>
-      <path class="s0" d="M180,251c-13-7-23-17-31-30c-8-13-11-28-11-46c0-17,4-32,11-46s18-23,31-30c13-7,28-11,45-11s31,4,45,11c13,7,24,17,31,30s11,28,11,46c0,17-4,32-12,46c-8,13-18,23-32,30c-13,7-28,11-45,11S193,258,180,251z M249,207c7-7,10-18,10-31s-3-24-10-31c-7-7-15-11-25-11c-10,0-18,4-25,11c-7,7-10,18-10,31c0,13,3,24,10,31c7,7,15,11,25,11C234,218,242,214,249,207z"/>
-      <path class="s0" d="M411,248l-43-59v49c0,12-9,21-21,21h-7c-13,0-23-10-23-23V56c0-11,9-19,19-19h15c10,0,17,8,17,17v106l43-57c5-7,13-11,22-11h32c7,0,11,8,6,14l-58,70l54,65c6,7,1,19-9,19h-25C425,259,416,255,411,248z"/>
-      <path class="s0" d="M470,130c7-13,15-23,27-30c11-7,24-11,38-11c12,0,22,2,31,7s16,11,21,19v-8c0-9,7-16,16-16h20c8,0,15,7,15,15v139c0,7-6,13-13,13h-21c-10,0-17-8-17-17v-6c-5,8-12,14-21,19c-9,5-19,7-31,7c-14,0-26-4-37-11c-11-7-20-17-27-30c-7-13-10-28-10-46C460,158,464,143,470,130z M575,145c-7-7-16-11-26-11c-10,0-19,4-26,11c-7,7-11,17-11,30c0,13,4,23,11,31c7,8,16,11,26,11c10,0,19-4,26-11c7-7,11-18,11-30C586,163,582,153,575,145z"/>
-      <path class="s1" d="M747,96c9,5,16,11,21,19v-7c0-9,7-17,17-17h19c9,0,16,7,16,16v152c0,15-3,29-9,42c-6,13-15,23-28,30c-13,7-28,11-47,11c-25,0-45-6-60-18c-11-8-18-19-23-31c-3-8,3-17,12-17h21c8,0,14,4,19,10c2,2,4,4,7,6c6,4,13,6,22,6c11,0,19-3,25-9c6-6,10-16,10-29v-24c-5,8-12,14-21,19c-9,5-19,7-31,7c-14,0-26-4-38-11c-11-7-20-17-27-30c-7-13-10-28-10-46c0-17,3-32,10-45c7-13,15-23,27-30c11-7,24-11,38-11C728,89,738,91,747,96z M757,145c-7-7-16-11-26-11c-10,0-19,4-26,11c-7,7-11,17-11,30c0,13,4,23,11,31c7,8,16,11,26,11c10,0,19-4,26-11c7-7,11-18,11-30C768,163,764,153,757,145z"/>
-      <path class="s1" d="M866,251c-13-7-23-17-31-30c-8-13-11-28-11-46c0-17,4-32,11-46s18-23,31-30c13-7,28-11,45-11c16,0,31,4,45,11c13,7,24,17,31,30s11,28,11,46c0,17-4,32-12,46c-8,13-18,23-32,30c-13,7-28,11-45,11C894,262,879,258,866,251z M935,207c7-7,10-18,10-31s-3-24-10-31c-7-7-15-11-25-11c-10,0-18,4-25,11c-7,7-10,18-10,31c0,13,3,24,10,31c7,7,15,11,25,11C920,218,928,214,935,207z"/>
-    </svg>
+    <img src="/icons/Logo-LOKALGO.png" alt="LokalGo™" style="height:40px;width:auto;display:block;">
     <div class="header-actions">
       <button class="coin-btn" aria-label="Sokong Pembangun"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true"><circle cx="12" cy="12" r="9" fill="#F7C948" stroke="#FFFFFF" stroke-width="1.6"/><circle cx="12" cy="12" r="5.6" fill="#FFE082" stroke="#B7791F" stroke-width="1.2"/><path d="M12 8.2v7.6M9.5 10.1h3.7a1.8 1.8 0 0 1 0 3.6H10" stroke="#7B1533" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
       <button class="home-avatar" aria-label="Buka menu profil">${avatarHtml}</button>
@@ -406,7 +398,7 @@ export default function HomePage() {
       if (cancelled) return
 
       if (sellersRes.error) {
-        setError('Unable to load sellers')
+        setError('Tidak dapat memuatkan senarai kedai')
         setSellers([])
       } else {
         const loadedSellers = (sellersRes.data ?? []) as Seller[]
