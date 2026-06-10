@@ -208,33 +208,52 @@ function renderCartFlow(runtime: ProductWindow, buyer: BuyerProfile | null, trac
   runtime.sendWhatsApp = () => {
     document.getElementById('cartReviewOverlay')?.remove()
     const rows = cart.map((item, index) => `
-      <div style="display:grid;grid-template-columns:1fr auto;gap:10px;padding:12px 0;border-bottom:1px solid #eee;">
+      <div style="display:grid;grid-template-columns:1fr auto;gap:10px;padding:10px 0;border-bottom:1px solid #f0f0f0;">
         <div>
           <div style="font-size:13px;font-weight:700;color:#111;">${escapeHtml(item.name)}</div>
-          <div style="font-size:12px;color:#666;margin-top:3px;">RM${money(item.price)}/${escapeHtml(item.unit)} - Subtotal RM${money(item.price * item.qty)}</div>
+          <div style="font-size:12px;color:#666;margin-top:2px;">RM${money(item.price)}/${escapeHtml(item.unit)} · Subtotal RM${money(item.price * item.qty)}</div>
         </div>
-        <div style="display:flex;align-items:center;gap:8px;">
-          <button onclick="window.__lokalgoCartQty(${index},-1)" style="width:30px;height:30px;border:1px solid #ddd;background:#fff;border-radius:8px;">-</button>
-          <strong style="min-width:18px;text-align:center;">${item.qty}</strong>
-          <button onclick="window.__lokalgoCartQty(${index},1)" style="width:30px;height:30px;border:1px solid #ddd;background:#fff;border-radius:8px;">+</button>
-          <button onclick="window.__lokalgoCartRemove(${index})" style="width:30px;height:30px;border:0;background:#f5f5f5;border-radius:8px;color:#777;">x</button>
+        <div style="display:flex;align-items:center;gap:6px;">
+          <button onclick="window.__lokalgoCartQty(${index},-1)" style="width:28px;height:28px;border:1px solid #ddd;background:#fff;border-radius:8px;font-size:16px;cursor:pointer;line-height:1;">-</button>
+          <strong style="min-width:18px;text-align:center;font-size:14px;">${item.qty}</strong>
+          <button onclick="window.__lokalgoCartQty(${index},1)" style="width:28px;height:28px;border:1px solid #ddd;background:#fff;border-radius:8px;font-size:16px;cursor:pointer;line-height:1;">+</button>
+          <button onclick="window.__lokalgoCartRemove(${index})" style="width:28px;height:28px;border:0;background:#f5f5f5;border-radius:8px;color:#999;cursor:pointer;font-size:16px;line-height:1;">×</button>
         </div>
       </div>
     `).join('')
 
     document.body.insertAdjacentHTML('beforeend', `
       <div id="cartReviewOverlay" style="position:fixed;inset:0;background:rgba(0,0,0,0.55);z-index:120;display:flex;align-items:flex-end;justify-content:center;">
-        <div style="background:#fff;width:100%;max-width:430px;border-radius:20px 20px 0 0;padding:18px 18px 20px;max-height:88vh;overflow:auto;">
-          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
-            <div style="font-size:16px;font-weight:800;color:#111;">Semak Pesanan</div>
-            <button onclick="window.__lokalgoCloseCart()" style="width:34px;height:34px;border:0;border-radius:10px;background:#f5f5f5;color:#555;font-size:18px;">x</button>
+        <div style="background:#fff;width:100%;max-width:430px;border-radius:20px 20px 0 0;padding:18px 18px 24px;max-height:88vh;overflow:auto;">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
+            <div style="font-size:15px;font-weight:800;color:#111;">Pesanan Anda</div>
+            <button onclick="window.__lokalgoCloseCart()" style="width:32px;height:32px;border:0;border-radius:10px;background:#f5f5f5;color:#555;font-size:18px;cursor:pointer;line-height:1;">×</button>
           </div>
           ${rows}
-          <div style="display:flex;justify-content:space-between;align-items:center;padding:14px 0;font-size:15px;font-weight:800;color:#111;">
+          <div style="display:flex;justify-content:space-between;padding:12px 0;font-size:14px;font-weight:800;color:#111;">
             <span>Subtotal</span><span>RM${money(cartSubtotal(cart))}</span>
           </div>
-          <button onclick="window.__lokalgoCartCheckout('pickup')" style="width:100%;border:1.5px solid #ddd;background:#fff;border-radius:12px;padding:13px;font-size:14px;font-weight:700;margin-bottom:9px;">Self Collect</button>
-          <button onclick="window.__lokalgoCartCheckout('cod')" style="width:100%;border:0;background:#25D366;color:#fff;border-radius:12px;padding:14px;font-size:14px;font-weight:800;">COD - Order via WhatsApp</button>
+          <div style="margin:4px 0 16px;">
+            <div style="font-size:12px;font-weight:700;color:#555;margin-bottom:8px;">Kaedah Penghantaran</div>
+            <label id="methodLabelPickup" style="display:flex;align-items:center;gap:12px;padding:12px;border:1.5px solid #7B1533;border-radius:12px;margin-bottom:8px;cursor:pointer;">
+              <input type="radio" name="deliveryMethod" value="pickup" style="width:18px;height:18px;accent-color:#7B1533;" checked onchange="document.getElementById('methodLabelPickup').style.borderColor='#7B1533';document.getElementById('methodLabelCod').style.borderColor='#eee'">
+              <div style="width:36px;height:36px;background:#EAF5D8;border-radius:10px;display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#4A7C10" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+              </div>
+              <div><div style="font-size:13px;font-weight:700;color:#111;">Self Collect</div><div style="font-size:11px;color:#888;">Ambil sendiri di lokasi seller</div></div>
+            </label>
+            <label id="methodLabelCod" style="display:flex;align-items:center;gap:12px;padding:12px;border:1.5px solid #eee;border-radius:12px;cursor:pointer;">
+              <input type="radio" name="deliveryMethod" value="cod" style="width:18px;height:18px;accent-color:#7B1533;" onchange="document.getElementById('methodLabelCod').style.borderColor='#7B1533';document.getElementById('methodLabelPickup').style.borderColor='#eee'">
+              <div style="width:36px;height:36px;background:#fff0f3;border-radius:10px;display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#7B1533" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="1" y="3" width="15" height="13"/><polygon points="16 8 20 8 23 11 23 16 16 16 16 8"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg>
+              </div>
+              <div><div style="font-size:13px;font-weight:700;color:#111;">COD — Penghantaran</div><div style="font-size:11px;color:#888;">Hantar ke alamat anda</div></div>
+            </label>
+          </div>
+          <button onclick="var m=document.querySelector('input[name=deliveryMethod]:checked');window.__lokalgoCartCheckout(m?m.value:'pickup')" style="width:100%;border:0;background:#25D366;color:#fff;border-radius:14px;padding:15px;font-size:15px;font-weight:800;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="#fff"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347z"/><path d="M12 0C5.373 0 0 5.373 0 12c0 2.125.558 4.122 1.528 5.855L0 24l6.335-1.507C8.05 23.453 9.99 24 12 24c6.627 0 12-5.373 12-12S18.627 0 12 0zm0 22c-1.885 0-3.638-.518-5.145-1.416l-.369-.219-3.76.895.942-3.655-.24-.378A9.933 9.933 0 0 1 2 12C2 6.477 6.477 2 12 2s10 4.477 10 10-4.477 10-10 10z"/></svg>
+            Hantar Pesanan via WhatsApp
+          </button>
         </div>
       </div>
     `)
@@ -374,6 +393,33 @@ export default function Page() {
       }
 
       renderGallery(currentProduct.images || [])
+
+      // Fix date input — use local timezone instead of UTC
+      const dateInput = document.getElementById('pickupDate') as HTMLInputElement | null
+      if (dateInput) {
+        const now = new Date()
+        const pad = (n: number) => String(n).padStart(2, '0')
+        const localDate = (d: Date) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`
+        const tomorrow = new Date(now); tomorrow.setDate(now.getDate() + 1)
+        const maxDay = new Date(now); maxDay.setDate(now.getDate() + 7)
+        dateInput.min = localDate(tomorrow)
+        dateInput.max = localDate(maxDay)
+        dateInput.value = localDate(tomorrow)
+        ;(window as Window & { validateDate?: (input: HTMLInputElement) => void }).validateDate = (input: HTMLInputElement) => {
+          const val = input.value
+          if (!val) return
+          const sel = new Date(val + 'T00:00:00')
+          const todayStart = new Date(); todayStart.setHours(0, 0, 0, 0)
+          const minDay = new Date(todayStart); minDay.setDate(todayStart.getDate() + 1)
+          const maxDayLimit = new Date(todayStart); maxDayLimit.setDate(todayStart.getDate() + 7)
+          if (sel < minDay || sel > maxDayLimit) {
+            input.style.borderColor = '#e44'
+            input.value = ''
+          } else {
+            input.style.borderColor = '#856404'
+          }
+        }
+      }
 
       if (currentProduct.is_preorder) {
         const preorderButton = document.getElementById('btnPreorder') as HTMLButtonElement | null
