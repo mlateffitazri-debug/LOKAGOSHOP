@@ -1,17 +1,15 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import { Heart, Download, Check, ChevronLeft } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
-
-const PRIMARY = '#7B1533'
-const ACCENT = '#ADD036'
+import { MAROON, MAROON_DARK } from '@/lib/theme'
 
 type DlState = 'idle' | 'loading' | 'success' | 'error'
 
 export default function FounderPage() {
   const [dlCount, setDlCount] = useState<number>(0)
   const [dlState, setDlState] = useState<DlState>('idle')
-  const [qrVisible, setQrVisible] = useState(false)
 
   useEffect(() => {
     async function fetchCount() {
@@ -58,7 +56,6 @@ export default function FounderPage() {
         URL.revokeObjectURL(url)
       }
 
-      // Update counter
       const newCount = dlCount + 1
       setDlCount(newCount)
       localStorage.setItem('qrDownloadCount', String(newCount))
@@ -67,12 +64,9 @@ export default function FounderPage() {
         await supabase.rpc('increment_qr_download_count')
       } catch { /* ignore — RPC may not exist yet */ }
 
-      setQrVisible(true)
       setDlState('success')
       setTimeout(() => setDlState('idle'), 2500)
-
     } catch {
-      // Fallback — open in new tab for manual save
       window.open('/assets/lokago-sokong-qr.jpg', '_blank')
       setDlState('error')
       setTimeout(() => setDlState('idle'), 3000)
@@ -86,189 +80,162 @@ export default function FounderPage() {
     error: 'Cuba lagi',
   }[dlState]
 
-  const buttonBg = dlState === 'success'
-    ? 'linear-gradient(180deg, #2e7d32 0%, #1b5e20 100%)'
-    : 'linear-gradient(180deg, #8f1a3a 0%, #6a1029 100%)'
-
   return (
     <div style={{
-      display: 'flex', flexDirection: 'column', height: '100%', minHeight: '100dvh',
-      maxHeight: '100dvh', width: '100%', maxWidth: 430,
-      margin: '0 auto', fontFamily: "'Plus Jakarta Sans', -apple-system, sans-serif",
-      overflow: 'hidden', background: PRIMARY,
+      position: 'fixed', inset: 0, height: '100dvh', overflow: 'hidden',
+      display: 'flex', flexDirection: 'column',
+      fontFamily: "'Plus Jakarta Sans', -apple-system, sans-serif",
+      background: MAROON,
+      paddingTop: 'env(safe-area-inset-top)',
+      paddingBottom: 'env(safe-area-inset-bottom)',
     }}>
+      <div style={{
+        width: '100%', maxWidth: 430, margin: '0 auto', flex: 1, minHeight: 0,
+        display: 'flex', flexDirection: 'column',
+      }}>
 
-      {/* ── HEADER ── */}
-      <div style={{ background: PRIMARY, padding: '18px 20px 14px', flexShrink: 0 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+        {/* ── HEADER (64px) ── */}
+        <div style={{
+          height: 64, flexShrink: 0, display: 'flex', alignItems: 'center',
+          gap: 12, padding: '0 16px', background: MAROON,
+        }}>
           <button
             onClick={() => window.history.length > 1 ? window.history.back() : (window.location.href = '/home')}
             style={{
-              width: 38, height: 38, borderRadius: '50%', border: 'none',
-              background: 'rgba(255,255,255,0.15)', color: '#fff',
+              width: 44, height: 44, borderRadius: '50%', border: 'none',
+              background: 'rgba(255,255,255,0.15)',
               display: 'flex', alignItems: 'center', justifyContent: 'center',
               cursor: 'pointer', flexShrink: 0,
             }}
             aria-label="Kembali"
           >
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-              <polyline points="15 18 9 12 15 6" />
-            </svg>
+            <ChevronLeft size={20} color="#fff" />
           </button>
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src="/icons/Logo-LOKALGO.png" alt="LokalGo™" style={{ height: 36, width: 'auto', display: 'block' }} />
-        </div>
-        <p style={{ marginTop: 8, fontSize: 12, color: 'rgba(255,255,255,0.55)', fontWeight: 500 }}>
-          Platform perniagaan lokal setempat
-        </p>
-      </div>
-
-      {/* ── WHITE CARD ── */}
-      <div style={{
-        background: '#fff', borderRadius: '20px 20px 0 0', flex: 1,
-        display: 'flex', flexDirection: 'column', padding: '20px 22px 0',
-        overflowY: 'auto', overflowX: 'hidden', overscrollBehaviorY: 'contain',
-      }}>
-
-        {/* Founder row */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16 }}>
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            src="/icons/dev.png"
-            alt="Lateffi"
-            style={{ width: 42, height: 42, borderRadius: '50%', objectFit: 'cover', flexShrink: 0 }}
-          />
-          <div>
-            <div style={{ fontWeight: 800, fontSize: 15, color: '#111' }}>Lateffi</div>
-            <div style={{ fontSize: 11, color: '#888', marginTop: 1 }}>Pengasas LokalGo™ · NS0308474-A</div>
-          </div>
+          <img src="/icons/Logo-LOKALGO.png" alt="LokalGo™" style={{ height: 28, width: 'auto', display: 'block' }} />
         </div>
 
-        {/* Body text */}
-        <p style={{ fontSize: 12, color: '#555', lineHeight: 1.75, marginBottom: 12 }}>
-          Saya faham tekanan ekonomi yang kita hadapi. Ramai di antara jiran kita yang mencari
-          rezeki bukan untuk menjadi kaya, tetapi sekadar untuk{' '}
-          <strong style={{ color: '#111' }}>dapat tidur lena pada hari esok.</strong>
-        </p>
-
-        {/* Blockquote */}
-        <blockquote style={{
-          borderLeft: `3px solid ${PRIMARY}`, background: '#fdf4f5',
-          padding: '10px 14px', borderRadius: '0 10px 10px 0',
-          fontSize: 12, color: '#444', lineHeight: 1.75, fontStyle: 'italic',
-          marginBottom: 12,
+        {/* ── WHITE CARD (fills, no scroll) ── */}
+        <div style={{
+          background: '#fff', borderRadius: '16px 16px 0 0', flex: 1, minHeight: 0,
+          display: 'flex', flexDirection: 'column', padding: '16px 20px 0',
+          overflow: 'hidden',
         }}>
-          &ldquo;Setiap kita ada bakat tersendiri. Ada yang pandai membuat kek, ada yang
-          pandai memasak lauk dan ada yang mencari masa lapang menjual kecil-kecilan untuk
-          mengisi masa tua. Akan tetapi{' '}
-          <strong style={{ fontStyle: 'normal', color: PRIMARY }}>kekangan modal dan faktor tekanan menjadi penghalang.</strong>
-          {' '}LokalGo™ wujud untuk memecahkan halangan itu — ianya percuma, dan sentiasa akan percuma.&rdquo;
-        </blockquote>
 
-        <p style={{ fontSize: 12, color: '#555', lineHeight: 1.75, marginBottom: 16 }}>
-          Walau bagaimanapun, kos penyelenggaraan platform ini tidak murah. Untuk menjadi
-          sebuah platform yang mampu berdiri sebelah platform yang sedia ada, ia pastinya
-          memerlukan modal yang besar. Jika ia memberi nilai kepada anda dan komuniti,{' '}
-          <strong style={{ color: '#111' }}>secangkir kopi dari anda</strong>{' '}
-          sudah cukup untuk memastikan ia terus bergerak ke hadapan untuk kebaikan semua
-          dan sekaligus membantu memudahkan insan lain.
-        </p>
-
-        {/* Spacer */}
-        <div style={{ flex: 1 }} />
-
-        {/* Signature */}
-        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', marginBottom: 14 }}>
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src="/icons/signature.png" alt="Signature" style={{ height: 34, width: 'auto' }} />
-          <div style={{ fontSize: 11, color: '#888', marginTop: 3 }}>Mohd Lateffi Tazri</div>
-        </div>
-
-        {/* Divider */}
-        <div style={{ height: 1, background: '#f0f0f0', marginBottom: 16 }} />
-
-        {/* QR Section */}
-        <div style={{ marginBottom: 22 }}>
-          <div style={{ fontSize: 13, fontWeight: 700, color: '#111', textAlign: 'center', marginBottom: 4 }}>
-            Imbas QR untuk menyokong
-          </div>
-          <div style={{ fontSize: 11, color: '#888', textAlign: 'center', marginBottom: 14 }}>
-            Sokongan anda amat dihargai. Terima kasih 🙏
-          </div>
-
-          {/* QR image — shown after successful download */}
-          {qrVisible && (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img
-              src="/assets/lokago-sokong-qr.jpg"
-              alt="QR TNG LokalGo™"
-              style={{
-                display: 'block', width: 180, height: 'auto', borderRadius: 14,
-                margin: '0 auto 16px', boxShadow: '0 4px 16px rgba(0,0,0,0.12)',
-              }}
-            />
-          )}
-
-          {/* TNG logo + other banks label */}
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, marginBottom: 12 }}>
+          {/* Founder row */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 12 }}>
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
-              src="/icons/touch-n-go-ewallet-seeklogo.png"
-              alt="TNG eWallet"
-              style={{ height: 24, width: 'auto', borderRadius: 6 }}
+              src="/icons/dev.png"
+              alt="Lateffi"
+              onError={(e) => { e.currentTarget.style.display = 'none' }}
+              style={{ width: 44, height: 44, borderRadius: '50%', objectFit: 'cover', flexShrink: 0 }}
             />
-            <span style={{ fontSize: 11, color: '#888' }}>Maybank · CIMB · dan lain-lain</span>
+            <div>
+              <div style={{ fontWeight: 700, fontSize: 15, color: '#1E1E1E' }}>Lateffi</div>
+              <div style={{ fontSize: 11, color: '#6B6B6B', marginTop: 1 }}>Pengasas LokalGo™</div>
+            </div>
           </div>
 
-          <button
-            onClick={handleDownload}
-            disabled={dlState === 'loading'}
-            style={{
-              width: '100%',
-              background: buttonBg,
-              border: 'none', borderRadius: 14, padding: '14px 20px',
-              display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10,
-              color: '#fff', fontSize: 14, fontWeight: 700, fontFamily: 'inherit',
-              cursor: dlState === 'loading' ? 'default' : 'pointer',
-              opacity: dlState === 'loading' ? 0.75 : 1,
-              boxShadow: '0 6px 20px rgba(123,21,51,0.4)',
-              transition: 'background 0.3s',
-            }}
-          >
-            {dlState === 'success' ? (
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                <polyline points="20 6 9 17 4 12" />
-              </svg>
-            ) : dlState === 'loading' ? (
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.5" strokeLinecap="round">
-                <circle cx="12" cy="12" r="10" strokeOpacity="0.3" />
-                <path d="M12 2a10 10 0 0 1 10 10" strokeLinecap="round">
-                  <animateTransform attributeName="transform" type="rotate" from="0 12 12" to="360 12 12" dur="0.8s" repeatCount="indefinite" />
-                </path>
-              </svg>
-            ) : (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img src="/icons/coin.png" alt="" style={{ width: 20, height: 20, objectFit: 'contain' }} />
-            )}
-            {buttonLabel}
-          </button>
-        </div>
-      </div>
+          {/* Body text (~60 words) */}
+          <p style={{ fontSize: 13, color: '#555', lineHeight: 1.5, marginBottom: 12 }}>
+            Saya faham tekanan ekonomi yang kita hadapi. Ramai jiran kita mencari rezeki
+            bukan untuk menjadi kaya, tetapi sekadar untuk{' '}
+            <strong style={{ color: '#1E1E1E' }}>dapat tidur lena pada hari esok.</strong>{' '}
+            Jika platform ini memberi nilai kepada anda dan komuniti,{' '}
+            <strong style={{ color: '#1E1E1E' }}>secangkir kopi dari anda</strong>{' '}
+            sudah cukup untuk memastikan ia terus bergerak ke hadapan.
+          </p>
 
-      {/* ── STATS BAR ── */}
-      <div style={{
-        background: PRIMARY, padding: '12px 24px', flexShrink: 0,
-        display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 14,
-      }}>
-        <div style={{ fontSize: 26, fontWeight: 800, color: '#fff', lineHeight: 1 }}>{dlCount}</div>
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="rgba(255,255,255,0.4)">
-          <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" />
-        </svg>
-        <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.7)', lineHeight: 1.5 }}>
-          kali QR dimuat turun<br />terima kasih atas sokongan anda
-        </div>
-      </div>
+          {/* Quote block */}
+          <blockquote style={{
+            borderLeft: `3px solid ${MAROON}`, background: '#fdf4f5',
+            padding: '8px 12px', borderRadius: '0 8px 8px 0',
+            fontSize: 12, color: '#555', lineHeight: 1.5, fontStyle: 'italic',
+            marginBottom: 8,
+          }}>
+            &ldquo;Setiap kita ada bakat tersendiri, tetapi{' '}
+            <strong style={{ fontStyle: 'normal', color: MAROON }}>kekangan modal menjadi penghalang.</strong>
+            {' '}LokalGo™ wujud untuk memecahkan halangan itu — percuma, dan sentiasa akan percuma.&rdquo;
+          </blockquote>
 
+          {/* Signature — inline SVG, right aligned */}
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', marginBottom: 8 }}>
+            <svg width="110" height="34" viewBox="0 0 110 34" fill="none">
+              <path d="M8 26 C18 8, 28 30, 38 18 C46 8, 50 28, 60 20 C68 13, 73 28, 83 23 C90 19, 96 26, 104 22"
+                stroke={MAROON} strokeWidth="1.7" strokeLinecap="round" />
+              <line x1="8" y1="31" x2="104" y2="31" stroke="#ddd" strokeWidth="0.5" />
+            </svg>
+            <div style={{ fontSize: 11, color: '#6B6B6B', marginTop: 2 }}>Mohd Lateffi Tazri, Pengasas LokalGo™</div>
+          </div>
+
+          {/* Spacer */}
+          <div style={{ flex: 1, minHeight: 0 }} />
+
+          {/* Divider */}
+          <div style={{ height: 1, background: '#ECECEC', marginBottom: 12, flexShrink: 0 }} />
+
+          {/* QR section */}
+          <div style={{ flexShrink: 0, paddingBottom: 16 }}>
+            <div style={{ fontSize: 14, fontWeight: 600, color: '#1E1E1E', textAlign: 'center', marginBottom: 4 }}>
+              Imbas QR untuk menyokong
+            </div>
+            <div style={{
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              gap: 8, marginBottom: 12,
+            }}>
+              <span style={{
+                display: 'inline-flex', alignItems: 'center', gap: 4,
+                background: '#E6F9EE', borderRadius: 999, padding: '4px 12px',
+              }}>
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src="/icons/touch-n-go-ewallet-seeklogo.png"
+                  alt="TNG eWallet"
+                  onError={(e) => { e.currentTarget.style.display = 'none' }}
+                  style={{ height: 18, width: 'auto', borderRadius: 4 }}
+                />
+                <span style={{ fontSize: 11, fontWeight: 600, color: '#0B7A3E' }}>TNG eWallet</span>
+              </span>
+              <span style={{ fontSize: 11, color: '#6B6B6B' }}>Maybank · CIMB · lain-lain</span>
+            </div>
+
+            <button
+              onClick={handleDownload}
+              disabled={dlState === 'loading'}
+              style={{
+                width: '100%', minHeight: 48,
+                background: dlState === 'success'
+                  ? 'linear-gradient(180deg, #2e7d32 0%, #1b5e20 100%)'
+                  : `linear-gradient(180deg, ${MAROON} 0%, ${MAROON_DARK} 100%)`,
+                border: 'none', borderRadius: 12, padding: '12px 20px',
+                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+                color: '#fff', fontSize: 14, fontWeight: 700, fontFamily: 'inherit',
+                cursor: dlState === 'loading' ? 'default' : 'pointer',
+                opacity: dlState === 'loading' ? 0.75 : 1,
+                boxShadow: '0 6px 20px rgba(123,29,46,0.4)',
+                transition: 'background 0.3s',
+              }}
+            >
+              {dlState === 'success' ? <Check size={18} /> : <Download size={18} />}
+              {buttonLabel}
+            </button>
+          </div>
+        </div>
+
+        {/* ── STATS BAR pinned bottom ── */}
+        <div style={{
+          background: MAROON, padding: '12px 24px', flexShrink: 0,
+          display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 12,
+        }}>
+          <div style={{ fontSize: 24, fontWeight: 700, color: '#fff', lineHeight: 1 }}>{dlCount}</div>
+          <Heart size={20} color="rgba(255,255,255,0.45)" fill="rgba(255,255,255,0.45)" />
+          <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.7)', lineHeight: 1.5 }}>
+            kali QR dimuat turun<br />terima kasih atas sokongan anda
+          </div>
+        </div>
+
+      </div>
     </div>
   )
 }

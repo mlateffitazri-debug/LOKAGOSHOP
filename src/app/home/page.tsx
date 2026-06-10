@@ -1,6 +1,7 @@
 'use client'
 
 import { MouseEvent, useEffect, useMemo, useState } from 'react'
+import { MapPin, Heart, MessageSquare, Coffee, Info, Globe, LogOut } from 'lucide-react'
 import { translations, useLang, type Lang } from '@/lib/i18n'
 import { createClient } from '@/lib/supabase/client'
 import type { Buyer, Seller, Product } from '@/types/database'
@@ -16,12 +17,12 @@ type HomeProfile = {
 
 // PNG icons per category
 const CAT_ICONS: Record<string, string> = {
-  'Pastri & Kek': `<img src="/images/pastry.png" alt="" style="width:34px;height:34px;object-fit:contain;">`,
-  'Set Makanan & Lauk': `<img src="/images/lauk.png" alt="" style="width:34px;height:34px;object-fit:contain;">`,
-  'Frozen & Simpanan': `<img src="/images/frozen.png" alt="" style="width:34px;height:34px;object-fit:contain;">`,
-  'Minuman': `<img src="/images/drink.png" alt="" style="width:34px;height:34px;object-fit:contain;">`,
-  'Fresh & Semulajadi': `<img src="/images/fresh.png" alt="" style="width:34px;height:34px;object-fit:contain;">`,
-  'Snek': `<img src="/images/snek.png" alt="" style="width:34px;height:34px;object-fit:contain;">`,
+  'Pastri & Kek': `<img src="/images/pastry.png" alt="" style="width:52px;height:52px;object-fit:cover;border-radius:10px;">`,
+  'Set Makanan & Lauk': `<img src="/images/lauk.png" alt="" style="width:52px;height:52px;object-fit:cover;border-radius:10px;">`,
+  'Frozen & Simpanan': `<img src="/images/frozen.png" alt="" style="width:52px;height:52px;object-fit:cover;border-radius:10px;">`,
+  'Minuman': `<img src="/images/drink.png" alt="" style="width:52px;height:52px;object-fit:cover;border-radius:10px;">`,
+  'Fresh & Semulajadi': `<img src="/images/fresh.png" alt="" style="width:52px;height:52px;object-fit:cover;border-radius:10px;">`,
+  'Snek': `<img src="/images/snek.png" alt="" style="width:52px;height:52px;object-fit:cover;border-radius:10px;">`,
 }
 
 const styles = `:root{--c-primary:#7B1533;--c-primary-dark:#6A1029;--c-primary-lt:#8f1a3a;--c-accent:#ADD036;--c-green:#25D366;--c-bg:#F5F5F5;--c-surface:#FFFFFF;--c-border:#E5E5EA;--c-text:#111111;--c-text2:#555555;--c-text3:#888888;--c-hint:#BBBBBB;}
@@ -43,15 +44,15 @@ body{background:#0a0a0a;min-height:100vh;font-family:'Plus Jakarta Sans',-apple-
 .search-wrap input{border:none;background:transparent;font-size:13px;color:#555;outline:none;width:100%;font-family:inherit;}
 .search-wrap input::placeholder{color:#aaa;}
 .lang-btn{background:rgba(255,255,255,0.15);border:none;border-radius:8px;padding:8px 10px;color:#fff;font-size:11px;font-weight:600;font-family:inherit;display:flex;align-items:center;gap:4px;cursor:pointer;white-space:nowrap;}
-.cat-section{background:#fff;padding:14px 20px;border-bottom:1px solid #eee;}
-.cat-scroll{display:flex;gap:12px;overflow-x:auto;}.cat-scroll::-webkit-scrollbar{display:none;}
-.cat-item{display:flex;flex-direction:column;align-items:center;gap:6px;flex-shrink:0;cursor:pointer;padding:4px;border-radius:10px;transition:background 0.15s;}
+.cat-section{background:#fff;padding:14px 0 14px 16px;border-bottom:1px solid var(--border,#ECECEC);}
+.cat-scroll{display:flex;gap:12px;overflow-x:auto;scroll-snap-type:x mandatory;padding-right:16px;}.cat-scroll::-webkit-scrollbar{display:none;}
+.cat-item{width:80px;min-height:88px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;flex-shrink:0;cursor:pointer;padding:8px 4px;background:#fff;border:2px solid transparent;border-radius:12px;box-shadow:0 1px 4px rgba(0,0,0,0.08);scroll-snap-align:start;transition:border-color 0.15s;}
 .cat-item:active{background:#f5f5f5;}
-.cat-box{width:68px;height:68px;background:#fff;border-radius:12px;display:flex;align-items:center;justify-content:center;border:1.5px solid #eee;padding:12px;transition:all 0.15s;}
-.cat-item.active .cat-box{background:#fff5f7;border-color:#7B1533;}
-.cat-item.active .cat-box svg{stroke:#7B1533;}
-.cat-lbl{font-size:10px;color:#555;text-align:center;max-width:70px;line-height:1.3;font-weight:500;}
-.cat-item.active .cat-lbl{color:#7B1533;font-weight:700;}
+.cat-box{width:52px;height:52px;background:#f5f5f5;border-radius:10px;display:flex;align-items:center;justify-content:center;overflow:hidden;}
+.cat-box img{width:52px;height:52px;object-fit:cover;}
+.cat-item.active{border-color:var(--brand-maroon,#7B1D2E);}
+.cat-lbl{font-size:11px;color:#555;text-align:center;max-width:72px;line-height:1.3;font-weight:500;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;}
+.cat-item.active .cat-lbl{color:var(--brand-maroon,#7B1D2E);font-weight:700;}
 .sec-head{padding:14px 20px 10px;display:flex;justify-content:space-between;align-items:center;}
 .sec-head-title{font-size:14px;font-weight:700;color:var(--c-text);}
 .sec-head-link{font-size:12px;color:var(--c-primary);font-weight:500;text-decoration:none;display:flex;align-items:center;gap:3px;}
@@ -70,12 +71,11 @@ body{background:#0a0a0a;min-height:100vh;font-family:'Plus Jakarta Sans',-apple-
 .shop-bottom{display:flex;justify-content:space-between;align-items:flex-end;}
 .cod-row{display:flex;align-items:center;gap:4px;margin-top:5px;}
 .cod-txt{font-size:10px;color:rgba(255,255,255,0.6);}
-.status-open{background:var(--c-accent);color:#fff;font-size:11px;font-weight:700;padding:5px 14px;border-radius:6px;align-self:flex-end;}
-.status-closed{background:rgba(255,255,255,0.2);color:rgba(255,255,255,0.85);font-size:11px;font-weight:700;padding:5px 12px;border-radius:6px;align-self:flex-end;}
-.img-bg1{background:linear-gradient(160deg,#5a0e24,#3d0918);}
-.img-bg2{background:linear-gradient(160deg,#4a0b1e,#2d0712);}
-.img-bg3{background:linear-gradient(160deg,#3d0918,#250510);}
-.sidebar-backdrop{position:absolute;inset:0;background:rgba(0,0,0,0.5);z-index:40;}
+.status-open{background:var(--brand-lime,#C8E44A);color:var(--brand-maroon,#7B1D2E);font-size:11px;font-weight:700;padding:5px 14px;border-radius:6px;align-self:flex-end;text-transform:uppercase;}
+.status-closed{background:#E0E0E0;color:#666;font-size:11px;font-weight:700;padding:5px 12px;border-radius:6px;align-self:flex-end;text-transform:uppercase;}
+.img-bg-fallback{background:linear-gradient(135deg,#7B1D2E,#4A0F1A);display:flex;align-items:center;justify-content:center;}
+.shop-initial{font-size:32px;font-weight:700;color:#fff;}
+.sidebar-backdrop{position:absolute;inset:0;background:rgba(0,0,0,0.4);z-index:40;}
 .profile-sidebar{position:absolute;top:0;right:0;width:280px;height:100%;background:#fff;z-index:50;transform:translateX(100%);transition:transform 0.3s ease;overflow-y:auto;display:flex;flex-direction:column;font-family:'Plus Jakarta Sans',sans-serif;box-shadow:-18px 0 50px rgba(0,0,0,0.22);}
 .profile-sidebar.open{transform:translateX(0);}
 .profile-sidebar-header{position:relative;background:#7B1533;padding:20px;color:#fff;}
@@ -87,12 +87,12 @@ body{background:#0a0a0a;min-height:100vh;font-family:'Plus Jakarta Sans',-apple-
 .sidebar-chip{display:inline-flex;max-width:100%;margin-top:8px;border-radius:999px;background:rgba(255,255,255,0.15);padding:4px 10px;font-size:11px;font-weight:600;color:rgba(255,255,255,0.85);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
 .sidebar-body{flex:1;background:#fff;}
 .sidebar-link,.sidebar-lang{display:flex;width:100%;align-items:center;gap:12px;border:0;border-bottom:1px solid #f5f5f5;background:#fff;padding:14px 20px;font-family:'Plus Jakarta Sans',sans-serif;font-size:14px;color:#111;text-align:left;text-decoration:none;cursor:pointer;}
-.sidebar-icon{width:24px;height:24px;object-fit:contain;flex-shrink:0;}
+.sidebar-icon{width:24px;height:24px;display:flex;align-items:center;justify-content:center;flex-shrink:0;}
 .sidebar-label{flex:1;font-weight:600;}
 .sidebar-arrow{color:#bbb;}
 .sidebar-lang-pill{border-radius:999px;background:#ADD036;padding:4px 10px;font-size:10px;font-weight:800;color:#3D4D0E;}
-.sidebar-footer{background:#fff;padding:16px;}
-.logout-btn{width:100%;border:1.5px solid #7B1533;border-radius:12px;background:#fff;padding:12px;font-family:'Plus Jakarta Sans',sans-serif;font-size:14px;font-weight:800;color:#7B1533;cursor:pointer;}
+.sidebar-footer{background:#fff;padding:16px;border-top:1px solid var(--border,#ECECEC);}
+.logout-btn{width:100%;min-height:44px;display:flex;align-items:center;justify-content:center;gap:8px;border:1.5px solid var(--brand-maroon,#7B1D2E);border-radius:12px;background:#fff;padding:12px;font-family:'Plus Jakarta Sans',sans-serif;font-size:14px;font-weight:800;color:var(--brand-maroon,#7B1D2E);cursor:pointer;}
 .toast{position:absolute;bottom:90px;left:50%;transform:translateX(-50%);background:rgba(0,0,0,0.82);color:#fff;padding:10px 22px;border-radius:20px;font-size:13px;font-weight:600;z-index:200;white-space:nowrap;pointer-events:none;animation:toastIn 0.2s ease;}
 @keyframes toastIn{from{opacity:0;transform:translateX(-50%) translateY(8px);}to{opacity:1;transform:translateX(-50%) translateY(0);}}`
 
@@ -126,6 +126,14 @@ function badgeLabel(badge: Seller['badge']) {
 }
 
 function renderCatSection(selectedCategory: string | null) {
+  // "Semua" reset chip — visible only when a filter is active
+  const resetChip = selectedCategory
+    ? `<div class="cat-item cat-reset" data-cat="">
+      <div class="cat-box"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#7B1D2E" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></div>
+      <span class="cat-lbl">Semua</span>
+    </div>`
+    : ''
+
   const items = PRODUCT_CATEGORIES.map((cat) => {
     const isActive = selectedCategory === cat
     return `
@@ -135,7 +143,7 @@ function renderCatSection(selectedCategory: string | null) {
     </div>`
   }).join('')
 
-  return `<div class="cat-section"><div class="cat-scroll">${items}</div></div>`
+  return `<div class="cat-section"><div class="cat-scroll">${resetChip}${items}</div></div>`
 }
 
 
@@ -149,7 +157,10 @@ function renderSellerCard(
   const imageStyle = seller.profile_image_url
     ? ` style="background-image:url('${escapeHtml(seller.profile_image_url)}')"`
     : ''
-  const imageClass = seller.profile_image_url ? 'img-bg' : `img-bg img-bg${(index % 3) + 1}`
+  const imageClass = seller.profile_image_url ? 'img-bg' : 'img-bg img-bg-fallback'
+  const initialHtml = seller.profile_image_url
+    ? ''
+    : `<span class="shop-initial">${escapeHtml((seller.shop_name || 'L').trim().charAt(0).toUpperCase())}</span>`
 
   const cats = sellerCategories.get(seller.id) ?? []
   const tags = cats.slice(0, 3)
@@ -162,7 +173,7 @@ function renderSellerCard(
   return `
   <div class="shop-card" data-seller-id="${escapeHtml(seller.id)}" data-cats="${catsAttr}" data-name="${nameAttr}" data-loc="${locAttr}">
     <div class="img-wrap">
-      <div class="${imageClass}"${imageStyle}></div>
+      <div class="${imageClass}"${imageStyle}>${initialHtml}</div>
       <div class="img-overlay"></div>
       <div class="badge-tl">
         <svg width="10" height="10" viewBox="0 0 24 24" fill="#ADD036"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
@@ -236,7 +247,6 @@ function renderHomeMarkup(
   <div class="header-r1">
     <img src="/icons/Logo-LOKALGO.png" alt="LokalGo™" style="height:40px;width:auto;display:block;">
     <div class="header-actions">
-      <button class="coin-btn" aria-label="Sokong Pembangun"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true"><circle cx="12" cy="12" r="9" fill="#F7C948" stroke="#FFFFFF" stroke-width="1.6"/><circle cx="12" cy="12" r="5.6" fill="#FFE082" stroke="#B7791F" stroke-width="1.2"/><path d="M12 8.2v7.6M9.5 10.1h3.7a1.8 1.8 0 0 1 0 3.6H10" stroke="#7B1533" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
       <button class="home-avatar" aria-label="Buka menu profil">${avatarHtml}</button>
     </div>
   </div>
@@ -298,11 +308,10 @@ function AvatarCircle({ profile, size = 60 }: { profile: HomeProfile | null; siz
   )
 }
 
-function SidebarLink({ href, iconSrc, label }: { href: string; iconSrc: string; label: string }) {
+function SidebarLink({ href, icon, label }: { href: string; icon: React.ReactNode; label: string }) {
   return (
     <a href={href} className="sidebar-link">
-      {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img src={iconSrc} alt="" className="sidebar-icon" />
+      <span className="sidebar-icon">{icon}</span>
       <span className="sidebar-label">{label}</span>
       <span className="sidebar-arrow">&gt;</span>
     </a>
@@ -425,7 +434,7 @@ export default function HomePage() {
     // Category filter — DOM show/hide
     const catItem = target.closest<HTMLElement>('.cat-item[data-cat]')
     if (catItem) {
-      const cat = catItem.dataset.cat ?? null
+      const cat = catItem.dataset.cat || null
       setSelectedCategory((prev) => {
         const newCat = prev === cat ? null : cat
         // DOM show/hide — after React re-render flushes
@@ -512,21 +521,23 @@ export default function HomePage() {
           </header>
 
           <div className="sidebar-body">
-            <SidebarLink href="/profile/address" iconSrc="/icons/setting%20icon/icon-home.png" label="Alamat Penghantaran" />
-            <SidebarLink href="/saved" iconSrc="/icons/setting%20icon/icon-love.png" label="Kedai Disimpan" />
-            <SidebarLink href="/testimonials" iconSrc="/icons/setting%20icon/icon-testimoni.png" label="Testimoni Saya" />
-            <SidebarLink href="/sokong" iconSrc="/icons/setting%20icon/icon-support.png" label="Sokong Pembangun" />
-            <SidebarLink href="/about" iconSrc="/icons/setting%20icon/icon-about.png" label="Tentang LokalGo™" />
+            <SidebarLink href="/profile/address" icon={<MapPin size={20} color="#7B1D2E" />} label="Alamat Penghantaran" />
+            <SidebarLink href="/saved" icon={<Heart size={20} color="#7B1D2E" />} label="Kedai Disimpan" />
+            <SidebarLink href="/testimonials" icon={<MessageSquare size={20} color="#7B1D2E" />} label="Testimoni Saya" />
+            <SidebarLink href="/sokong" icon={<Coffee size={20} color="#7B1D2E" />} label="Sokong Pembangun" />
+            <SidebarLink href="/about" icon={<Info size={20} color="#7B1D2E" />} label="Tentang LokalGo™" />
             <button type="button" onClick={toggle} className="sidebar-lang">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src="/icons/setting%20icon/icon-global.png" alt="" className="sidebar-icon" />
+              <span className="sidebar-icon"><Globe size={20} color="#7B1D2E" /></span>
               <span className="sidebar-label">Tukar Bahasa</span>
               <span className="sidebar-lang-pill">{lang === 'ms' ? 'English' : 'BM'}</span>
             </button>
           </div>
 
           <div className="sidebar-footer">
-            <button type="button" onClick={handleSignOut} className="logout-btn">Log Keluar</button>
+            <button type="button" onClick={handleSignOut} className="logout-btn">
+              <LogOut size={18} />
+              Log Keluar
+            </button>
           </div>
         </aside>
       </div>

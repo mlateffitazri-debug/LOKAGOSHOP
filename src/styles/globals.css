@@ -1,17 +1,31 @@
 @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');
 
 :root {
-  --c-primary: #7B1533;
-  --c-primary-dark: #6A1029;
+  /* Brand tokens — single source of truth (sync with src/lib/theme.ts) */
+  --brand-maroon: #7B1D2E;
+  --brand-maroon-dark: #4A0F1A;
+  --brand-lime: #C8E44A;
+  --surface: #FFFFFF;
+  --surface-alt: #F7F6F4;
+  --text-primary: #1E1E1E;
+  --text-secondary: #6B6B6B;
+  --border: #ECECEC;
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 16px;
+
+  /* Legacy aliases — existing pages reference these */
+  --c-primary: var(--brand-maroon);
+  --c-primary-dark: var(--brand-maroon-dark);
   --c-primary-lt: #8f1a3a;
-  --c-accent: #ADD036;
+  --c-accent: var(--brand-lime);
   --c-green: #25D366;
-  --c-bg: #F5F5F5;
-  --c-surface: #FFFFFF;
-  --c-border: #E5E5EA;
-  --c-text: #111111;
+  --c-bg: var(--surface-alt);
+  --c-surface: var(--surface);
+  --c-border: var(--border);
+  --c-text: var(--text-primary);
   --c-text2: #555555;
-  --c-text3: #888888;
+  --c-text3: var(--text-secondary);
   --c-hint: #BBBBBB;
 }
 
