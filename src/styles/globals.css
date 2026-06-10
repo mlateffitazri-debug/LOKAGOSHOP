@@ -95,3 +95,18 @@ body {
 /* Hide scrollbar globally */
 * { scrollbar-width: none; }
 *::-webkit-scrollbar { display: none; }
+
+/* ── Mobile: ikut tinggi sebenar device, bukan frame 812px tetap ──
+   Semua scroll container guna 100dvh supaya tak terpotong pada
+   device pendek (SE/mini) dan penuhi skrin pada device tinggi (Pro Max) */
+@media (max-width: 499px) {
+  .scroll,
+  .scroll-area,
+  .page-scroll,
+  .page-wrap,
+  .page,
+  .h-\[812px\] {
+    height: 100dvh !important;
+    max-height: 100dvh !important;
+  }
+}

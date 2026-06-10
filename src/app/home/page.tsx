@@ -14,14 +14,14 @@ type HomeProfile = {
   avatarUrl: string | null
 }
 
-// SVG icons per category
+// PNG icons per category
 const CAT_ICONS: Record<string, string> = {
-  'Pastri & Kek': `<svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="#7B1533" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11h18v2a9 9 0 0 1-18 0v-2z"/><path d="M12 3a4 4 0 0 1 4 4H8a4 4 0 0 1 4-4z"/><line x1="12" y1="3" x2="12" y2="7"/></svg>`,
-  'Set Makanan & Lauk': `<svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="#7B1533" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M5 17H3a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11a2 2 0 0 1 2 2v3"/><rect x="9" y="11" width="14" height="10" rx="2"/><line x1="12" y1="11" x2="12" y2="21"/><line x1="9" y1="16" x2="23" y2="16"/></svg>`,
-  'Frozen & Simpanan': `<svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="#7B1533" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="2" x2="12" y2="22"/><path d="m20 6-8 4-8-4"/><path d="m20 18-8-4-8 4"/><path d="m2 12 10 4 10-4"/></svg>`,
-  'Minuman': `<svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="#7B1533" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M17 8h1a4 4 0 1 1 0 8h-1"/><path d="M3 8h14v9a4 4 0 0 1-4 4H7a4 4 0 0 1-4-4Z"/><line x1="6" y1="2" x2="6" y2="5"/><line x1="10" y1="2" x2="10" y2="5"/><line x1="14" y1="2" x2="14" y2="5"/></svg>`,
-  'Fresh & Semulajadi': `<svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="#7B1533" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M11 20A7 7 0 0 1 9.8 6.1C15.5 5 17 4.48 19 2c1 2 2 4.18 2 8 0 5.5-4.78 10-10 10z"/><path d="M2 21c0-3 1.85-5.36 5.08-6C9.5 14.52 12 13 13 12"/></svg>`,
-  'Snek': `<svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="#7B1533" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M8.56 2.75c4.37 6.03 6.02 9.42 8.03 17.72m2.54-15.38c-3.72 4.35-8.94 5.66-16.88 5.85m19.5 1.9c-3.5-3.92-8.84-5.6-17.5-5.6"/></svg>`,
+  'Pastri & Kek': `<img src="/images/pastry.png" alt="" style="width:34px;height:34px;object-fit:contain;">`,
+  'Set Makanan & Lauk': `<img src="/images/lauk.png" alt="" style="width:34px;height:34px;object-fit:contain;">`,
+  'Frozen & Simpanan': `<img src="/images/frozen.png" alt="" style="width:34px;height:34px;object-fit:contain;">`,
+  'Minuman': `<img src="/images/drink.png" alt="" style="width:34px;height:34px;object-fit:contain;">`,
+  'Fresh & Semulajadi': `<img src="/images/fresh.png" alt="" style="width:34px;height:34px;object-fit:contain;">`,
+  'Snek': `<img src="/images/snek.png" alt="" style="width:34px;height:34px;object-fit:contain;">`,
 }
 
 const styles = `:root{--c-primary:#7B1533;--c-primary-dark:#6A1029;--c-primary-lt:#8f1a3a;--c-accent:#ADD036;--c-green:#25D366;--c-bg:#F5F5F5;--c-surface:#FFFFFF;--c-border:#E5E5EA;--c-text:#111111;--c-text2:#555555;--c-text3:#888888;--c-hint:#BBBBBB;}
