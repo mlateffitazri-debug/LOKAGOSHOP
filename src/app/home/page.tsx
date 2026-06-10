@@ -1,7 +1,7 @@
 'use client'
 
 import { MouseEvent, useEffect, useMemo, useState } from 'react'
-import { MapPin, Heart, MessageSquare, Coffee, Info, Globe, LogOut } from 'lucide-react'
+import { MapPin, Heart, MessageSquare, Coffee, Info, Globe, LogOut, BookOpen } from 'lucide-react'
 import { translations, useLang, type Lang } from '@/lib/i18n'
 import { createClient } from '@/lib/supabase/client'
 import type { Buyer, Seller, Product } from '@/types/database'
@@ -17,12 +17,12 @@ type HomeProfile = {
 
 // PNG icons per category
 const CAT_ICONS: Record<string, string> = {
-  'Pastri & Kek': `<img src="/images/pastry.png" alt="" style="width:52px;height:52px;object-fit:cover;border-radius:10px;">`,
-  'Set Makanan & Lauk': `<img src="/images/lauk.png" alt="" style="width:52px;height:52px;object-fit:cover;border-radius:10px;">`,
-  'Frozen & Simpanan': `<img src="/images/frozen.png" alt="" style="width:52px;height:52px;object-fit:cover;border-radius:10px;">`,
-  'Minuman': `<img src="/images/drink.png" alt="" style="width:52px;height:52px;object-fit:cover;border-radius:10px;">`,
-  'Fresh & Semulajadi': `<img src="/images/fresh.png" alt="" style="width:52px;height:52px;object-fit:cover;border-radius:10px;">`,
-  'Snek': `<img src="/images/snek.png" alt="" style="width:52px;height:52px;object-fit:cover;border-radius:10px;">`,
+  'Pastri & Kek': `<img src="/images/pastry.png" alt="" style="width:64px;height:64px;object-fit:cover;border-radius:14px;">`,
+  'Set Makanan & Lauk': `<img src="/images/lauk.png" alt="" style="width:64px;height:64px;object-fit:cover;border-radius:14px;">`,
+  'Frozen & Simpanan': `<img src="/images/frozen.png" alt="" style="width:64px;height:64px;object-fit:cover;border-radius:14px;">`,
+  'Minuman': `<img src="/images/drink.png" alt="" style="width:64px;height:64px;object-fit:cover;border-radius:14px;">`,
+  'Fresh & Semulajadi': `<img src="/images/fresh.png" alt="" style="width:64px;height:64px;object-fit:cover;border-radius:14px;">`,
+  'Snek': `<img src="/images/snek.png" alt="" style="width:64px;height:64px;object-fit:cover;border-radius:14px;">`,
 }
 
 const styles = `:root{--c-primary:#7B1533;--c-primary-dark:#6A1029;--c-primary-lt:#8f1a3a;--c-accent:#ADD036;--c-green:#25D366;--c-bg:#F5F5F5;--c-surface:#FFFFFF;--c-border:#E5E5EA;--c-text:#111111;--c-text2:#555555;--c-text3:#888888;--c-hint:#BBBBBB;}
@@ -37,7 +37,7 @@ body{background:#0a0a0a;min-height:100vh;font-family:'Plus Jakarta Sans',-apple-
 .header-sub{font-size:11px;color:rgba(255,255,255,0.55);margin-bottom:10px;}
 .header-r2{display:flex;gap:8px;align-items:center;}
 .header-actions{display:flex;align-items:center;gap:10px;}
-.coin-btn{width:32px;height:32px;border-radius:50%;border:none;background:rgba(255,255,255,0.16);color:#fff;font-size:16px;font-weight:800;font-family:inherit;display:flex;align-items:center;justify-content:center;cursor:pointer;box-shadow:0 6px 16px rgba(0,0,0,0.14);flex-shrink:0;}
+.coin-btn{width:40px;height:40px;border-radius:50%;border:none;background:rgba(255,255,255,0.15);display:flex;align-items:center;justify-content:center;cursor:pointer;flex-shrink:0;}
 .home-avatar{width:40px;height:40px;border-radius:50%;border:2px solid rgba(255,255,255,0.7);background:#7B1533;color:#fff;display:flex;align-items:center;justify-content:center;overflow:hidden;font-size:15px;font-weight:800;font-family:inherit;cursor:pointer;box-shadow:0 6px 16px rgba(0,0,0,0.18);flex-shrink:0;}
 .home-avatar img{width:100%;height:100%;object-fit:cover;display:block;}
 .search-wrap{flex:1;background:rgba(255,255,255,0.92);border-radius:10px;padding:9px 12px;display:flex;align-items:center;gap:8px;}
@@ -46,12 +46,12 @@ body{background:#0a0a0a;min-height:100vh;font-family:'Plus Jakarta Sans',-apple-
 .lang-btn{background:rgba(255,255,255,0.15);border:none;border-radius:8px;padding:8px 10px;color:#fff;font-size:11px;font-weight:600;font-family:inherit;display:flex;align-items:center;gap:4px;cursor:pointer;white-space:nowrap;}
 .cat-section{background:#fff;padding:14px 0 14px 16px;border-bottom:1px solid var(--border,#ECECEC);}
 .cat-scroll{display:flex;gap:12px;overflow-x:auto;scroll-snap-type:x mandatory;padding-right:16px;}.cat-scroll::-webkit-scrollbar{display:none;}
-.cat-item{width:80px;min-height:88px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;flex-shrink:0;cursor:pointer;padding:8px 4px;background:#fff;border:2px solid transparent;border-radius:12px;box-shadow:0 1px 4px rgba(0,0,0,0.08);scroll-snap-align:start;transition:border-color 0.15s;}
+.cat-item{width:96px;min-height:120px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;flex-shrink:0;cursor:pointer;padding:10px 4px;background:#fff;border:2px solid transparent;border-radius:16px;box-shadow:0 2px 8px rgba(0,0,0,0.06);scroll-snap-align:start;transition:border-color 0.15s;}
 .cat-item:active{background:#f5f5f5;}
-.cat-box{width:52px;height:52px;background:#f5f5f5;border-radius:10px;display:flex;align-items:center;justify-content:center;overflow:hidden;}
-.cat-box img{width:52px;height:52px;object-fit:cover;}
+.cat-box{width:64px;height:64px;background:#f5f5f5;border-radius:14px;display:flex;align-items:center;justify-content:center;overflow:hidden;}
+.cat-box img{width:64px;height:64px;object-fit:cover;}
 .cat-item.active{border-color:var(--brand-maroon,#7B1D2E);}
-.cat-lbl{font-size:11px;color:#555;text-align:center;max-width:72px;line-height:1.3;font-weight:500;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;}
+.cat-lbl{font-size:12px;color:#555;text-align:center;max-width:88px;line-height:1.3;font-weight:500;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;}
 .cat-item.active .cat-lbl{color:var(--brand-maroon,#7B1D2E);font-weight:700;}
 .sec-head{padding:14px 20px 10px;display:flex;justify-content:space-between;align-items:center;}
 .sec-head-title{font-size:14px;font-weight:700;color:var(--c-text);}
@@ -76,7 +76,7 @@ body{background:#0a0a0a;min-height:100vh;font-family:'Plus Jakarta Sans',-apple-
 .img-bg-fallback{background:linear-gradient(135deg,#7B1D2E,#4A0F1A);display:flex;align-items:center;justify-content:center;}
 .shop-initial{font-size:32px;font-weight:700;color:#fff;}
 .sidebar-backdrop{position:absolute;inset:0;background:rgba(0,0,0,0.4);z-index:40;}
-.profile-sidebar{position:absolute;top:0;right:0;width:280px;height:100%;background:#fff;z-index:50;transform:translateX(100%);transition:transform 0.3s ease;overflow-y:auto;display:flex;flex-direction:column;font-family:'Plus Jakarta Sans',sans-serif;box-shadow:-18px 0 50px rgba(0,0,0,0.22);}
+.profile-sidebar{position:absolute;top:0;right:0;width:280px;height:100dvh;background:#fff;z-index:50;transform:translateX(100%);transition:transform 0.3s ease;overflow:hidden;display:flex;flex-direction:column;font-family:'Plus Jakarta Sans',sans-serif;box-shadow:-18px 0 50px rgba(0,0,0,0.22);}
 .profile-sidebar.open{transform:translateX(0);}
 .profile-sidebar-header{position:relative;background:#7B1533;padding:20px;color:#fff;}
 .sidebar-close{position:absolute;top:16px;right:16px;width:32px;height:32px;border:0;border-radius:50%;background:rgba(255,255,255,0.15);color:#fff;font-size:16px;font-weight:800;line-height:1;cursor:pointer;}
@@ -85,7 +85,7 @@ body{background:#0a0a0a;min-height:100vh;font-family:'Plus Jakarta Sans',-apple-
 .sidebar-name{font-size:16px;font-weight:700;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
 .sidebar-email{margin-top:2px;font-size:12px;color:rgba(255,255,255,0.7);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
 .sidebar-chip{display:inline-flex;max-width:100%;margin-top:8px;border-radius:999px;background:rgba(255,255,255,0.15);padding:4px 10px;font-size:11px;font-weight:600;color:rgba(255,255,255,0.85);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
-.sidebar-body{flex:1;background:#fff;}
+.sidebar-body{flex:1;background:#fff;overflow-y:auto;}
 .sidebar-link,.sidebar-lang{display:flex;width:100%;align-items:center;gap:12px;border:0;border-bottom:1px solid #f5f5f5;background:#fff;padding:14px 20px;font-family:'Plus Jakarta Sans',sans-serif;font-size:14px;color:#111;text-align:left;text-decoration:none;cursor:pointer;}
 .sidebar-icon{width:24px;height:24px;display:flex;align-items:center;justify-content:center;flex-shrink:0;}
 .sidebar-label{flex:1;font-weight:600;}
@@ -247,6 +247,7 @@ function renderHomeMarkup(
   <div class="header-r1">
     <img src="/icons/Logo-LOKALGO.png" alt="LokalGo™" style="height:40px;width:auto;display:block;">
     <div class="header-actions">
+      <button class="coin-btn" aria-label="Sokong Pembangun"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#C8E44A" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 8h1a4 4 0 1 1 0 8h-1"/><path d="M3 8h14v9a4 4 0 0 1-4 4H7a4 4 0 0 1-4-4Z"/><line x1="6" y1="2" x2="6" y2="4"/><line x1="10" y1="2" x2="10" y2="4"/><line x1="14" y1="2" x2="14" y2="4"/></svg></button>
       <button class="home-avatar" aria-label="Buka menu profil">${avatarHtml}</button>
     </div>
   </div>
@@ -490,8 +491,10 @@ export default function HomePage() {
     }
   }
 
-  function handleSignOut() {
-    void fetch('/auth/signout', { method: 'POST' }).then(() => { window.location.href = '/auth' })
+  async function handleSignOut() {
+    const supabase = createClient()
+    await supabase.auth.signOut()
+    window.location.href = '/auth'
   }
 
 
@@ -515,7 +518,6 @@ export default function HomePage() {
               <div className="sidebar-profile-text">
                 <p className="sidebar-name">{profile?.name || 'LokalGo'}</p>
                 <p className="sidebar-email">{profile?.email || 'Belum log masuk'}</p>
-                <span className="sidebar-chip">{profile?.kawasan || 'Kawasan belum ditetapkan'}</span>
               </div>
             </div>
           </header>
@@ -526,6 +528,7 @@ export default function HomePage() {
             <SidebarLink href="/testimonials" icon={<MessageSquare size={20} color="#7B1D2E" />} label="Testimoni Saya" />
             <SidebarLink href="/sokong" icon={<Coffee size={20} color="#7B1D2E" />} label="Sokong Pembangun" />
             <SidebarLink href="/about" icon={<Info size={20} color="#7B1D2E" />} label="Tentang LokalGo™" />
+            <SidebarLink href="/tutorial" icon={<BookOpen size={20} color="#7B1D2E" />} label="Tutorial" />
             <button type="button" onClick={toggle} className="sidebar-lang">
               <span className="sidebar-icon"><Globe size={20} color="#7B1D2E" /></span>
               <span className="sidebar-label">Tukar Bahasa</span>

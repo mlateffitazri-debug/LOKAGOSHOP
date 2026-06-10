@@ -35,6 +35,8 @@ export interface Seller {
   months_active: number
   created_at: string
   approved_at: string | null
+  custom_note: string | null
+  custom_note_updated_at: string | null
 }
 
 export interface Product {
