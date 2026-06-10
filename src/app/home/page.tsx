@@ -69,8 +69,6 @@ body{background:#0a0a0a;min-height:100vh;font-family:'Plus Jakarta Sans',-apple-
 .shop-name{font-size:15px;font-weight:700;color:#fff;}
 .shop-loc{font-size:11px;color:rgba(255,255,255,0.7);display:flex;align-items:center;gap:3px;margin-bottom:7px;}
 .shop-bottom{display:flex;justify-content:space-between;align-items:flex-end;}
-.tags{display:flex;gap:5px;flex-wrap:wrap;}
-.tag{font-size:10px;background:rgba(255,255,255,0.15);color:#fff;padding:3px 9px;border-radius:20px;font-weight:500;}
 .cod-row{display:flex;align-items:center;gap:4px;margin-top:5px;}
 .cod-txt{font-size:10px;color:rgba(255,255,255,0.6);}
 .status-open{background:var(--c-accent);color:#fff;font-size:11px;font-weight:700;padding:5px 14px;border-radius:6px;align-self:flex-end;}
@@ -166,8 +164,10 @@ function renderSellerCard(
     .join('')
 
   const catsAttr = escapeHtml(cats.join(','))
+  const nameAttr = escapeHtml((seller.shop_name ?? '').toLowerCase())
+  const locAttr = escapeHtml((seller.taman_name || seller.kawasan || '').toLowerCase())
   return `
-  <div class="shop-card" data-seller-id="${escapeHtml(seller.id)}" data-cats="${catsAttr}">
+  <div class="shop-card" data-seller-id="${escapeHtml(seller.id)}" data-cats="${catsAttr}" data-name="${nameAttr}" data-loc="${locAttr}">
     <div class="img-wrap">
       <div class="${imageClass}"${imageStyle}></div>
       <div class="img-overlay"></div>
@@ -187,7 +187,6 @@ function renderSellerCard(
       </div>
       <div class="shop-bottom">
         <div>
-          <div class="tags">${tags}</div>
           <div class="cod-row"><svg width="14" height="11" viewBox="0 0 36 24" fill="none" stroke="rgba(255,255,255,0.55)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="18" r="4"/><circle cx="28" cy="18" r="4"/><path d="M12 18h12"/><path d="M8 14V8l6-4h6l4 6h-4l-2-4h-3l-4 4H8z"/><path d="M20 10l2 4"/></svg><span class="cod-txt">${copy('cod_available', lang)}</span></div>
         </div>
         <span class="${seller.is_open ? 'status-open' : 'status-closed'}">${seller.is_open ? copy('buka', lang) : copy('tutup', lang)}</span>
@@ -260,7 +259,7 @@ function renderHomeMarkup(
   <div class="header-r2">
     <div class="search-wrap">
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#aaa" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-      <input type="text" placeholder="${copy('search_placeholder', lang)}">
+      <input type="text" placeholder="${copy('search_placeholder', lang)}" oninput="var q=this.value.toLowerCase().trim();document.querySelectorAll('.shop-card[data-name]').forEach(function(c){var el=c;el.style.display=(!q||el.dataset.name.includes(q)||el.dataset.loc.includes(q))?'':'none';})">
     </div>
     <button class="lang-btn">
       <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
