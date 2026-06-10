@@ -1,16 +1,17 @@
 'use client'
 
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 
 const PRIMARY = '#7B1533'
 const ACCENT = '#ADD036'
 
+type DlState = 'idle' | 'loading' | 'success' | 'error'
+
 export default function FounderPage() {
   const [dlCount, setDlCount] = useState<number>(0)
-  const [downloading, setDownloading] = useState(false)
+  const [dlState, setDlState] = useState<DlState>('idle')
   const [qrVisible, setQrVisible] = useState(false)
-  const qrRef = useRef<HTMLImageElement>(null)
 
   useEffect(() => {
     async function fetchCount() {
@@ -33,30 +34,61 @@ export default function FounderPage() {
   }, [])
 
   async function handleDownload() {
-    if (downloading) return
-    setDownloading(true)
-    setQrVisible(true)
-    const newCount = dlCount + 1
-    setDlCount(newCount)
+    if (dlState === 'loading') return
+    setDlState('loading')
 
-    const link = document.createElement('a')
-    link.href = '/assets/lokago-sokong-qr.jpg'
-    link.download = 'LokalGo_QR_Sokong_Lateffi.jpg'
-    document.body.appendChild(link)
-    link.click()
-    document.body.removeChild(link)
-
-    localStorage.setItem('qrDownloadCount', String(newCount))
     try {
-      const supabase = createClient()
-      await supabase.from('support_stats').upsert({ id: 1, qr_download_count: newCount })
-    } catch { /* ignore */ }
+      const response = await fetch('/assets/lokago-sokong-qr.jpg')
+      if (!response.ok) throw new Error('fetch failed')
+      const blob = await response.blob()
+      const file = new File([blob], 'LokalGo_QR_Sokong.jpg', { type: 'image/jpeg' })
 
-    setDownloading(false)
-    // Give browser time to start the download before navigating away
-    await new Promise(resolve => setTimeout(resolve, 1500))
-    window.history.length > 1 ? window.history.back() : (window.location.href = '/home')
+      if (navigator.canShare && navigator.canShare({ files: [file] })) {
+        // iOS Safari PWA — only reliable save-to-device method
+        await navigator.share({ files: [file], title: 'LokalGo QR Sokong' })
+      } else {
+        // Android PWA + desktop
+        const url = URL.createObjectURL(blob)
+        const a = document.createElement('a')
+        a.href = url
+        a.download = 'LokalGo_QR_Sokong.jpg'
+        document.body.appendChild(a)
+        a.click()
+        document.body.removeChild(a)
+        URL.revokeObjectURL(url)
+      }
+
+      // Update counter
+      const newCount = dlCount + 1
+      setDlCount(newCount)
+      localStorage.setItem('qrDownloadCount', String(newCount))
+      try {
+        const supabase = createClient()
+        await supabase.rpc('increment_qr_download_count')
+      } catch { /* ignore — RPC may not exist yet */ }
+
+      setQrVisible(true)
+      setDlState('success')
+      setTimeout(() => setDlState('idle'), 2500)
+
+    } catch {
+      // Fallback — open in new tab for manual save
+      window.open('/assets/lokago-sokong-qr.jpg', '_blank')
+      setDlState('error')
+      setTimeout(() => setDlState('idle'), 3000)
+    }
   }
+
+  const buttonLabel = {
+    idle: 'Muat Turun QR Code',
+    loading: 'Sedang muat turun...',
+    success: 'Berjaya dimuat turun!',
+    error: 'Cuba lagi',
+  }[dlState]
+
+  const buttonBg = dlState === 'success'
+    ? 'linear-gradient(180deg, #2e7d32 0%, #1b5e20 100%)'
+    : 'linear-gradient(180deg, #8f1a3a 0%, #6a1029 100%)'
 
   return (
     <div style={{
@@ -163,11 +195,10 @@ export default function FounderPage() {
             Sokongan anda amat dihargai. Terima kasih 🙏
           </div>
 
-          {/* QR image — shown after download */}
+          {/* QR image — shown after successful download */}
           {qrVisible && (
             // eslint-disable-next-line @next/next/no-img-element
             <img
-              ref={qrRef}
               src="/assets/lokago-sokong-qr.jpg"
               alt="QR TNG LokalGo™"
               style={{
@@ -190,21 +221,35 @@ export default function FounderPage() {
 
           <button
             onClick={handleDownload}
-            disabled={downloading}
+            disabled={dlState === 'loading'}
             style={{
               width: '100%',
-              background: 'linear-gradient(180deg, #8f1a3a 0%, #6a1029 100%)',
+              background: buttonBg,
               border: 'none', borderRadius: 14, padding: '14px 20px',
               display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10,
               color: '#fff', fontSize: 14, fontWeight: 700, fontFamily: 'inherit',
-              cursor: downloading ? 'default' : 'pointer',
-              opacity: downloading ? 0.75 : 1,
+              cursor: dlState === 'loading' ? 'default' : 'pointer',
+              opacity: dlState === 'loading' ? 0.75 : 1,
               boxShadow: '0 6px 20px rgba(123,21,51,0.4)',
+              transition: 'background 0.3s',
             }}
           >
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src="/icons/coin.png" alt="" style={{ width: 20, height: 20, objectFit: 'contain' }} />
-            {downloading ? 'Sedang dimuat turun...' : 'Muat Turun QR Code'}
+            {dlState === 'success' ? (
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <polyline points="20 6 9 17 4 12" />
+              </svg>
+            ) : dlState === 'loading' ? (
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.5" strokeLinecap="round">
+                <circle cx="12" cy="12" r="10" strokeOpacity="0.3" />
+                <path d="M12 2a10 10 0 0 1 10 10" strokeLinecap="round">
+                  <animateTransform attributeName="transform" type="rotate" from="0 12 12" to="360 12 12" dur="0.8s" repeatCount="indefinite" />
+                </path>
+              </svg>
+            ) : (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src="/icons/coin.png" alt="" style={{ width: 20, height: 20, objectFit: 'contain' }} />
+            )}
+            {buttonLabel}
           </button>
         </div>
       </div>
