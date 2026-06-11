@@ -170,7 +170,8 @@ export function HtmlPrototypePage({
 
       window.__prototypeScriptCount = scripts.length
       scripts.forEach((script) => {
-        window.eval(normalizeScript(script))
+        // eslint-disable-next-line no-new-func
+        new Function(normalizeScript(script))()
       })
     }
 

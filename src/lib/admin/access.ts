@@ -1,17 +1,12 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 
-const HARDCODED_ADMIN_EMAILS = ['m.lateffitazri@gmail.com', 'admin@lokalgo.app']
-
 export function adminEmails() {
   const configured = process.env.ADMIN_EMAIL ?? process.env.ADMIN_EMAILS ?? ''
-  const fromEnv = configured
+  return configured
     .split(/[,\s;]+/)
     .map((email) => email.trim().toLowerCase())
     .filter(Boolean)
-
-  const all = new Set([...HARDCODED_ADMIN_EMAILS, ...fromEnv])
-  return Array.from(all)
 }
 
 export function isAdminEmail(email?: string | null) {

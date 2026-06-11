@@ -173,9 +173,30 @@ export default function ProfilePage() {
     })
   }
 
-  function deleteAccount() {
-    if (confirm('Padam akaun? Data anda akan dijadualkan untuk dipadam dalam 30 hari.')) {
-      alert('Permintaan padam akaun diterima.')
+  const [isDeleting, setIsDeleting] = useState(false)
+
+  async function deleteAccount() {
+    const confirmed = confirm(
+      'AMARAN: Tindakan ini tidak boleh dibuat alik.\n\n' +
+      'Semua data akaun anda (kedai disimpan, testimoni) akan dipadam serta-merta.\n\n' +
+      'Tekan OK untuk meneruskan pemadaman akaun.',
+    )
+    if (!confirmed) return
+
+    setIsDeleting(true)
+    try {
+      const res = await fetch('/api/account/delete', { method: 'DELETE' })
+      const json = await res.json() as { ok?: boolean; error?: string }
+      if (!res.ok) {
+        alert(json.error ?? 'Gagal memadam akaun. Sila cuba lagi atau hubungi support@lokago.app')
+        return
+      }
+      alert('Akaun anda telah berjaya dipadam. Terima kasih kerana menggunakan LokalGo.')
+      router.replace('/auth')
+    } catch {
+      alert('Ralat rangkaian. Sila cuba lagi.')
+    } finally {
+      setIsDeleting(false)
     }
   }
 

@@ -5,24 +5,37 @@ import { HtmlPrototypePage } from '@/components/shared/HtmlPrototypePage'
 import { createClient } from '@/lib/supabase/client'
 import type { Product, Seller } from '@/types/database'
 
+function esc(value: string | number | null | undefined) {
+  return String(value ?? '')
+    .replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;')
+    .replaceAll('"', '&quot;').replaceAll("'", '&#039;')
+}
+
+function safeUrl(url: string | null | undefined): string | null {
+  if (!url) return null
+  const t = url.trim()
+  return (t.startsWith('https://') || t.startsWith('http://') || t.startsWith('/')) ? t : null
+}
+
 function searchShopCard(seller: Seller, products: Product[], index: number) {
   const sellerProducts = products.filter((product) => product.seller_id === seller.id)
   const tags = Array.from(new Set(sellerProducts.map((product) => product.category))).slice(0, 2)
   const statusClass = seller.is_open ? 'status-open' : 'status-closed'
   const statusText = seller.is_open ? 'BUKA' : 'TUTUP'
   const bgClass = `bg${(index % 3) + 1}`
+  const imgUrl = safeUrl(seller.profile_image_url)
 
-  return `<div class="shop-card" onclick="window.location.href='/shop?seller=${seller.id}'">
+  return `<div class="shop-card" onclick="window.location.href='/shop?seller=${esc(seller.id)}'">
     <div class="img-wrap">
-      ${seller.profile_image_url ? `<img src="${seller.profile_image_url}" alt="" style="width:100%;height:100%;object-fit:cover;">` : `<div class="img-bg ${bgClass}"></div>`}
+      ${imgUrl ? `<img src="${esc(imgUrl)}" alt="" style="width:100%;height:100%;object-fit:cover;">` : `<div class="img-bg ${bgClass}"></div>`}
       ${seller.badge === 'verified_seller' ? '<div class="badge-tl">Verified Shop</div>' : ''}
       <div class="badge-tr"><div class="icon-btn">♡</div></div>
     </div>
     <div class="shop-footer">
-      <div class="shop-name">${seller.shop_name}</div>
-      <div class="shop-loc">${seller.taman_name}${seller.kawasan ? `, ${seller.kawasan}` : ''}</div>
+      <div class="shop-name">${esc(seller.shop_name)}</div>
+      <div class="shop-loc">${esc(seller.taman_name)}${seller.kawasan ? `, ${esc(seller.kawasan)}` : ''}</div>
       <div class="shop-bottom">
-        <div><div class="cat-tags">${(tags.length ? tags : [seller.badge.replaceAll('_', ' ')]).map((tag) => `<span class="tag">${tag}</span>`).join('')}</div></div>
+        <div><div class="cat-tags">${(tags.length ? tags : [(seller.badge ?? '').replaceAll('_', ' ')]).map((tag) => `<span class="tag">${esc(tag)}</span>`).join('')}</div></div>
         <span class="${statusClass}">${statusText}</span>
       </div>
     </div>

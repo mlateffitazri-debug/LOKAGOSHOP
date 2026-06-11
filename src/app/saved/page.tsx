@@ -33,23 +33,36 @@ function setSavedIds(ids: string[]) {
   localStorage.setItem('lokalgo_saved_shop_ids', JSON.stringify(Array.from(new Set(ids))))
 }
 
+function esc(value: string | number | null | undefined) {
+  return String(value ?? '')
+    .replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;')
+    .replaceAll('"', '&quot;').replaceAll("'", '&#039;')
+}
+
+function safeImgUrl(url: string | null | undefined): string | null {
+  if (!url) return null
+  const t = url.trim()
+  return (t.startsWith('https://') || t.startsWith('http://') || t.startsWith('/')) ? t : null
+}
+
 function savedShopCard(seller: Seller, index: number) {
   const statusClass = seller.is_open ? 'status-open' : 'status-closed'
   const statusText = seller.is_open ? 'BUKA' : 'TUTUP'
   const bgClass = `bg${(index % 3) + 1}`
+  const imgUrl = safeImgUrl(seller.profile_image_url)
 
-  return `<div class="shop-card" onclick="window.location.href='/shop?seller=${seller.id}'">
+  return `<div class="shop-card" onclick="window.location.href='/shop?seller=${esc(seller.id)}'">
     <div class="img-wrap">
-      ${seller.profile_image_url ? `<img src="${seller.profile_image_url}" alt="" style="width:100%;height:100%;object-fit:cover;">` : `<div class="img-bg ${bgClass}"></div>`}
+      ${imgUrl ? `<img src="${esc(imgUrl)}" alt="" style="width:100%;height:100%;object-fit:cover;">` : `<div class="img-bg ${bgClass}"></div>`}
       ${seller.badge === 'verified_seller' ? '<div class="badge-tl">Verified Shop</div>' : ''}
-      <button class="unsave-btn" onclick="window.__lokalgoUnsave('${seller.id}', event)">
+      <button class="unsave-btn" onclick="window.__lokalgoUnsave('${esc(seller.id)}', event)">
         <svg width="13" height="13" viewBox="0 0 24 24" fill="#e44" stroke="none"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>
       </button>
     </div>
     <div class="shop-footer">
-      <div class="shop-name">${seller.shop_name}</div>
-      <div class="shop-loc">${seller.taman_name}</div>
-      <div class="shop-bottom"><div class="tags"><span class="tag">${seller.badge.replaceAll('_', ' ')}</span></div><span class="${statusClass}">${statusText}</span></div>
+      <div class="shop-name">${esc(seller.shop_name)}</div>
+      <div class="shop-loc">${esc(seller.taman_name)}</div>
+      <div class="shop-bottom"><div class="tags"><span class="tag">${esc((seller.badge ?? '').replaceAll('_', ' '))}</span></div><span class="${statusClass}">${statusText}</span></div>
     </div>
   </div>`
 }

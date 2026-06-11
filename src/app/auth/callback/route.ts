@@ -77,7 +77,7 @@ export async function GET(request: Request) {
             ? user.user_metadata.name
             : user.email.split('@')[0]
 
-      await supabase.from('buyers').upsert(
+      const { error: upsertError } = await supabase.from('buyers').upsert(
         {
           user_id: user.id,
           name,
@@ -85,6 +85,9 @@ export async function GET(request: Request) {
         },
         { onConflict: 'user_id' },
       )
+      if (upsertError) {
+        console.error('auth/callback: failed to upsert buyer', upsertError.message)
+      }
     }
 
     return NextResponse.redirect(`${origin}${next.startsWith('/') ? next : '/home'}`)

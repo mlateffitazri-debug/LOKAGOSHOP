@@ -24,7 +24,7 @@ function normalizeWhatsapp(value: string) {
 export async function POST(request: Request) {
   const body = (await request.json()) as SellerOnboardingBody
 
-  if (process.env.LOKALGO_E2E_MOCK === '1') {
+  if (process.env.LOKALGO_E2E_MOCK === '1' && process.env.NODE_ENV !== 'production') {
     if (!body.shop_name?.trim() || !body.whatsapp_number?.trim() || !body.taman_name?.trim()) {
       return NextResponse.json({ error: 'Missing seller onboarding fields' }, { status: 400 })
     }
@@ -64,62 +64,23 @@ export async function POST(request: Request) {
     status: 'pending',
     is_open: false,
   }
-  // Minimal fallback payload using only columns guaranteed to exist in all schema versions
-  const legacySellerPayload = {
-    user_id: user.id,
-    shop_name: body.shop_name.trim(),
-    whatsapp_number: normalizeWhatsapp(body.whatsapp_number),
-    taman_name: body.taman_name.trim(),
-    postcode: body.postcode?.trim() || '00000',
-    status: 'pending',
-    is_open: false,
-  }
-
-  let existingSellerResult = await adminClient
+  const { data: existingSeller, error: lookupError } = await adminClient
     .from('sellers')
     .select('id')
     .eq('user_id', user.id)
     .maybeSingle()
 
-  if (existingSellerResult.error?.message.includes('user_id')) {
-    existingSellerResult = await adminClient
-      .from('sellers')
-      .select('id')
-      .eq('whatsapp_number', legacySellerPayload.whatsapp_number)
-      .maybeSingle()
+  if (lookupError) {
+    return NextResponse.json({ error: 'Failed to check existing seller' }, { status: 500 })
   }
 
-  if (existingSellerResult.error) {
-    return NextResponse.json({ error: existingSellerResult.error.message }, { status: 500 })
-  }
-
-  let result = existingSellerResult.data
-    ? await adminClient.from('sellers').update(sellerPayload).eq('id', existingSellerResult.data.id).select('id').single()
+  const { data, error: saveError } = existingSeller
+    ? await adminClient.from('sellers').update(sellerPayload).eq('id', existingSeller.id).select('id').single()
     : await adminClient.from('sellers').insert(sellerPayload).select('id').single()
 
-  // Retry without optional columns if they don't exist yet (pre-migration state)
-  if (result.error?.message.includes('email')
-    || result.error?.message.includes('latitude')
-    || result.error?.message.includes('longitude')) {
-    const { email: _e, latitude: _lat, longitude: _lng, ...corePayload } = sellerPayload
-    result = existingSellerResult.data
-      ? await adminClient.from('sellers').update(corePayload).eq('id', existingSellerResult.data.id).select('id').single()
-      : await adminClient.from('sellers').insert(corePayload).select('id').single()
+  if (saveError) {
+    return NextResponse.json({ error: saveError.message }, { status: 500 })
   }
 
-  // Final fallback: minimal payload for heavily outdated schema
-  if (result.error?.message.includes('shop_name')
-    || result.error?.message.includes('status')
-    || result.error?.message.includes('user_id')
-    || result.error?.message.includes('taman_name')) {
-    result = existingSellerResult.data
-      ? await adminClient.from('sellers').update(legacySellerPayload).eq('id', existingSellerResult.data.id).select('id').single()
-      : await adminClient.from('sellers').insert(legacySellerPayload).select('id').single()
-  }
-
-  if (result.error) {
-    return NextResponse.json({ error: result.error.message }, { status: 500 })
-  }
-
-  return NextResponse.json({ ok: true, sellerId: result.data.id }, { status: 201 })
+  return NextResponse.json({ ok: true, sellerId: data.id }, { status: 201 })
 }

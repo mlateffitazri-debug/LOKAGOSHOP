@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
+import { createClient as createServerClient } from '@/lib/supabase/server'
 
 type TestimonialBody = {
   seller_id?: string
@@ -11,6 +12,12 @@ type TestimonialBody = {
 
 export async function POST(request: Request) {
   try {
+    const authClient = createServerClient()
+    const { data: { user } } = await authClient.auth.getUser()
+    if (!user) {
+      return NextResponse.json({ error: 'Login diperlukan untuk hantar ulasan' }, { status: 401 })
+    }
+
     const body = (await request.json()) as TestimonialBody
     const rating = Number(body.rating)
 
@@ -18,7 +25,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Invalid testimonial submission' }, { status: 400 })
     }
 
-    if (process.env.LOKALGO_E2E_MOCK === '1') {
+    if (process.env.LOKALGO_E2E_MOCK === '1' && process.env.NODE_ENV !== 'production') {
       return NextResponse.json({ ok: true, testimonialId: 'mock-testimonial-id' }, { status: 201 })
     }
 

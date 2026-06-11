@@ -138,13 +138,23 @@ function escapeHtml(value: string | number | null | undefined) {
     .replaceAll("'", '&#039;')
 }
 
+function safeImageUrl(url: string | null | undefined): string | null {
+  if (!url) return null
+  const trimmed = url.trim()
+  if (trimmed.startsWith('https://') || trimmed.startsWith('http://') || trimmed.startsWith('/')) {
+    return trimmed
+  }
+  return null
+}
+
 function firstInitial(name: string) {
   return name.trim().charAt(0).toUpperCase() || 'L'
 }
 
 function renderAvatar(profile: HomeProfile | null) {
   if (!profile) return '<span class="home-avatar-initial">L</span>'
-  if (profile.avatarUrl) return `<img src="${escapeHtml(profile.avatarUrl)}" alt="${escapeHtml(profile.name)}">`
+  const safeAvatar = safeImageUrl(profile.avatarUrl)
+  if (safeAvatar) return `<img src="${escapeHtml(safeAvatar)}" alt="${escapeHtml(profile.name)}">`
   return `<span class="home-avatar-initial">${escapeHtml(firstInitial(profile.name))}</span>`
 }
 
@@ -183,11 +193,12 @@ function renderSellerCard(
   savedShopIds: Set<string>,
   sellerCategories: Map<string, string[]>,
 ) {
-  const imageStyle = seller.profile_image_url
-    ? ` style="background-image:url('${escapeHtml(seller.profile_image_url)}')"`
+  const safeImgUrl = safeImageUrl(seller.profile_image_url)
+  const imageStyle = safeImgUrl
+    ? ` style="background-image:url('${escapeHtml(safeImgUrl)}')"`
     : ''
-  const imageClass = seller.profile_image_url ? 'img-bg' : 'img-bg img-bg-fallback'
-  const initialHtml = seller.profile_image_url
+  const imageClass = safeImgUrl ? 'img-bg' : 'img-bg img-bg-fallback'
+  const initialHtml = safeImgUrl
     ? ''
     : `<span class="shop-initial">${escapeHtml((seller.shop_name || 'L').trim().charAt(0).toUpperCase())}</span>`
 
@@ -509,7 +520,7 @@ export default function HomePage() {
       const card = target.closest<HTMLElement>('.shop-card')
       const sellerId = card?.dataset.sellerId
       const shopName = card?.querySelector('.shop-name')?.textContent?.trim() || 'Kedai LokalGo™'
-      const url = `https://lokagoshop-dm2m.vercel.app/shop/${sellerId}`
+      const url = `${process.env.NEXT_PUBLIC_APP_URL || ''}/shop/${sellerId}`
       if (navigator.share) {
         try { await navigator.share({ title: shopName, text: 'Tengok kedai ini di LokalGo™!', url }) } catch { /* dismissed */ }
       } else {
@@ -607,7 +618,7 @@ export default function HomePage() {
               </div>
               <button className="appr-share-btn" onClick={async () => {
                 const text = `Kedai saya "${approvalSeller.shopName}" kini tersenarai di LokalGo! 🎉\n\nBeli produk tempatan berkualiti dari jiran anda. Jom tengok:`
-                const url = 'https://lokagoshop-dm2m.vercel.app'
+                const url = process.env.NEXT_PUBLIC_APP_URL || 'https://lokago.app'
                 if (navigator.share) {
                   try { await navigator.share({ title: approvalSeller.shopName + ' di LokalGo!', text, url }) } catch { /* dismissed */ }
                 } else {
