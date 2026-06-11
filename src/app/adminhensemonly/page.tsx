@@ -171,7 +171,7 @@ const markup = `<div class="page"><div class="scroll">
   <div class="sec-head">
     <span class="sec-title">Sellers</span>
     <div style="display:flex;align-items:center;gap:6px;">
-      <button onclick="openManualForm()" style="background:var(--c-primary);color:#fff;border:none;border-radius:20px;padding:5px 12px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit;">+ Tambah</button>
+      <button onclick="openManualForm()" style="background:var(--c-primary);color:#000;border:none;border-radius:20px;padding:5px 12px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit;">+ Tambah</button>
       <span class="count-badge" id="sellers-count">—</span>
     </div>
   </div>
@@ -180,6 +180,7 @@ const markup = `<div class="page"><div class="scroll">
     <button class="f-chip" onclick="filterSellers(this,'pending')">Pending</button>
     <button class="f-chip" onclick="filterSellers(this,'active')">Aktif</button>
     <button class="f-chip" onclick="filterSellers(this,'suspended')">Suspended</button>
+    <button class="f-chip" onclick="filterSellers(this,'rejected')">Ditolak</button>
     <button class="f-chip" onclick="filterSellers(this,'deleted')">Dipadam</button>
   </div>
   <div class="tbl-wrap">
@@ -622,7 +623,7 @@ function renderTesti() {
     var shop = (sellerMap[t.seller_id] || '-').toString().slice(0,16);
     var buyer = (t.buyer_name || '-').toString().slice(0,16);
     var content = (t.content || '-').toString().slice(0,30);
-    var rating = 'star '.repeat(t.rating || 0);
+    var rating = '★'.repeat(t.rating || 0) || '—';
     var approved = t.is_approved ? '<span style="color:#acd036;font-weight:700;font-size:11px;">Lulus</span>' : '<span style="color:#f0c040;font-weight:700;font-size:11px;">Pending</span>';
     var approveBtn = !t.is_approved ? '<button class="act-btn btn-green" onclick="'+adminActionCall('testimonial', t.id, 'approve')+'">OK</button>' : '';
     var delBtn = '<button class="act-btn btn-red" onclick="'+adminDeleteCall('testimonial', t.id, 'testimoni')+'">Del</button>';
