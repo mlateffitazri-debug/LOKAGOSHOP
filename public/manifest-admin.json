@@ -1,0 +1,19 @@
+{
+  "name": "LokalGo Admin",
+  "short_name": "LG Admin",
+  "description": "LokalGo Admin Panel",
+  "start_url": "/adminhensemonly",
+  "scope": "/adminhensemonly",
+  "display": "standalone",
+  "background_color": "#000000",
+  "theme_color": "#000000",
+  "orientation": "portrait",
+  "icons": [
+    {
+      "src": "/icons/icon-512-admin.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}
