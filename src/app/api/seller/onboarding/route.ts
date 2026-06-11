@@ -101,7 +101,6 @@ export async function POST(request: Request) {
   if (result.error?.message.includes('email')
     || result.error?.message.includes('latitude')
     || result.error?.message.includes('longitude')) {
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const { email: _e, latitude: _lat, longitude: _lng, ...corePayload } = sellerPayload
     result = existingSellerResult.data
       ? await adminClient.from('sellers').update(corePayload).eq('id', existingSellerResult.data.id).select('id').single()
