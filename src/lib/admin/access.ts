@@ -1,12 +1,16 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 
+// Primary admin — env var overrides/extends this list
+const OWNER_EMAILS = ['m.lateffitazri@gmail.com', 'admin@lokalgo.app']
+
 export function adminEmails() {
   const configured = process.env.ADMIN_EMAIL ?? process.env.ADMIN_EMAILS ?? ''
-  return configured
+  const fromEnv = configured
     .split(/[,\s;]+/)
     .map((email) => email.trim().toLowerCase())
     .filter(Boolean)
+  return Array.from(new Set([...OWNER_EMAILS, ...fromEnv]))
 }
 
 export function isAdminEmail(email?: string | null) {
