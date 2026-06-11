@@ -5,98 +5,98 @@ import { HtmlPrototypePage } from '@/components/shared/HtmlPrototypePage'
 
 /* ─── CSS ────────────────────────────────────────────────────────────────── */
 const styles = `
-:root{--c-primary:#7B1533;--c-primary-dark:#6A1029;--c-accent:#ADD036;--c-bg:#F5F5F5;--c-surface:#fff;--c-border:#E5E5EA;--c-text:#111;--c-text2:#555;--c-text3:#888;--c-hint:#bbb;}
+:root{--c-primary:#acd036;--c-bg:#000;--c-surface:#0a0a0a;--c-border:rgba(172,208,54,0.15);--c-text:#acd036;--c-text2:rgba(172,208,54,0.65);--c-text3:rgba(172,208,54,0.45);--c-hint:rgba(172,208,54,0.3);}
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;-webkit-font-smoothing:antialiased;}
-body{background:#0a0a0a;min-height:100vh;font-family:'Plus Jakarta Sans',-apple-system,sans-serif;font-size:14px;color:var(--c-text);}
-.page{width:100%;max-width:430px;margin:0 auto;min-height:100vh;background:var(--c-bg);overflow:hidden;}
-@media(min-width:500px){body{padding:40px 20px;display:flex;justify-content:center;align-items:flex-start;}.page{min-height:auto;border-radius:36px;border:8px solid #1a1a1a;box-shadow:0 32px 80px rgba(0,0,0,0.7);}}
+body{background:#000;min-height:100vh;font-family:'Plus Jakarta Sans',-apple-system,sans-serif;font-size:14px;color:#acd036;}
+.page{width:100%;max-width:430px;margin:0 auto;min-height:100vh;background:#000;overflow:hidden;}
+@media(min-width:500px){body{padding:40px 20px;display:flex;justify-content:center;align-items:flex-start;}.page{min-height:auto;border-radius:36px;border:2px solid rgba(172,208,54,0.2);box-shadow:0 32px 80px rgba(0,0,0,0.95);}}
 @media(min-width:1024px){body{align-items:center;padding:40px;min-height:100vh;}}
 .scroll{height:812px;overflow-y:auto;}.scroll::-webkit-scrollbar{display:none;}
 
 /* HEADER */
-.header{background:#111;padding:14px 20px 12px;}
+.header{background:#000;border-bottom:1px solid rgba(172,208,54,0.15);padding:14px 20px 12px;}
 .header-r1{display:flex;align-items:center;justify-content:space-between;margin-bottom:3px;}
-.admin-badge{background:#e44;color:#fff;font-size:10px;font-weight:700;padding:3px 10px;border-radius:20px;letter-spacing:0.5px;}
-.header-sub{font-size:11px;color:rgba(255,255,255,0.4);margin-top:4px;}
+.admin-badge{background:#acd036;color:#000;font-size:10px;font-weight:700;padding:3px 10px;border-radius:20px;letter-spacing:0.5px;}
+.header-sub{font-size:11px;color:rgba(172,208,54,0.35);margin-top:4px;}
 
 /* STATS */
-.stats-row{display:grid;grid-template-columns:repeat(4,1fr);background:#eee;border-bottom:1px solid #eee;}
-.stat-box{background:#fff;padding:10px 6px;text-align:center;border-right:1px solid #eee;}
-.stat-num{font-size:18px;font-weight:800;}
-.stat-lbl{font-size:9px;color:var(--c-hint);margin-top:1px;text-transform:uppercase;letter-spacing:0.4px;}
-.num-green{color:#3B6D11;}.num-orange{color:#856404;}.num-red{color:#A32D2D;}.num-blue{color:#185FA5;}
+.stats-row{display:grid;grid-template-columns:repeat(4,1fr);background:#000;border-bottom:1px solid rgba(172,208,54,0.15);}
+.stat-box{background:#000;padding:10px 6px;text-align:center;border-right:1px solid rgba(172,208,54,0.1);}
+.stat-num{font-size:18px;font-weight:800;color:#acd036;}
+.stat-lbl{font-size:9px;color:rgba(172,208,54,0.35);margin-top:1px;text-transform:uppercase;letter-spacing:0.4px;}
+.num-green{color:#acd036;}.num-orange{color:rgba(172,208,54,0.75);}.num-red{color:rgba(172,208,54,0.5);}.num-blue{color:rgba(172,208,54,0.85);}
 
 /* TABS */
-.tabs{display:flex;background:#fff;border-bottom:2px solid #eee;overflow-x:auto;}
+.tabs{display:flex;background:#000;border-bottom:1px solid rgba(172,208,54,0.15);overflow-x:auto;}
 .tabs::-webkit-scrollbar{display:none;}
-.tab{padding:11px 14px;font-size:12px;font-weight:700;color:var(--c-hint);cursor:pointer;white-space:nowrap;border-bottom:2px solid transparent;margin-bottom:-2px;transition:all 0.15s;letter-spacing:0.3px;}
-.tab.active{color:var(--c-primary);border-bottom-color:var(--c-primary);}
+.tab{padding:11px 14px;font-size:12px;font-weight:700;color:rgba(172,208,54,0.35);cursor:pointer;white-space:nowrap;border-bottom:2px solid transparent;margin-bottom:-1px;transition:all 0.15s;letter-spacing:0.3px;}
+.tab.active{color:#acd036;border-bottom-color:#acd036;}
 
 /* SECTIONS */
 .section{display:none;padding-bottom:32px;}
 .section.active{display:block;}
 .sec-head{display:flex;align-items:center;justify-content:space-between;padding:12px 14px 8px;}
-.sec-title{font-size:12px;font-weight:800;color:var(--c-text);text-transform:uppercase;letter-spacing:0.5px;}
-.count-badge{font-size:11px;background:#f0f0f0;color:var(--c-text3);padding:2px 8px;border-radius:20px;font-weight:700;}
-.count-badge.orange{background:#FFF3E0;color:#856404;}
-.count-badge.red{background:#FFEBEE;color:#A32D2D;}
-.count-badge.green{background:#EAF3DE;color:#3B6D11;}
+.sec-title{font-size:12px;font-weight:800;color:#acd036;text-transform:uppercase;letter-spacing:0.5px;}
+.count-badge{font-size:11px;background:rgba(172,208,54,0.08);color:rgba(172,208,54,0.5);padding:2px 8px;border-radius:20px;font-weight:700;}
+.count-badge.orange{background:rgba(172,208,54,0.07);color:rgba(172,208,54,0.6);}
+.count-badge.red{background:rgba(172,208,54,0.05);color:rgba(172,208,54,0.4);}
+.count-badge.green{background:rgba(172,208,54,0.12);color:#acd036;}
 
 /* FILTER BAR */
 .filter-bar{display:flex;gap:6px;padding:0 14px 10px;overflow-x:auto;}
 .filter-bar::-webkit-scrollbar{display:none;}
-.f-chip{border:1.5px solid #eee;border-radius:20px;padding:4px 12px;font-size:11px;font-weight:700;color:#888;cursor:pointer;background:#fff;white-space:nowrap;font-family:inherit;}
-.f-chip.active{background:var(--c-primary);border-color:var(--c-primary);color:#fff;}
+.f-chip{border:1.5px solid rgba(172,208,54,0.2);border-radius:20px;padding:4px 12px;font-size:11px;font-weight:700;color:rgba(172,208,54,0.4);cursor:pointer;background:transparent;white-space:nowrap;font-family:inherit;}
+.f-chip.active{background:#acd036;border-color:#acd036;color:#000;}
 
 /* TABLES */
 .tbl-wrap{overflow-x:auto;padding:0 14px 10px;}
 .tbl{width:100%;border-collapse:collapse;font-size:11px;min-width:460px;}
-.tbl th{background:#f8f8f8;padding:7px 8px;text-align:left;font-size:9px;color:#aaa;font-weight:800;text-transform:uppercase;letter-spacing:0.5px;border-bottom:2px solid #eee;white-space:nowrap;}
-.tbl td{padding:7px 8px;border-bottom:1px solid #f5f5f5;vertical-align:middle;}
-.tbl tr:hover td{background:#fafafa;}
-.td-name{font-weight:700;color:var(--c-text);max-width:100px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
-.td-cell{color:var(--c-text2);max-width:100px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.tbl th{background:#0a0a0a;padding:7px 8px;text-align:left;font-size:9px;color:rgba(172,208,54,0.4);font-weight:800;text-transform:uppercase;letter-spacing:0.5px;border-bottom:1px solid rgba(172,208,54,0.15);white-space:nowrap;}
+.tbl td{padding:7px 8px;border-bottom:1px solid rgba(172,208,54,0.07);vertical-align:middle;}
+.tbl tr:hover td{background:rgba(172,208,54,0.04);}
+.td-name{font-weight:700;color:#acd036;max-width:100px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.td-cell{color:rgba(172,208,54,0.6);max-width:100px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
 .td-center{text-align:center;}
 .td-actions{text-align:right;white-space:nowrap;}
-.td-empty{text-align:center;color:var(--c-hint);padding:20px;font-size:12px;}
+.td-empty{text-align:center;color:rgba(172,208,54,0.3);padding:20px;font-size:12px;}
 
 /* ACTION BUTTONS */
-.act-btn{border:none;border-radius:5px;padding:3px 7px;font-size:10px;font-weight:800;cursor:pointer;font-family:inherit;margin-left:3px;}
-.btn-green{background:#EAF3DE;color:#3B6D11;}
-.btn-red{background:#FFEBEE;color:#A32D2D;}
-.btn-orange{background:#FFF3E0;color:#856404;}
-.btn-blue{background:#E3F2FD;color:#185FA5;}
-.btn-badge{background:#f5f5f5;color:#555;}
+.act-btn{border:1px solid transparent;border-radius:5px;padding:3px 7px;font-size:10px;font-weight:800;cursor:pointer;font-family:inherit;margin-left:3px;}
+.btn-green{background:#acd036;color:#000;border-color:#acd036;}
+.btn-red{background:rgba(172,208,54,0.08);color:rgba(172,208,54,0.5);border-color:rgba(172,208,54,0.2);}
+.btn-orange{background:transparent;color:rgba(172,208,54,0.65);border-color:rgba(172,208,54,0.3);}
+.btn-blue{background:rgba(172,208,54,0.14);color:#acd036;border-color:rgba(172,208,54,0.3);}
+.btn-badge{background:rgba(172,208,54,0.06);color:rgba(172,208,54,0.45);border-color:rgba(172,208,54,0.15);}
 
 /* STATUS PILLS */
 .status-pill{font-size:9px;font-weight:800;padding:2px 7px;border-radius:20px;white-space:nowrap;}
-.pill-active{background:#EAF3DE;color:#3B6D11;}
-.pill-pending{background:#FFF3E0;color:#856404;}
-.pill-suspended{background:#FFEBEE;color:#A32D2D;}
+.pill-active{background:#acd036;color:#000;}
+.pill-pending{background:transparent;border:1px solid rgba(172,208,54,0.4);color:rgba(172,208,54,0.7);}
+.pill-suspended{background:rgba(172,208,54,0.1);color:rgba(172,208,54,0.45);}
 
 /* STATS GRID */
 .stat-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;padding:0 14px 10px;}
-.stat-card{background:#fff;border-radius:12px;border:1px solid #eee;padding:14px;}
-.sc-num{font-size:26px;font-weight:800;color:var(--c-text);}
-.sc-lbl{font-size:10px;color:var(--c-hint);margin-top:2px;text-transform:uppercase;letter-spacing:0.4px;}
+.stat-card{background:#0a0a0a;border-radius:12px;border:1px solid rgba(172,208,54,0.12);padding:14px;}
+.sc-num{font-size:26px;font-weight:800;color:#acd036;}
+.sc-lbl{font-size:10px;color:rgba(172,208,54,0.35);margin-top:2px;text-transform:uppercase;letter-spacing:0.4px;}
 .sc-breakdown{margin-top:8px;display:flex;flex-direction:column;gap:3px;}
-.sc-line{font-size:11px;color:var(--c-text2);}
+.sc-line{font-size:11px;color:rgba(172,208,54,0.6);}
 .area-bar-wrap{padding:0 14px 10px;}
-.area-card{background:#fff;border-radius:12px;border:1px solid #eee;padding:14px;margin-bottom:8px;}
+.area-card{background:#0a0a0a;border-radius:12px;border:1px solid rgba(172,208,54,0.12);padding:14px;margin-bottom:8px;}
 .area-row{display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;}
-.area-name{font-size:13px;font-weight:700;color:var(--c-text);}
-.area-count{font-size:13px;font-weight:800;color:var(--c-primary);}
-.area-bar{background:#f0f0f0;border-radius:6px;height:7px;overflow:hidden;margin-bottom:4px;}
-.area-fill{background:var(--c-primary);height:100%;border-radius:6px;transition:width 0.5s;}
+.area-name{font-size:13px;font-weight:700;color:#acd036;}
+.area-count{font-size:13px;font-weight:800;color:#acd036;}
+.area-bar{background:rgba(172,208,54,0.1);border-radius:6px;height:7px;overflow:hidden;margin-bottom:4px;}
+.area-fill{background:#acd036;height:100%;border-radius:6px;transition:width 0.5s;}
 
 /* DATABASE TAB */
 .db-controls{padding:10px 14px;display:flex;gap:8px;align-items:center;}
-.db-select{flex:1;border:1.5px solid var(--c-border);border-radius:10px;padding:9px 12px;font-size:13px;color:var(--c-text);background:#fff;outline:none;font-family:inherit;}
-.btn-load{background:var(--c-primary);color:#fff;border:none;border-radius:10px;padding:9px 16px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;white-space:nowrap;}
-.db-info{padding:0 14px 8px;font-size:11px;color:var(--c-hint);}
-.danger-zone{margin:10px 14px;background:#FFF5F5;border:1.5px solid #F9C0C0;border-radius:12px;padding:14px;}
-.danger-title{font-size:11px;font-weight:800;color:#A32D2D;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px;}
-.btn-danger{background:#A32D2D;color:#fff;border:none;border-radius:8px;padding:9px 16px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;width:100%;}
+.db-select{flex:1;border:1px solid rgba(172,208,54,0.25);border-radius:10px;padding:9px 12px;font-size:13px;color:#acd036;background:#000;outline:none;font-family:inherit;}
+.btn-load{background:#acd036;color:#000;border:none;border-radius:10px;padding:9px 16px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;white-space:nowrap;}
+.db-info{padding:0 14px 8px;font-size:11px;color:rgba(172,208,54,0.35);}
+.danger-zone{margin:10px 14px;background:rgba(172,208,54,0.04);border:1px solid rgba(172,208,54,0.2);border-radius:12px;padding:14px;}
+.danger-title{font-size:11px;font-weight:800;color:#acd036;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px;}
+.btn-danger{background:transparent;color:#acd036;border:1px solid rgba(172,208,54,0.35);border-radius:8px;padding:9px 16px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;width:100%;}
 `
 
 /* ─── MARKUP ─────────────────────────────────────────────────────────────── */
@@ -105,7 +105,7 @@ const markup = `<div class="page"><div class="scroll">
 <div class="header">
   <div class="header-r1">
     <svg viewBox="0 0 1080 365" xmlns="http://www.w3.org/2000/svg" style="height:36px;width:auto;">
-      <style>.s0{fill:#FFF}.s1{fill:#ADD036}</style>
+      <style>.s0{fill:#acd036}.s1{fill:#acd036}</style>
       <path class="s0" d="M133,61v175c0,13-11,24-24,24h-4c-13,0-24-11-24-24V61c0-13,11-24,24-24h4C122,37,133,48,133,61z"/>
       <path class="s0" d="M180,251c-13-7-23-17-31-30c-8-13-11-28-11-46c0-17,4-32,11-46s18-23,31-30c13-7,28-11,45-11s31,4,45,11c13,7,24,17,31,30s11,28,11,46c0,17-4,32-12,46c-8,13-18,23-32,30c-13,7-28,11-45,11S193,258,180,251z M249,207c7-7,10-18,10-31s-3-24-10-31c-7-7-15-11-25-11c-10,0-18,4-25,11c-7,7-10,18-10,31c0,13,3,24,10,31c7,7,15,11,25,11C234,218,242,214,249,207z"/>
       <path class="s0" d="M411,248l-43-59v49c0,12-9,21-21,21h-7c-13,0-23-10-23-23V56c0-11,9-19,19-19h15c10,0,17,8,17,17v106l43-57c5-7,13-11,22-11h32c7,0,11,8,6,14l-58,70l54,65c6,7,1,19-9,19h-25C425,259,416,255,411,248z"/>
@@ -212,21 +212,21 @@ const markup = `<div class="page"><div class="scroll">
 <div class="section" id="tab-stats">
   <div class="sec-head"><span class="sec-title">Platform Stats</span></div>
   <div class="stat-grid">
-    <div class="stat-card" style="border-left:4px solid var(--c-primary);">
+    <div class="stat-card" style="border-left:4px solid #acd036;">
       <div class="sc-num" id="ps-sellers">—</div>
       <div class="sc-lbl">Total Sellers</div>
       <div class="sc-breakdown" id="ps-sellers-detail"></div>
     </div>
-    <div class="stat-card" style="border-left:4px solid #185FA5;">
-      <div class="sc-num num-blue" id="ps-buyers">—</div>
+    <div class="stat-card" style="border-left:4px solid rgba(172,208,54,0.7);">
+      <div class="sc-num" id="ps-buyers">—</div>
       <div class="sc-lbl">Total Buyers</div>
     </div>
-    <div class="stat-card" style="border-left:4px solid #F0A500;">
+    <div class="stat-card" style="border-left:4px solid rgba(172,208,54,0.45);">
       <div class="sc-num" id="ps-testi">—</div>
       <div class="sc-lbl">Total Testimoni</div>
     </div>
-    <div class="stat-card" style="border-left:4px solid #3B6D11;">
-      <div class="sc-num num-green" id="ps-saved">—</div>
+    <div class="stat-card" style="border-left:4px solid rgba(172,208,54,0.85);">
+      <div class="sc-num" id="ps-saved">—</div>
       <div class="sc-lbl">Total Saved</div>
     </div>
   </div>
@@ -259,7 +259,7 @@ const markup = `<div class="page"><div class="scroll">
   <div id="db-content" style="padding-bottom:10px;"></div>
   <div class="danger-zone">
     <div class="danger-title">⚠ Danger Zone</div>
-    <p style="font-size:11px;color:#A32D2D;margin-bottom:10px;line-height:1.6;">Padam SEMUA rekod dari jadual yang dipilih. Tindakan ini tidak boleh dibatalkan.</p>
+    <p style="font-size:11px;color:rgba(172,208,54,0.55);margin-bottom:10px;line-height:1.6;">Padam SEMUA rekod dari jadual yang dipilih. Tindakan ini tidak boleh dibatalkan.</p>
     <button class="btn-danger" onclick="clearDbTable()">Padam Semua Rekod dalam Jadual Ini</button>
   </div>
 </div>
@@ -338,7 +338,7 @@ function renderSellers() {
   });
   setText('sellers-count', filtered.length + ' rekod');
   // Build rows
-  if (!filtered.length) { setHtml('sellers-tbody', '<tr><td colspan="7" style="text-align:center;color:#bbb;padding:20px;font-size:12px;">Tiada rekod</td></tr>'); return; }
+  if (!filtered.length) { setHtml('sellers-tbody', '<tr><td colspan="7" style="text-align:center;color:rgba(172,208,54,0.3);padding:20px;font-size:12px;">Tiada rekod</td></tr>'); return; }
   var html = filtered.map(function(s) {
     var status = s.status || (s.permanent_ban ? 'suspended' : 'pending');
     var badge = s.badge || 'seller_baharu';
@@ -376,7 +376,7 @@ function renderBuyers() {
   if (!_data) return;
   var buyers = _data.buyers || [];
   setText('buyers-count', buyers.length + ' total');
-  if (!buyers.length) { setHtml('buyers-tbody', '<tr><td colspan="5" style="text-align:center;color:#bbb;padding:20px;font-size:12px;">Tiada rekod</td></tr>'); return; }
+  if (!buyers.length) { setHtml('buyers-tbody', '<tr><td colspan="5" style="text-align:center;color:rgba(172,208,54,0.3);padding:20px;font-size:12px;">Tiada rekod</td></tr>'); return; }
   var html = buyers.map(function(b) {
     var name = (b.name || '—').toString().slice(0,20);
     var email = (b.email || '—').toString().slice(0,22);
@@ -396,7 +396,7 @@ function renderTesti() {
     _testiFilter === 'pending' ? all.filter(function(t){ return !t.is_approved; }) :
     all.filter(function(t){ return t.is_approved; });
   setText('testi-count', filtered.length + ' rekod');
-  if (!filtered.length) { setHtml('testi-tbody', '<tr><td colspan="6" style="text-align:center;color:#bbb;padding:20px;font-size:12px;">Tiada rekod</td></tr>'); return; }
+  if (!filtered.length) { setHtml('testi-tbody', '<tr><td colspan="6" style="text-align:center;color:rgba(172,208,54,0.3);padding:20px;font-size:12px;">Tiada rekod</td></tr>'); return; }
   var sellers = _data.sellers || [];
   var sellerMap = {};
   sellers.forEach(function(s){ sellerMap[s.id] = s.shop_name || s.name || '—'; });
@@ -405,12 +405,12 @@ function renderTesti() {
     var buyer = (t.buyer_name || '—').toString().slice(0,16);
     var content = (t.content || '—').toString().slice(0,30);
     var rating = '★'.repeat(t.rating || 0);
-    var approved = t.is_approved ? '<span style="color:#3B6D11;font-weight:700;font-size:10px;">Approved</span>' : '<span style="color:#856404;font-weight:700;font-size:10px;">Pending</span>';
+    var approved = t.is_approved ? '<span style="color:#acd036;font-weight:700;font-size:10px;">Approved</span>' : '<span style="color:rgba(172,208,54,0.55);font-weight:700;font-size:10px;">Pending</span>';
     var approveBtn = !t.is_approved ? '<button class="act-btn btn-green" onclick="adminAction(\'testimonial\',\''+t.id+'\',\'approve\')">✓</button>' : '';
     var delBtn = '<button class="act-btn btn-red" onclick="if(confirm(\'Padam testimoni ini?\'))adminAction(\'testimonial\',\''+t.id+'\',\'delete\')">✕</button>';
     return '<tr><td class="td-cell">'+buyer+'</td><td class="td-cell">'+shop+'</td>' +
       '<td class="td-name" title="'+(t.content||'')+'">'+content+'…</td>' +
-      '<td class="td-center" style="color:#F0A500;">'+rating+'</td>' +
+      '<td class="td-center" style="color:#acd036;">'+rating+'</td>' +
       '<td class="td-center">'+approved+'</td>' +
       '<td class="td-actions">'+approveBtn+delBtn+'</td></tr>';
   }).join('');
@@ -428,17 +428,17 @@ function renderSellers() {
   });
   setText('sellers-count', filtered.length + ' rekod');
   if (!filtered.length) {
-    setHtml('sellers-tbody', '<tr><td colspan="7" style="text-align:center;color:#bbb;padding:20px;font-size:12px;">Tiada rekod</td></tr>');
+    setHtml('sellers-tbody', '<tr><td colspan="7" style="text-align:center;color:rgba(172,208,54,0.3);padding:20px;font-size:12px;">Tiada rekod</td></tr>');
     return;
   }
   var html = filtered.map(function(s) {
     var status = s.status || (s.permanent_ban ? 'suspended' : 'pending');
     var badge = s.badge || 'seller_baharu';
     var badgeLabel = badge === 'verified' || badge === 'verified_seller'
-      ? '<span style="color:#3B6D11;font-weight:700;">Verified</span>'
+      ? '<span style="color:#acd036;font-weight:700;">Verified</span>'
       : badge === 'seller_aktif'
-        ? '<span style="color:#185FA5;font-weight:700;">Aktif</span>'
-        : '<span style="color:#888;font-weight:700;">Baharu</span>';
+        ? '<span style="color:rgba(172,208,54,0.7);font-weight:700;">Aktif</span>'
+        : '<span style="color:rgba(172,208,54,0.4);font-weight:700;">Baharu</span>';
     var approveBtn = status === 'pending' ? '<button class="act-btn btn-green" onclick="'+adminActionCall('seller', s.id, 'approve')+'">OK</button>' : '';
     var suspendBtn = status === 'active'
       ? '<button class="act-btn btn-orange" onclick="'+adminActionCall('seller', s.id, 'suspend')+'">Ban</button>'
@@ -456,7 +456,7 @@ function renderSellers() {
       '<td class="td-name" title="'+(s.shop_name||s.name||'')+'">'+shopName+'</td>' +
       '<td class="td-cell">'+kawasan+'</td>' +
       '<td class="td-center">'+badgeLabel+'</td>' +
-      '<td class="td-center">'+(s.is_open ? '<span style="color:#3B6D11">open</span>' : '<span style="color:#bbb">closed</span>')+'</td>' +
+      '<td class="td-center">'+(s.is_open ? '<span style="color:#acd036">open</span>' : '<span style="color:rgba(172,208,54,0.3)">closed</span>')+'</td>' +
       '<td class="td-center"><span class="status-pill '+(status==='active'?'pill-active':status==='pending'?'pill-pending':'pill-suspended')+'">'+status+'</span></td>' +
       '<td class="td-cell">'+created+'</td>' +
       '<td class="td-actions">'+approveBtn+suspendBtn+delBtn+badgeBtn+'</td>' +
@@ -470,7 +470,7 @@ function renderBuyers() {
   var buyers = _data.buyers || [];
   setText('buyers-count', buyers.length + ' total');
   if (!buyers.length) {
-    setHtml('buyers-tbody', '<tr><td colspan="5" style="text-align:center;color:#bbb;padding:20px;font-size:12px;">Tiada rekod</td></tr>');
+    setHtml('buyers-tbody', '<tr><td colspan="5" style="text-align:center;color:rgba(172,208,54,0.3);padding:20px;font-size:12px;">Tiada rekod</td></tr>');
     return;
   }
   var html = buyers.map(function(b) {
@@ -493,7 +493,7 @@ function renderTesti() {
     all.filter(function(t){ return t.is_approved; });
   setText('testi-count', filtered.length + ' rekod');
   if (!filtered.length) {
-    setHtml('testi-tbody', '<tr><td colspan="6" style="text-align:center;color:#bbb;padding:20px;font-size:12px;">Tiada rekod</td></tr>');
+    setHtml('testi-tbody', '<tr><td colspan="6" style="text-align:center;color:rgba(172,208,54,0.3);padding:20px;font-size:12px;">Tiada rekod</td></tr>');
     return;
   }
   var sellers = _data.sellers || [];
@@ -504,12 +504,12 @@ function renderTesti() {
     var buyer = (t.buyer_name || '-').toString().slice(0,16);
     var content = (t.content || '-').toString().slice(0,30);
     var rating = 'star '.repeat(t.rating || 0);
-    var approved = t.is_approved ? '<span style="color:#3B6D11;font-weight:700;font-size:10px;">Approved</span>' : '<span style="color:#856404;font-weight:700;font-size:10px;">Pending</span>';
+    var approved = t.is_approved ? '<span style="color:#acd036;font-weight:700;font-size:10px;">Approved</span>' : '<span style="color:rgba(172,208,54,0.55);font-weight:700;font-size:10px;">Pending</span>';
     var approveBtn = !t.is_approved ? '<button class="act-btn btn-green" onclick="'+adminActionCall('testimonial', t.id, 'approve')+'">OK</button>' : '';
     var delBtn = '<button class="act-btn btn-red" onclick="'+adminDeleteCall('testimonial', t.id, 'testimoni')+'">Del</button>';
     return '<tr><td class="td-cell">'+buyer+'</td><td class="td-cell">'+shop+'</td>' +
       '<td class="td-name" title="'+(t.content||'')+'">'+content+'</td>' +
-      '<td class="td-center" style="color:#F0A500;">'+rating+'</td>' +
+      '<td class="td-center" style="color:#acd036;">'+rating+'</td>' +
       '<td class="td-center">'+approved+'</td>' +
       '<td class="td-actions">'+approveBtn+delBtn+'</td></tr>';
   }).join('');
@@ -520,7 +520,7 @@ function renderSaved() {
   if (!_data) return;
   var saved = _data.savedShops || [];
   setText('saved-count', saved.length + ' rekod');
-  if (!saved.length) { setHtml('saved-tbody', '<tr><td colspan="3" style="text-align:center;color:#bbb;padding:20px;font-size:12px;">Tiada rekod</td></tr>'); return; }
+  if (!saved.length) { setHtml('saved-tbody', '<tr><td colspan="3" style="text-align:center;color:rgba(172,208,54,0.3);padding:20px;font-size:12px;">Tiada rekod</td></tr>'); return; }
   var html = saved.map(function(row) {
     var buyer = (row.buyer_display || row.buyer_id || '—').toString().slice(0,22);
     var shop = (row.shop_display || row.shop_id || '—').toString().slice(0,22);
@@ -542,9 +542,9 @@ function renderStats() {
   setText('ps-b-verified', s.sellersByBadge.verified || 0);
   var sb = s.sellersByStatus;
   setHtml('ps-sellers-detail',
-    '<div class="sc-line" style="color:#3B6D11;">● '+sb.active+' Aktif</div>' +
-    '<div class="sc-line" style="color:#856404;">● '+sb.pending+' Pending</div>' +
-    '<div class="sc-line" style="color:#A32D2D;">● '+sb.suspended+' Suspended</div>'
+    '<div class="sc-line" style="color:#acd036;">● '+sb.active+' Aktif</div>' +
+    '<div class="sc-line" style="color:rgba(172,208,54,0.6);">● '+sb.pending+' Pending</div>' +
+    '<div class="sc-line" style="color:rgba(172,208,54,0.4);">● '+sb.suspended+' Suspended</div>'
   );
   var areas = s.sellersByArea || [];
   var max = areas.length ? areas[0].count : 1;
@@ -554,7 +554,7 @@ function renderStats() {
       '<div class="area-row"><span class="area-name">'+a.area+'</span><span class="area-count">'+a.count+' seller</span></div>' +
       '<div class="area-bar"><div class="area-fill" style="width:'+pct+'%"></div></div>' +
       '</div>';
-  }).join('') || '<div style="text-align:center;color:#bbb;padding:20px;font-size:12px;">Tiada data kawasan</div>';
+  }).join('') || '<div style="text-align:center;color:rgba(172,208,54,0.3);padding:20px;font-size:12px;">Tiada data kawasan</div>';
   setHtml('area-bars', areaHtml);
 }
 
@@ -589,7 +589,7 @@ function loadDbTable(table) {
       if (data.error) { setHtml('db-info', 'Ralat: ' + data.error); return; }
       var rows = data.rows || [];
       setHtml('db-info', table + ' — ' + data.count + ' rekod (paparan: ' + rows.length + ')');
-      if (!rows.length) { setHtml('db-content', '<div style="text-align:center;color:#bbb;padding:20px;font-size:12px;">Jadual kosong</div>'); return; }
+      if (!rows.length) { setHtml('db-content', '<div style="text-align:center;color:rgba(172,208,54,0.3);padding:20px;font-size:12px;">Jadual kosong</div>'); return; }
       var cols = Object.keys(rows[0]);
       var html = '<div class="tbl-wrap"><table class="tbl"><thead><tr>';
       cols.forEach(function(c){ html += '<th>'+c+'</th>'; });
