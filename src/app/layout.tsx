@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from 'next'
 import '../styles/globals.css'
+import ServiceWorkerRegister from '@/components/ServiceWorkerRegister'
 
 export const metadata: Metadata = {
   title: 'LokalGo™ Shop',
@@ -32,7 +33,10 @@ export default function RootLayout({
 }) {
   return (
     <html lang="ms">
-      <body style={{ touchAction: 'pan-y' }}>{children}</body>
+      <body style={{ touchAction: 'pan-y' }}>
+        {children}
+        <ServiceWorkerRegister />
+      </body>
     </html>
   )
 }
