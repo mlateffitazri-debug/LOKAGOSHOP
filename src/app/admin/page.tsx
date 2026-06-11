@@ -181,6 +181,7 @@ body{background:#0a0a0a;min-height:100vh;font-family:'Plus Jakarta Sans',-apple-
 .pill-active{background:#EAF3DE;color:#3B6D11;}
 .pill-pending{background:#FFF3E0;color:#856404;}
 .pill-suspended{background:#FFEBEE;color:#A32D2D;}
+.pill-deleted{background:#f0f0f0;color:#aaa;}
 
 /* STATS GRID */
 .stat-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;padding:0 14px 10px;}
@@ -205,6 +206,18 @@ body{background:#0a0a0a;min-height:100vh;font-family:'Plus Jakarta Sans',-apple-
 .danger-zone{margin:10px 14px;background:#FFF5F5;border:1.5px solid #F9C0C0;border-radius:12px;padding:14px;}
 .danger-title{font-size:11px;font-weight:800;color:#A32D2D;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px;}
 .btn-danger{background:#A32D2D;color:#fff;border:none;border-radius:8px;padding:9px 16px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;width:100%;}
+
+/* MANUAL ONBOARD MODAL */
+.modal-overlay{display:none;position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,0.65);}
+.modal-overlay.open{display:flex;align-items:center;justify-content:center;padding:20px;}
+.modal-box{background:#fff;border-radius:16px;padding:20px;width:100%;max-width:390px;max-height:88vh;overflow-y:auto;}
+.mo-label{font-size:11px;font-weight:700;color:var(--c-primary);margin-bottom:4px;}
+.mo-label-opt{font-size:11px;font-weight:700;color:#888;margin-bottom:4px;}
+.mo-input{width:100%;border:1.5px solid var(--c-border);border-radius:8px;padding:10px 12px;font-size:13px;outline:none;font-family:inherit;color:var(--c-text);}
+.mo-input:focus{border-color:var(--c-primary);}
+.mo-hint{font-size:11px;color:#666;background:#fff8e1;border-radius:8px;padding:10px;margin-bottom:12px;line-height:1.6;}
+.btn-mo-submit{width:100%;background:linear-gradient(180deg,#8f1a3a 0%,#6A1029 100%);border:none;border-radius:10px;padding:13px;color:#fff;font-size:14px;font-weight:700;cursor:pointer;font-family:inherit;margin-top:14px;}
+.btn-mo-cancel{width:100%;background:#f5f5f5;border:none;border-radius:10px;padding:11px;color:#888;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit;margin-top:8px;}
 `
 
 /* ─── MARKUP ─────────────────────────────────────────────────────────────── */
@@ -246,13 +259,17 @@ const markup = `<div class="page"><div class="scroll">
 <div class="section active" id="tab-sellers">
   <div class="sec-head">
     <span class="sec-title">Sellers</span>
-    <span class="count-badge" id="sellers-count">—</span>
+    <div style="display:flex;align-items:center;gap:6px;">
+      <button onclick="openManualForm()" style="background:var(--c-primary);color:#fff;border:none;border-radius:20px;padding:5px 12px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit;">+ Tambah</button>
+      <span class="count-badge" id="sellers-count">—</span>
+    </div>
   </div>
   <div class="filter-bar">
     <button class="f-chip active" onclick="filterSellers(this,'all')">Semua</button>
     <button class="f-chip" onclick="filterSellers(this,'pending')">Pending</button>
     <button class="f-chip" onclick="filterSellers(this,'active')">Aktif</button>
     <button class="f-chip" onclick="filterSellers(this,'suspended')">Suspended</button>
+    <button class="f-chip" onclick="filterSellers(this,'deleted')">Dipadam</button>
   </div>
   <div class="tbl-wrap">
     <table class="tbl">
@@ -270,6 +287,10 @@ const markup = `<div class="page"><div class="scroll">
   <div class="sec-head">
     <span class="sec-title">Buyers</span>
     <span class="count-badge green" id="buyers-count">—</span>
+  </div>
+  <div class="filter-bar">
+    <button class="f-chip active" onclick="filterBuyers(this,'all')">Semua</button>
+    <button class="f-chip" onclick="filterBuyers(this,'deleted')">Dipadam</button>
   </div>
   <div class="tbl-wrap">
     <table class="tbl">
@@ -291,6 +312,7 @@ const markup = `<div class="page"><div class="scroll">
     <button class="f-chip active" onclick="filterTesti(this,'all')">Semua</button>
     <button class="f-chip" onclick="filterTesti(this,'pending')">Pending</button>
     <button class="f-chip" onclick="filterTesti(this,'approved')">Diluluskan</button>
+    <button class="f-chip" onclick="filterTesti(this,'deleted')">Dipadam</button>
   </div>
   <div class="tbl-wrap">
     <table class="tbl">
@@ -372,16 +394,63 @@ const markup = `<div class="page"><div class="scroll">
   </div>
 </div>
 
-</div></div>`
+</div>
+
+<!-- MANUAL ONBOARD MODAL -->
+<div id="manual-modal" class="modal-overlay">
+  <div class="modal-box">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
+      <span style="font-size:14px;font-weight:800;color:#111;">Tambah Penjual Manual</span>
+      <button onclick="closeManualForm()" style="border:none;background:none;font-size:18px;color:#bbb;cursor:pointer;line-height:1;padding:0 4px;">✕</button>
+    </div>
+    <div class="mo-hint">
+      Daftarkan penjual atas nama anda sebagai khidmat helpline. Status akan jadi <strong>Pending</strong> — luluskan dari senarai selepas ini. Jika email sudah dalam sistem auth, akaun dikaitkan automatik.
+    </div>
+    <div style="display:flex;flex-direction:column;gap:10px;">
+      <div>
+        <div class="mo-label">Email Google Penjual *</div>
+        <input id="mo-email" class="mo-input" type="email" placeholder="contoh@gmail.com">
+      </div>
+      <div>
+        <div class="mo-label">Nama Kedai *</div>
+        <input id="mo-shop" class="mo-input" type="text" placeholder="Kedai Kak Ida">
+      </div>
+      <div>
+        <div class="mo-label">Lokasi / Taman *</div>
+        <input id="mo-taman" class="mo-input" type="text" placeholder="Taman Desa Baiduri">
+      </div>
+      <div>
+        <div class="mo-label">No. WhatsApp *</div>
+        <input id="mo-phone" class="mo-input" type="tel" placeholder="017-1234567">
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+        <div>
+          <div class="mo-label-opt">Kawasan</div>
+          <input id="mo-kawasan" class="mo-input" type="text" placeholder="Bangi">
+        </div>
+        <div>
+          <div class="mo-label-opt">Postcode</div>
+          <input id="mo-postcode" class="mo-input" type="text" placeholder="43000" maxlength="5">
+        </div>
+      </div>
+    </div>
+    <button class="btn-mo-submit" onclick="submitManualOnboard()">Daftar Penjual (Pending)</button>
+    <button class="btn-mo-cancel" onclick="closeManualForm()">Batal</button>
+  </div>
+</div>
+
+</div>`
 
 /* ─── CLIENT SCRIPTS ─────────────────────────────────────────────────────── */
 const scripts = [`
-// State
+// ── State ────────────────────────────────────────────────────────────────────
 var _data = null;
 var _dbTable = '';
 var _sellersFilter = 'all';
+var _buyersFilter = 'all';
 var _testiFilter = 'all';
 
+// ── Tab / filter helpers ──────────────────────────────────────────────────────
 function switchTab(el, id) {
   document.querySelectorAll('.tab').forEach(function(t){ t.classList.remove('active'); });
   document.querySelectorAll('.section').forEach(function(s){ s.classList.remove('active'); });
@@ -396,6 +465,13 @@ function filterSellers(el, f) {
   renderSellers();
 }
 
+function filterBuyers(el, f) {
+  _buyersFilter = f;
+  document.querySelectorAll('#tab-buyers .f-chip').forEach(function(c){ c.classList.remove('active'); });
+  el.classList.add('active');
+  renderBuyers();
+}
+
 function filterTesti(el, f) {
   _testiFilter = f;
   document.querySelectorAll('#tab-testimoni .f-chip').forEach(function(c){ c.classList.remove('active'); });
@@ -403,6 +479,7 @@ function filterTesti(el, f) {
   renderTesti();
 }
 
+// ── DOM helpers ───────────────────────────────────────────────────────────────
 function setText(id, v) {
   var el = document.getElementById(id);
   if (el) el.textContent = v;
@@ -413,6 +490,7 @@ function setHtml(id, v) {
   if (el) el.innerHTML = v;
 }
 
+// ── Admin actions ─────────────────────────────────────────────────────────────
 function adminActionCall(type, id, action) {
   return "adminAction('" + type + "','" + id + "','" + action + "')";
 }
@@ -436,99 +514,38 @@ function adminDelete(type, id, label) {
   if (confirm('Padam ' + label + ' ini?')) adminAction(type, id, 'delete');
 }
 
-/*
+// ── Render: Sellers ───────────────────────────────────────────────────────────
 function renderSellers() {
   if (!_data) return;
-  var sellers = _data.sellers || [];
-  var filtered = _sellersFilter === 'all' ? sellers : sellers.filter(function(s){
-    var st = s.status || (s.permanent_ban ? 'suspended' : 'pending');
-    return st === _sellersFilter;
-  });
-  setText('sellers-count', filtered.length + ' rekod');
-  // Build rows
-  if (!filtered.length) { setHtml('sellers-tbody', '<tr><td colspan="7" style="text-align:center;color:#bbb;padding:20px;font-size:12px;">Tiada rekod</td></tr>'); return; }
-  var html = filtered.map(function(s) {
-    var status = s.status || (s.permanent_ban ? 'suspended' : 'pending');
-    var badge = s.badge || 'seller_baharu';
-    var badgeLabel = badge === 'verified' ? '<span style="color:#3B6D11;font-weight:700;">Verified</span>' :
-      badge === 'seller_aktif' ? '<span style="color:#185FA5;font-weight:700;">Aktif</span>' :
-      '<span style="color:#888;font-weight:700;">Baharu</span>';
-    var statusStyle = status === 'active' ? 'color:#3B6D11' : status === 'pending' ? 'color:#856404' : 'color:#A32D2D';
-    var approveBtn = status === 'pending' ?
-      '<button class="act-btn btn-green" onclick="adminAction(\'seller\',\''+s.id+'\',\'approve\')">✓</button>' : '';
-    var suspendBtn = status === 'active' ?
-      '<button class="act-btn btn-orange" onclick="adminAction(\'seller\',\''+s.id+'\',\'suspend\')">⊘</button>' :
-      status === 'suspended' ?
-      '<button class="act-btn btn-blue" onclick="adminAction(\'seller\',\''+s.id+'\',\'unsuspend\')">↑</button>' : '';
-    var delBtn = '<button class="act-btn btn-red" onclick="if(confirm(\'Padam seller ini?\'))adminAction(\'seller\',\''+s.id+'\',\'delete\')">✕</button>';
-    var nextBadge = badge === 'seller_baharu' ? 'badge_aktif' : badge === 'seller_aktif' ? 'badge_verified' : 'badge_baharu';
-    var nextLbl = nextBadge === 'badge_aktif' ? 'B→A' : nextBadge === 'badge_verified' ? 'A→V' : 'V→B';
-    var badgeBtn = '<button class="act-btn btn-badge" title="Naik badge" onclick="adminAction(\'seller\',\''+s.id+'\',\''+nextBadge+'\')">'+nextLbl+'</button>';
-    var shopName = (s.shop_name || s.name || '—').toString().slice(0,22);
-    var kawasan = (s.kawasan || '—').toString().slice(0,14);
-    var created = s.created_at ? new Date(s.created_at).toLocaleDateString('ms-MY',{day:'numeric',month:'short',year:'2-digit'}) : '—';
-    return '<tr data-id="'+s.id+'" data-status="'+status+'">' +
-      '<td class="td-name" title="'+(s.shop_name||s.name||'')+'">'+shopName+'</td>' +
-      '<td class="td-cell">'+kawasan+'</td>' +
-      '<td class="td-center">'+badgeLabel+'</td>' +
-      '<td class="td-center">'+(s.is_open ? '<span style="color:#3B6D11">●</span>' : '<span style="color:#bbb">○</span>')+'</td>' +
-      '<td class="td-center"><span class="status-pill '+(status==='active'?'pill-active':status==='pending'?'pill-pending':'pill-suspended')+'">'+status+'</span></td>' +
-      '<td class="td-cell">'+created+'</td>' +
-      '<td class="td-actions">'+approveBtn+suspendBtn+delBtn+badgeBtn+'</td>' +
-      '</tr>';
-  }).join('');
-  setHtml('sellers-tbody', html);
-}
 
-function renderBuyers() {
-  if (!_data) return;
-  var buyers = _data.buyers || [];
-  setText('buyers-count', buyers.length + ' total');
-  if (!buyers.length) { setHtml('buyers-tbody', '<tr><td colspan="5" style="text-align:center;color:#bbb;padding:20px;font-size:12px;">Tiada rekod</td></tr>'); return; }
-  var html = buyers.map(function(b) {
-    var name = (b.name || '—').toString().slice(0,20);
-    var email = (b.email || '—').toString().slice(0,22);
-    var kawasan = (b.kawasan || '—').toString().slice(0,14);
-    var created = b.created_at ? new Date(b.created_at).toLocaleDateString('ms-MY',{day:'numeric',month:'short',year:'2-digit'}) : '—';
-    return '<tr><td class="td-name">'+name+'</td><td class="td-cell" title="'+(b.email||'')+'">'+email+'</td>' +
-      '<td class="td-cell">'+kawasan+'</td><td class="td-cell">'+created+'</td>' +
-      '<td class="td-actions"><button class="act-btn btn-red" onclick="if(confirm(\'Padam buyer ini?\'))adminAction(\'buyer\',\''+b.id+'\',\'delete\')">✕</button></td></tr>';
-  }).join('');
-  setHtml('buyers-tbody', html);
-}
+  // Deleted view
+  if (_sellersFilter === 'deleted') {
+    var deleted = _data.deletedSellers || [];
+    setText('sellers-count', deleted.length + ' dipadam');
+    if (!deleted.length) {
+      setHtml('sellers-tbody', '<tr><td colspan="7" style="text-align:center;color:#bbb;padding:20px;font-size:12px;">Tiada rekod dipadam</td></tr>');
+      return;
+    }
+    var html = deleted.map(function(s) {
+      var shopName = (s.shop_name || s.name || '-').toString().slice(0,22);
+      var kawasan = (s.kawasan || '-').toString().slice(0,14);
+      var deletedAt = s.deleted_at ? new Date(s.deleted_at).toLocaleDateString('ms-MY',{day:'numeric',month:'short',year:'2-digit'}) : '-';
+      var restoreBtn = '<button class="act-btn btn-green" title="Pulihkan" onclick="'+adminActionCall('seller', s.id, 'restore')+'">↩</button>';
+      return '<tr data-id="'+s.id+'" style="opacity:0.6;">' +
+        '<td class="td-name" title="'+(s.shop_name||s.name||'')+'">'+shopName+'</td>' +
+        '<td class="td-cell">'+kawasan+'</td>' +
+        '<td class="td-center">—</td>' +
+        '<td class="td-center">—</td>' +
+        '<td class="td-center"><span class="status-pill pill-deleted">dipadam</span></td>' +
+        '<td class="td-cell">'+deletedAt+'</td>' +
+        '<td class="td-actions">'+restoreBtn+'</td>' +
+        '</tr>';
+    }).join('');
+    setHtml('sellers-tbody', html);
+    return;
+  }
 
-function renderTesti() {
-  if (!_data) return;
-  var all = _data.testimonials || [];
-  var filtered = _testiFilter === 'all' ? all :
-    _testiFilter === 'pending' ? all.filter(function(t){ return !t.is_approved; }) :
-    all.filter(function(t){ return t.is_approved; });
-  setText('testi-count', filtered.length + ' rekod');
-  if (!filtered.length) { setHtml('testi-tbody', '<tr><td colspan="6" style="text-align:center;color:#bbb;padding:20px;font-size:12px;">Tiada rekod</td></tr>'); return; }
-  var sellers = _data.sellers || [];
-  var sellerMap = {};
-  sellers.forEach(function(s){ sellerMap[s.id] = s.shop_name || s.name || '—'; });
-  var html = filtered.map(function(t) {
-    var shop = (sellerMap[t.seller_id] || '—').toString().slice(0,16);
-    var buyer = (t.buyer_name || '—').toString().slice(0,16);
-    var content = (t.content || '—').toString().slice(0,30);
-    var rating = '★'.repeat(t.rating || 0);
-    var approved = t.is_approved ? '<span style="color:#3B6D11;font-weight:700;font-size:10px;">Approved</span>' : '<span style="color:#856404;font-weight:700;font-size:10px;">Pending</span>';
-    var approveBtn = !t.is_approved ? '<button class="act-btn btn-green" onclick="adminAction(\'testimonial\',\''+t.id+'\',\'approve\')">✓</button>' : '';
-    var delBtn = '<button class="act-btn btn-red" onclick="if(confirm(\'Padam testimoni ini?\'))adminAction(\'testimonial\',\''+t.id+'\',\'delete\')">✕</button>';
-    return '<tr><td class="td-cell">'+buyer+'</td><td class="td-cell">'+shop+'</td>' +
-      '<td class="td-name" title="'+(t.content||'')+'">'+content+'…</td>' +
-      '<td class="td-center" style="color:#F0A500;">'+rating+'</td>' +
-      '<td class="td-center">'+approved+'</td>' +
-      '<td class="td-actions">'+approveBtn+delBtn+'</td></tr>';
-  }).join('');
-  setHtml('testi-tbody', html);
-}
-
-*/
-
-function renderSellers() {
-  if (!_data) return;
+  // Normal view
   var sellers = _data.sellers || [];
   var filtered = _sellersFilter === 'all' ? sellers : sellers.filter(function(s){
     var st = s.status || (s.permanent_ban ? 'suspended' : 'pending');
@@ -573,8 +590,37 @@ function renderSellers() {
   setHtml('sellers-tbody', html);
 }
 
+// ── Render: Buyers ────────────────────────────────────────────────────────────
 function renderBuyers() {
   if (!_data) return;
+
+  // Deleted view
+  if (_buyersFilter === 'deleted') {
+    var deleted = _data.deletedBuyers || [];
+    setText('buyers-count', deleted.length + ' dipadam');
+    if (!deleted.length) {
+      setHtml('buyers-tbody', '<tr><td colspan="5" style="text-align:center;color:#bbb;padding:20px;font-size:12px;">Tiada rekod dipadam</td></tr>');
+      return;
+    }
+    var html = deleted.map(function(b) {
+      var name = (b.name || '-').toString().slice(0,20);
+      var email = (b.email || '-').toString().slice(0,22);
+      var kawasan = (b.kawasan || '-').toString().slice(0,14);
+      var deletedAt = b.deleted_at ? new Date(b.deleted_at).toLocaleDateString('ms-MY',{day:'numeric',month:'short',year:'2-digit'}) : '-';
+      var restoreBtn = '<button class="act-btn btn-green" title="Pulihkan" onclick="'+adminActionCall('buyer', b.id, 'restore')+'">↩</button>';
+      return '<tr style="opacity:0.6;">' +
+        '<td class="td-name">'+name+'</td>' +
+        '<td class="td-cell" title="'+(b.email||'')+'">'+email+'</td>' +
+        '<td class="td-cell">'+kawasan+'</td>' +
+        '<td class="td-cell">'+deletedAt+'</td>' +
+        '<td class="td-actions">'+restoreBtn+'</td>' +
+        '</tr>';
+    }).join('');
+    setHtml('buyers-tbody', html);
+    return;
+  }
+
+  // Normal view
   var buyers = _data.buyers || [];
   setText('buyers-count', buyers.length + ' total');
   if (!buyers.length) {
@@ -593,8 +639,40 @@ function renderBuyers() {
   setHtml('buyers-tbody', html);
 }
 
+// ── Render: Testimoni ─────────────────────────────────────────────────────────
 function renderTesti() {
   if (!_data) return;
+
+  var sellers = _data.sellers || [];
+  var sellerMap = {};
+  sellers.forEach(function(s){ sellerMap[s.id] = s.shop_name || s.name || '-'; });
+
+  // Deleted view
+  if (_testiFilter === 'deleted') {
+    var deleted = _data.deletedTestimonials || [];
+    setText('testi-count', deleted.length + ' dipadam');
+    if (!deleted.length) {
+      setHtml('testi-tbody', '<tr><td colspan="6" style="text-align:center;color:#bbb;padding:20px;font-size:12px;">Tiada rekod dipadam</td></tr>');
+      return;
+    }
+    var html = deleted.map(function(t) {
+      var shop = (sellerMap[t.seller_id] || '-').toString().slice(0,16);
+      var buyer = (t.buyer_name || '-').toString().slice(0,16);
+      var content = (t.content || '-').toString().slice(0,28);
+      var deletedAt = t.deleted_at ? new Date(t.deleted_at).toLocaleDateString('ms-MY',{day:'numeric',month:'short',year:'2-digit'}) : '-';
+      var restoreBtn = '<button class="act-btn btn-green" title="Pulihkan" onclick="'+adminActionCall('testimonial', t.id, 'restore')+'">↩</button>';
+      return '<tr style="opacity:0.6;">' +
+        '<td class="td-cell">'+buyer+'</td><td class="td-cell">'+shop+'</td>' +
+        '<td class="td-name" title="'+(t.content||'')+'">'+content+'</td>' +
+        '<td class="td-center" style="color:#bbb;">'+deletedAt+'</td>' +
+        '<td class="td-center"><span class="status-pill pill-deleted">dipadam</span></td>' +
+        '<td class="td-actions">'+restoreBtn+'</td></tr>';
+    }).join('');
+    setHtml('testi-tbody', html);
+    return;
+  }
+
+  // Normal view
   var all = _data.testimonials || [];
   var filtered = _testiFilter === 'all' ? all :
     _testiFilter === 'pending' ? all.filter(function(t){ return !t.is_approved; }) :
@@ -604,9 +682,6 @@ function renderTesti() {
     setHtml('testi-tbody', '<tr><td colspan="6" style="text-align:center;color:#bbb;padding:20px;font-size:12px;">Tiada rekod</td></tr>');
     return;
   }
-  var sellers = _data.sellers || [];
-  var sellerMap = {};
-  sellers.forEach(function(s){ sellerMap[s.id] = s.shop_name || s.name || '-'; });
   var html = filtered.map(function(t) {
     var shop = (sellerMap[t.seller_id] || '-').toString().slice(0,16);
     var buyer = (t.buyer_name || '-').toString().slice(0,16);
@@ -624,6 +699,7 @@ function renderTesti() {
   setHtml('testi-tbody', html);
 }
 
+// ── Render: Saved ─────────────────────────────────────────────────────────────
 function renderSaved() {
   if (!_data) return;
   var saved = _data.savedShops || [];
@@ -638,6 +714,7 @@ function renderSaved() {
   setHtml('saved-tbody', html);
 }
 
+// ── Render: Stats ─────────────────────────────────────────────────────────────
 function renderStats() {
   if (!_data || !_data.stats) return;
   var s = _data.stats;
@@ -666,13 +743,13 @@ function renderStats() {
   setHtml('area-bars', areaHtml);
 }
 
+// ── Load all admin data ───────────────────────────────────────────────────────
 function loadAdminData() {
   fetch('/api/admin/moderation', { cache: 'no-store' })
     .then(function(r){ return r.json(); })
     .then(function(data) {
       if (data.error) { alert('Gagal muat data: ' + data.error); return; }
       _data = data;
-      // Update quick stats
       setText('st-active', data.stats.sellersByStatus.active);
       setText('st-pending', data.stats.sellersByStatus.pending);
       setText('st-buyers', data.stats.totalBuyers);
@@ -686,6 +763,7 @@ function loadAdminData() {
     .catch(function(e){ alert('Ralat rangkaian: ' + e.message); });
 }
 
+// ── Database tab ──────────────────────────────────────────────────────────────
 function loadDbTable(table) {
   if (!table) return;
   _dbTable = table;
@@ -749,7 +827,62 @@ function clearDbTable() {
   }).catch(function(e){ alert('Ralat: ' + e.message); });
 }
 
-// Initial load
+// ── Manual Onboard Modal ──────────────────────────────────────────────────────
+function openManualForm() {
+  var modal = document.getElementById('manual-modal');
+  if (modal) modal.classList.add('open');
+}
+
+function closeManualForm() {
+  var modal = document.getElementById('manual-modal');
+  if (modal) modal.classList.remove('open');
+  ['mo-email','mo-shop','mo-taman','mo-phone','mo-kawasan','mo-postcode'].forEach(function(id) {
+    var el = document.getElementById(id);
+    if (el) el.value = '';
+  });
+}
+
+function submitManualOnboard() {
+  var email    = ((document.getElementById('mo-email')   || {}).value || '').trim();
+  var shopName = ((document.getElementById('mo-shop')    || {}).value || '').trim();
+  var taman    = ((document.getElementById('mo-taman')   || {}).value || '').trim();
+  var phone    = ((document.getElementById('mo-phone')   || {}).value || '').trim();
+  var kawasan  = ((document.getElementById('mo-kawasan') || {}).value || '').trim();
+  var postcode = ((document.getElementById('mo-postcode')|| {}).value || '').trim();
+
+  if (!email || !shopName || !taman || !phone) {
+    alert('Sila lengkapkan: Email Google, Nama Kedai, Taman dan No. WhatsApp.');
+    return;
+  }
+
+  fetch('/api/admin/manual-onboard', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({
+      email: email,
+      shop_name: shopName,
+      taman_name: taman,
+      whatsapp_number: phone,
+      kawasan: kawasan || taman,
+      postcode: postcode || '00000'
+    })
+  }).then(function(r){ return r.json(); })
+  .then(function(d) {
+    if (d.error) { alert('Ralat: ' + d.error); return; }
+    var msg = 'Penjual berjaya didaftarkan! (Status: Pending)\n\nID: ' + d.sellerId;
+    if (d.linked) {
+      msg += '\n\nAkaun Google berjaya dikaitkan. Penjual boleh log masuk dan tunggu kelulusan.';
+    } else {
+      msg += '\n\nEmail tidak dijumpai dalam sistem. Penjual perlu log masuk dengan Google sekali untuk mengaktifkan pautan akaun.';
+    }
+    alert(msg);
+    closeManualForm();
+    loadAdminData();
+  })
+  .catch(function(e){ alert('Ralat rangkaian: ' + e.message); });
+}
+
+// ── Init ──────────────────────────────────────────────────────────────────────
 loadAdminData();
 `]
 
@@ -757,7 +890,6 @@ loadAdminData();
 export default function Page() {
   useEffect(() => {
     // Data loading and action handlers are wired in the inline scripts above.
-    // We expose them via the scripts[] array so HtmlPrototypePage injects them.
   }, [])
 
   return (

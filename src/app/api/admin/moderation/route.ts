@@ -10,6 +10,7 @@ type ModerationAction =
   | 'suspend'
   | 'unsuspend'
   | 'delete'
+  | 'restore'
   | 'badge_baharu'
   | 'badge_aktif'
   | 'badge_verified'
@@ -24,6 +25,19 @@ function getSellerStatus(seller: Record<string, unknown>) {
   if (seller.status) return seller.status as string
   if (seller.permanent_ban) return 'suspended'
   return 'pending'
+}
+
+async function softDelete(
+  supabase: ReturnType<typeof createAdminClient>,
+  table: 'sellers' | 'buyers' | 'testimonials',
+  id: string,
+) {
+  const r = await supabase.from(table).update({ deleted_at: new Date().toISOString() }).eq('id', id)
+  if (r.error?.message?.includes('deleted_at')) {
+    // Migration not yet applied — fall back to hard delete
+    return supabase.from(table).delete().eq('id', id)
+  }
+  return r
 }
 
 export async function GET() {
@@ -49,12 +63,20 @@ export async function GET() {
       supabase.from('suspended_sellers').select('*').order('suspend_date', { ascending: false }),
     ])
 
-    const sellers = sellersResult.data ?? []
-    const buyers = buyersResult.data ?? []
-    const testimonials = testimonialsResult.data ?? []
+    const allSellers = sellersResult.data ?? []
+    const sellers = allSellers.filter((s) => !s.deleted_at)
+    const deletedSellers = allSellers.filter((s) => s.deleted_at)
+
+    const allBuyers = buyersResult.data ?? []
+    const buyers = allBuyers.filter((b) => !b.deleted_at)
+    const deletedBuyers = allBuyers.filter((b) => b.deleted_at)
+
+    const allTestimonials = testimonialsResult.data ?? []
+    const testimonials = allTestimonials.filter((t) => !t.deleted_at)
+    const deletedTestimonials = allTestimonials.filter((t) => t.deleted_at)
+
     const savedShopsRaw = savedShopsResult.data ?? []
 
-    // Enrich saved_shops with buyer name and seller name
     const buyerMap: Record<string, string> = {}
     buyers.forEach((b) => { buyerMap[b.id] = (b.name as string) || (b.email as string) || b.id })
     const sellerMap: Record<string, string> = {}
@@ -66,7 +88,6 @@ export async function GET() {
       shop_display: sellerMap[row.shop_id as string] ?? row.shop_id,
     }))
 
-    // Stats
     const pending = sellers.filter((s) => getSellerStatus(s) === 'pending')
     const active = sellers.filter((s) => getSellerStatus(s) === 'active')
     const suspended = sellers.filter((s) => getSellerStatus(s) === 'suspended')
@@ -98,12 +119,15 @@ export async function GET() {
 
     return NextResponse.json({
       sellers,
+      deletedSellers,
       pendingSellers: pending,
       activeSellers: active,
       suspendedSellers: suspended,
       rejectedSellers: rejected,
       buyers,
+      deletedBuyers,
       testimonials,
+      deletedTestimonials,
       pendingTestimonials: testimonials.filter((t) => !(t.is_approved as boolean)),
       savedShops,
       pendingProducts: pendingProductsResult.data ?? [],
@@ -146,11 +170,17 @@ export async function PATCH(request: Request) {
 
     const supabase = createAdminClient()
 
-    // ── SELLER actions ──────────────────────────────────────────────────────
+    // ── SELLER ──────────────────────────────────────────────────────────────
     if (body.type === 'seller') {
       if (body.action === 'delete') {
-        const { error } = await supabase.from('sellers').delete().eq('id', body.id)
-        if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+        const r = await softDelete(supabase, 'sellers', body.id)
+        if (r.error) return NextResponse.json({ error: r.error.message }, { status: 500 })
+        return NextResponse.json({ ok: true })
+      }
+
+      if (body.action === 'restore') {
+        const r = await supabase.from('sellers').update({ deleted_at: null }).eq('id', body.id)
+        if (r.error) return NextResponse.json({ error: r.error.message }, { status: 500 })
         return NextResponse.json({ ok: true })
       }
 
@@ -203,20 +233,32 @@ export async function PATCH(request: Request) {
       }
     }
 
-    // ── BUYER actions ───────────────────────────────────────────────────────
+    // ── BUYER ────────────────────────────────────────────────────────────────
     if (body.type === 'buyer') {
       if (body.action === 'delete') {
-        const { error } = await supabase.from('buyers').delete().eq('id', body.id)
-        if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+        const r = await softDelete(supabase, 'buyers', body.id)
+        if (r.error) return NextResponse.json({ error: r.error.message }, { status: 500 })
+        return NextResponse.json({ ok: true })
+      }
+
+      if (body.action === 'restore') {
+        const r = await supabase.from('buyers').update({ deleted_at: null }).eq('id', body.id)
+        if (r.error) return NextResponse.json({ error: r.error.message }, { status: 500 })
         return NextResponse.json({ ok: true })
       }
     }
 
-    // ── TESTIMONIAL actions ─────────────────────────────────────────────────
+    // ── TESTIMONIAL ──────────────────────────────────────────────────────────
     if (body.type === 'testimonial') {
       if (body.action === 'delete' || body.action === 'reject') {
-        const { error } = await supabase.from('testimonials').delete().eq('id', body.id)
-        if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+        const r = await softDelete(supabase, 'testimonials', body.id)
+        if (r.error) return NextResponse.json({ error: r.error.message }, { status: 500 })
+        return NextResponse.json({ ok: true })
+      }
+
+      if (body.action === 'restore') {
+        const r = await supabase.from('testimonials').update({ deleted_at: null }).eq('id', body.id)
+        if (r.error) return NextResponse.json({ error: r.error.message }, { status: 500 })
         return NextResponse.json({ ok: true })
       }
 
@@ -241,14 +283,14 @@ export async function PATCH(request: Request) {
       }
     }
 
-    // ── PRODUCT actions ─────────────────────────────────────────────────────
+    // ── PRODUCT ──────────────────────────────────────────────────────────────
     if (body.type === 'product') {
       const r = await supabase.from('products').update({ status: body.action === 'approve' ? 'approved' : 'rejected' }).eq('id', body.id)
       if (r.error) return NextResponse.json({ error: r.error.message }, { status: 500 })
       return NextResponse.json({ ok: true })
     }
 
-    // ── COMPLAINT actions ───────────────────────────────────────────────────
+    // ── COMPLAINT ─────────────────────────────────────────────────────────────
     if (body.type === 'complaint') {
       const r = await supabase.from('suspended_sellers').update({
         appeal_status: body.action === 'approve' || body.action === 'dismiss' ? 'approved' : 'rejected',
