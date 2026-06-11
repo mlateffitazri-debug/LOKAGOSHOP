@@ -35,7 +35,7 @@ const routeMap: Record<string, string> = {
   'lokalgo_notifikasi.html': '/notifikasi',
   'lokalgo_inbox.html': '/inbox',
   'lokalgo_testimoni.html': '/testimoni',
-  'lokalgo_admin.html': '/admin',
+  'lokalgo_admin.html': '/adminhensemonly',
   'lokalgo_sokong.html': '/sokong',
   'lokalgo_profil_buyer.html': '/profile',
   'lokalgo_saved.html': '/saved',
