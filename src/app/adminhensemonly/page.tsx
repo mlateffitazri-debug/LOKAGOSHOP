@@ -149,7 +149,7 @@ const markup = `<div class="page"><div class="scroll">
   </div>
   <div class="header-sub">LokalGo Admin Panel — NS0308474-A</div>
 </div>
-<div id="admin-error-banner" style="display:none;background:#1a0000;color:#f06060;font-size:13px;font-weight:700;padding:12px 20px;border-bottom:1px solid rgba(240,96,96,0.3);word-break:break-word;"></div>
+<div id="admin-error-banner" style="display:none;background:#1a0000;color:#f06060;font-size:13px;font-weight:700;padding:12px 20px;border-bottom:1px solid rgba(240,96,96,0.3);word-break:break-word;line-height:1.5;"></div>
 
 <div class="stats-row" id="statsRow">
   <div class="stat-box"><div class="stat-num num-green" id="st-active">—</div><div class="stat-lbl">Aktif</div></div>
@@ -719,12 +719,12 @@ function renderRegistrationChart(sellers, buyers) {
 // ── Load all admin data ───────────────────────────────────────────────────────
 function showAdminError(msg) {
   var errEl = document.getElementById('admin-error-banner');
-  if (errEl) { errEl.textContent = '⚠ ' + msg; errEl.style.display = 'block'; }
-  var errMsg = '<tr><td colspan="7" style="text-align:center;color:#f06060;padding:20px;font-size:13px;">⚠ ' + msg + '</td></tr>';
-  setHtml('sellers-tbody', errMsg);
-  setHtml('buyers-tbody', errMsg.replace('colspan="7"', 'colspan="5"'));
-  setHtml('testi-tbody', errMsg.replace('colspan="7"', 'colspan="6"'));
-  setHtml('saved-tbody', errMsg.replace('colspan="7"', 'colspan="3"'));
+  if (errEl) { errEl.textContent = '[ERROR] ' + msg; errEl.style.display = 'block'; }
+  var errTd = '<td style="text-align:center;color:#f06060;padding:20px;font-size:13px;">[ERROR] ' + msg + '</td>';
+  setHtml('sellers-tbody', '<tr>' + errTd + '</tr>');
+  setHtml('buyers-tbody', '<tr>' + errTd + '</tr>');
+  setHtml('testi-tbody', '<tr>' + errTd + '</tr>');
+  setHtml('saved-tbody', '<tr>' + errTd + '</tr>');
 }
 
 function loadAdminData() {

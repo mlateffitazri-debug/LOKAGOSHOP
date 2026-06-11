@@ -27,9 +27,11 @@ self.addEventListener('activate', (event) => {
 self.addEventListener('fetch', (event) => {
   const { request } = event
 
-  // Skip non-GET, Chrome extensions, Supabase API calls
+  // Skip non-GET, non-same-origin, Chrome extensions, Supabase API calls
+  const requestUrl = new URL(request.url)
   if (
     request.method !== 'GET' ||
+    requestUrl.origin !== self.location.origin ||
     request.url.startsWith('chrome-extension') ||
     request.url.includes('supabase.co') ||
     request.url.includes('/api/')
