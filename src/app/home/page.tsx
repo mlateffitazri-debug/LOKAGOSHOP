@@ -1,7 +1,7 @@
 'use client'
 
 import { MouseEvent, useEffect, useMemo, useState } from 'react'
-import { MapPin, Heart, MessageSquare, Coffee, Info, Globe, LogOut, BookOpen } from 'lucide-react'
+import { MapPin, Heart, MessageSquare, Coffee, Info, Globe, LogOut, BookOpen, Store } from 'lucide-react'
 import { translations, useLang, type Lang } from '@/lib/i18n'
 import { createClient } from '@/lib/supabase/client'
 import type { Buyer, Seller, Product } from '@/types/database'
@@ -101,7 +101,15 @@ body{background:#0a0a0a;font-family:'Plus Jakarta Sans',-apple-system,sans-serif
 .sidebar-footer{background:#fff;padding:16px;border-top:1px solid var(--border,#ECECEC);}
 .logout-btn{width:100%;min-height:44px;display:flex;align-items:center;justify-content:center;gap:8px;border:1.5px solid var(--brand-maroon,#7B1D2E);border-radius:12px;background:#fff;padding:12px;font-family:'Plus Jakarta Sans',sans-serif;font-size:14px;font-weight:800;color:var(--brand-maroon,#7B1D2E);cursor:pointer;}
 .toast{position:absolute;bottom:90px;left:50%;transform:translateX(-50%);background:rgba(0,0,0,0.82);color:#fff;padding:10px 22px;border-radius:20px;font-size:13px;font-weight:600;z-index:200;white-space:nowrap;pointer-events:none;animation:toastIn 0.2s ease;}
-@keyframes toastIn{from{opacity:0;transform:translateX(-50%) translateY(8px);}to{opacity:1;transform:translateX(-50%) translateY(0);}}`
+@keyframes toastIn{from{opacity:0;transform:translateX(-50%) translateY(8px);}to{opacity:1;transform:translateX(-50%) translateY(0);}}
+.sheet-backdrop{position:absolute;inset:0;background:rgba(0,0,0,0.45);z-index:60;}
+.seller-sheet{position:absolute;bottom:0;left:0;right:0;background:#fff;border-radius:24px 24px 0 0;padding:28px 24px 40px;z-index:70;display:flex;flex-direction:column;align-items:center;text-align:center;gap:12px;animation:sheetUp 0.28s cubic-bezier(0.32,0.72,0,1);}
+@keyframes sheetUp{from{transform:translateY(100%);}to{transform:translateY(0);}}
+.sheet-icon{width:56px;height:56px;background:#fdf0f3;border-radius:50%;display:flex;align-items:center;justify-content:center;margin-bottom:4px;}
+.sheet-title{font-size:18px;font-weight:800;color:#111;letter-spacing:-0.3px;}
+.sheet-body{font-size:13px;color:#555;line-height:1.6;max-width:280px;}
+.sheet-cta{width:100%;background:#7B1D2E;border:none;border-radius:14px;padding:15px 20px;color:#fff;font-size:15px;font-weight:700;font-family:inherit;cursor:pointer;margin-top:4px;}
+.sheet-dismiss{border:none;background:none;color:#888;font-size:14px;font-weight:600;font-family:inherit;cursor:pointer;padding:8px;}`
 
 function copy(key: string, lang: Lang) {
   return translations[key]?.[lang] ?? key
@@ -341,6 +349,8 @@ export default function HomePage() {
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null)
   const [profile, setProfile] = useState<HomeProfile | null>(null)
   const [isSidebarOpen, setIsSidebarOpen] = useState(false)
+  const [isSeller, setIsSeller] = useState(false)
+  const [isSellerSheetOpen, setIsSellerSheetOpen] = useState(false)
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [savedShopIds, setSavedShopIds] = useState<Set<string>>(new Set())
@@ -369,6 +379,10 @@ export default function HomePage() {
       const metadataAvatar = typeof metadata.avatar_url === 'string'
         ? metadata.avatar_url
         : typeof metadata.picture === 'string' ? metadata.picture : null
+
+      const { data: sellerRecord } = await supabase
+        .from('sellers').select('id').eq('user_id', user.id).maybeSingle()
+      if (!cancelled) setIsSeller(!!sellerRecord)
 
       const { data: buyerData } = await supabase
         .from('buyers').select('*').eq('user_id', user.id).maybeSingle()
@@ -512,6 +526,15 @@ export default function HomePage() {
     window.location.href = '/auth'
   }
 
+  function goToSellerArea() {
+    setIsSidebarOpen(false)
+    if (isSeller) {
+      window.location.href = '/seller/dashboard'
+    } else {
+      setIsSellerSheetOpen(true)
+    }
+  }
+
 
 
   return (
@@ -524,6 +547,23 @@ export default function HomePage() {
         ) : null}
 
         {toast ? <div className="toast">{toast}</div> : null}
+
+        {isSellerSheetOpen ? (
+          <>
+            <div className="sheet-backdrop" onClick={() => setIsSellerSheetOpen(false)} aria-hidden="true" />
+            <div className="seller-sheet" role="dialog" aria-modal="true">
+              <div className="sheet-icon"><Store size={32} color="#7B1D2E" /></div>
+              <p className="sheet-title">Berminat untuk menjadi penjual?</p>
+              <p className="sheet-body">Jualan di LokalGo adalah percuma dan akan kekal percuma. Daftar kedai anda dan mula berjual hari ini.</p>
+              <button type="button" className="sheet-cta" onClick={() => { setIsSellerSheetOpen(false); window.location.href = '/onboarding/step0' }}>
+                Daftar Sebagai Penjual
+              </button>
+              <button type="button" className="sheet-dismiss" onClick={() => setIsSellerSheetOpen(false)}>
+                Tidak sekarang
+              </button>
+            </div>
+          </>
+        ) : null}
 
         <aside className={`profile-sidebar${isSidebarOpen ? ' open' : ''}`} aria-hidden={!isSidebarOpen}>
           <header className="profile-sidebar-header">
@@ -542,6 +582,11 @@ export default function HomePage() {
             <SidebarLink href="/saved" icon={<Heart size={20} color="#7B1D2E" />} label="Kedai Disimpan" />
             <SidebarLink href="/testimonials" icon={<MessageSquare size={20} color="#7B1D2E" />} label="Testimoni Saya" />
             <SidebarLink href="/sokong" icon={<Coffee size={20} color="#7B1D2E" />} label="Sokong Pembangun" />
+            <button type="button" onClick={goToSellerArea} className="sidebar-link">
+              <span className="sidebar-icon"><Store size={20} color="#7B1D2E" /></span>
+              <span className="sidebar-label">Dashboard Penjual</span>
+              <span className="sidebar-arrow">&gt;</span>
+            </button>
             <SidebarLink href="/about" icon={<Info size={20} color="#7B1D2E" />} label="Tentang LokalGo™" />
             <SidebarLink href="/tutorial" icon={<BookOpen size={20} color="#7B1D2E" />} label="Tutorial" />
             <button type="button" onClick={toggle} className="sidebar-lang">

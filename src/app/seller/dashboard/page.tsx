@@ -89,8 +89,7 @@ export default function Page() {
         .maybeSingle()
 
       if (sellerError || !seller) {
-        setText('.shop-name', 'Kedai belum didaftarkan')
-        setHtml('.produk-list', '<div class="produk-row"><div class="produk-meta"><div class="produk-name">Tiada permohonan seller</div><div class="produk-status-txt ps-unavail">Daftar kedai dahulu melalui onboarding.</div></div></div>')
+        window.location.href = '/home'
         return
       }
 
