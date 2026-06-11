@@ -4,7 +4,7 @@ import { createBrowserClient } from '@supabase/ssr'
 import Image from 'next/image'
 import { useEffect, useState } from 'react'
 
-const mascotSrc = '/assets/lokago-mascot.png'
+const mascotSrc = '/assets/IMG_5827.PNG'
 
 function createAuthClient() {
   return createBrowserClient(
