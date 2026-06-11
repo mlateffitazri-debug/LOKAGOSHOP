@@ -64,11 +64,15 @@ export async function POST(request: Request) {
     status: 'pending',
     is_open: false,
   }
+  // Minimal fallback payload using only columns guaranteed to exist in all schema versions
   const legacySellerPayload = {
-    name: body.shop_name.trim(),
-    email: user.email || '',
+    user_id: user.id,
+    shop_name: body.shop_name.trim(),
     whatsapp_number: normalizeWhatsapp(body.whatsapp_number),
-    permanent_ban: false,
+    taman_name: body.taman_name.trim(),
+    postcode: body.postcode?.trim() || '00000',
+    status: 'pending',
+    is_open: false,
   }
 
   let existingSellerResult = await adminClient
@@ -93,15 +97,18 @@ export async function POST(request: Request) {
     ? await adminClient.from('sellers').update(sellerPayload).eq('id', existingSellerResult.data.id).select('id').single()
     : await adminClient.from('sellers').insert(sellerPayload).select('id').single()
 
-  // Retry without email if the column doesn't exist yet (migration pending)
-  if (result.error?.message.includes('email')) {
+  // Retry without optional columns if they don't exist yet (pre-migration state)
+  if (result.error?.message.includes('email')
+    || result.error?.message.includes('latitude')
+    || result.error?.message.includes('longitude')) {
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    const { email: _stripped, ...payloadWithoutEmail } = sellerPayload
+    const { email: _e, latitude: _lat, longitude: _lng, ...corePayload } = sellerPayload
     result = existingSellerResult.data
-      ? await adminClient.from('sellers').update(payloadWithoutEmail).eq('id', existingSellerResult.data.id).select('id').single()
-      : await adminClient.from('sellers').insert(payloadWithoutEmail).select('id').single()
+      ? await adminClient.from('sellers').update(corePayload).eq('id', existingSellerResult.data.id).select('id').single()
+      : await adminClient.from('sellers').insert(corePayload).select('id').single()
   }
 
+  // Final fallback: minimal payload for heavily outdated schema
   if (result.error?.message.includes('shop_name')
     || result.error?.message.includes('status')
     || result.error?.message.includes('user_id')
