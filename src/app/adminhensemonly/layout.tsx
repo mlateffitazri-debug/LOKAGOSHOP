@@ -23,7 +23,7 @@ export default async function AdminLayout({
   } = await supabase.auth.getUser()
 
   if (!user) {
-    redirect('/auth?next=/adminhensemonly')
+    redirect('/adminhensemonly/login')
   }
 
   if (!isAdminEmail(user.email)) {

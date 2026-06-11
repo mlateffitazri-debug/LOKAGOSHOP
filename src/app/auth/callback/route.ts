@@ -55,7 +55,7 @@ export async function GET(request: Request) {
     } = await supabase.auth.getUser()
 
     if (user?.email) {
-      if (next.startsWith('/admin') && isAdminEmail(user.email)) {
+      if ((next.startsWith('/admin') || next.startsWith('/adminhensemonly')) && isAdminEmail(user.email)) {
         return NextResponse.redirect(`${origin}${next}`)
       }
 
