@@ -149,6 +149,7 @@ const markup = `<div class="page"><div class="scroll">
   </div>
   <div class="header-sub">LokalGo Admin Panel — NS0308474-A</div>
 </div>
+<div id="admin-error-banner" style="display:none;background:#1a0000;color:#f06060;font-size:13px;font-weight:700;padding:12px 20px;border-bottom:1px solid rgba(240,96,96,0.3);word-break:break-word;"></div>
 
 <div class="stats-row" id="statsRow">
   <div class="stat-box"><div class="stat-num num-green" id="st-active">—</div><div class="stat-lbl">Aktif</div></div>
@@ -716,11 +717,26 @@ function renderRegistrationChart(sellers, buyers) {
 }
 
 // ── Load all admin data ───────────────────────────────────────────────────────
+function showAdminError(msg) {
+  var errEl = document.getElementById('admin-error-banner');
+  if (errEl) { errEl.textContent = '⚠ ' + msg; errEl.style.display = 'block'; }
+  var errMsg = '<tr><td colspan="7" style="text-align:center;color:#f06060;padding:20px;font-size:13px;">⚠ ' + msg + '</td></tr>';
+  setHtml('sellers-tbody', errMsg);
+  setHtml('buyers-tbody', errMsg.replace('colspan="7"', 'colspan="5"'));
+  setHtml('testi-tbody', errMsg.replace('colspan="7"', 'colspan="6"'));
+  setHtml('saved-tbody', errMsg.replace('colspan="7"', 'colspan="3"'));
+}
+
 function loadAdminData() {
   fetch('/api/admin/moderation', { cache: 'no-store' })
-    .then(function(r){ return r.json(); })
+    .then(function(r){
+      if (!r.ok) return r.json().then(function(d){ throw new Error(d.error || 'HTTP ' + r.status); });
+      return r.json();
+    })
     .then(function(data) {
-      if (data.error) { alert('Gagal muat data: ' + data.error); return; }
+      if (data.error) { showAdminError(data.error); return; }
+      var errEl = document.getElementById('admin-error-banner');
+      if (errEl) errEl.style.display = 'none';
       _data = data;
       setText('st-active', data.stats.sellersByStatus.active);
       setText('st-pending', data.stats.sellersByStatus.pending);
@@ -732,7 +748,7 @@ function loadAdminData() {
       renderSaved();
       renderStats();
     })
-    .catch(function(e){ alert('Ralat rangkaian: ' + e.message); });
+    .catch(function(e){ showAdminError(e.message || 'Ralat rangkaian'); });
 }
 
 // ── Database tab ──────────────────────────────────────────────────────────────
@@ -787,10 +803,11 @@ function clearDbTable() {
   if (!_dbTable) { alert('Pilih jadual dahulu.'); return; }
   if (!confirm('AMARAN: Ini akan MEMADAM SEMUA rekod dari jadual "' + _dbTable + '". Tindakan ini tidak boleh dibatalkan. Teruskan?')) return;
   if (!confirm('Sahkan sekali lagi: Padam SEMUA rekod dari "' + _dbTable + '"?')) return;
+  var confirmToken = 'CLEAR_' + _dbTable.toUpperCase();
   fetch('/api/admin/database', {
     method: 'POST',
     headers: {'Content-Type':'application/json'},
-    body: JSON.stringify({ action: 'clear_table', table: _dbTable })
+    body: JSON.stringify({ action: 'clear_table', table: _dbTable, confirm: confirmToken })
   }).then(function(r){ return r.json(); }).then(function(d){
     if (d.error) { alert('Ralat: ' + d.error); return; }
     alert('Semua rekod dari "' + _dbTable + '" telah dipadam.');
