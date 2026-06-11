@@ -1,6 +1,5 @@
 'use client'
 
-import { useEffect } from 'react'
 import { HtmlPrototypePage } from '@/components/shared/HtmlPrototypePage'
 
 /* ─── CSS ────────────────────────────────────────────────────────────────── */
@@ -379,8 +378,9 @@ const markup = `<div class="page"><div class="scroll">
 
 </div>`
 
-/* ─── CLIENT SCRIPTS ─────────────────────────────────────────────────────── */
-const scripts = [`
+/* ─── CLIENT SCRIPTS are in public/admin-panel.js ───────────────────────── */
+// Scripts moved to static file to avoid new Function() / normalizeScript issues
+const _unusedScripts = [`
 // ── State ────────────────────────────────────────────────────────────────────
 var _data = null;
 var _dbTable = '';
@@ -877,16 +877,12 @@ loadAdminData();
 
 /* ─── PAGE ───────────────────────────────────────────────────────────────── */
 export default function Page() {
-  useEffect(() => {
-    // Data loading and action handlers are wired in the inline scripts above.
-  }, [])
-
   return (
     <HtmlPrototypePage
       styles={styles}
       markup={markup}
-      scripts={scripts}
-      externalScripts={[]}
+      scripts={[]}
+      externalScripts={['/admin-panel.js']}
       externalStylesheets={['https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700;800&display=swap']}
     />
   )
