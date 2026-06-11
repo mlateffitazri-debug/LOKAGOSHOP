@@ -93,6 +93,15 @@ export async function POST(request: Request) {
     ? await adminClient.from('sellers').update(sellerPayload).eq('id', existingSellerResult.data.id).select('id').single()
     : await adminClient.from('sellers').insert(sellerPayload).select('id').single()
 
+  // Retry without email if the column doesn't exist yet (migration pending)
+  if (result.error?.message.includes('email')) {
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const { email: _stripped, ...payloadWithoutEmail } = sellerPayload
+    result = existingSellerResult.data
+      ? await adminClient.from('sellers').update(payloadWithoutEmail).eq('id', existingSellerResult.data.id).select('id').single()
+      : await adminClient.from('sellers').insert(payloadWithoutEmail).select('id').single()
+  }
+
   if (result.error?.message.includes('shop_name')
     || result.error?.message.includes('status')
     || result.error?.message.includes('user_id')
