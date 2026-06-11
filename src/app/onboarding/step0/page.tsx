@@ -25,8 +25,13 @@ export default function Page() {
       const { data: { user } } = await supabase.auth.getUser()
       if (cancelled) return
       if (!user) {
-        // Not logged in — allow proceed (they'll need auth at a later step)
-        if (!cancelled) window.__onboardingReady = true
+        // Not logged in — redirect to Google Auth, return to step0 after
+        const callback = new URL('/auth/callback', window.location.origin)
+        callback.searchParams.set('next', '/onboarding/step0')
+        await supabase.auth.signInWithOAuth({
+          provider: 'google',
+          options: { redirectTo: callback.toString() },
+        })
         return
       }
       // If already a seller, redirect to dashboard immediately

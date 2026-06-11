@@ -109,7 +109,21 @@ body{background:#0a0a0a;font-family:'Plus Jakarta Sans',-apple-system,sans-serif
 .sheet-title{font-size:18px;font-weight:800;color:#111;letter-spacing:-0.3px;}
 .sheet-body{font-size:13px;color:#555;line-height:1.6;max-width:280px;}
 .sheet-cta{width:100%;background:#7B1D2E;border:none;border-radius:14px;padding:15px 20px;color:#fff;font-size:15px;font-weight:700;font-family:inherit;cursor:pointer;margin-top:4px;}
-.sheet-dismiss{border:none;background:none;color:#888;font-size:14px;font-weight:600;font-family:inherit;cursor:pointer;padding:8px;}`
+.sheet-dismiss{border:none;background:none;color:#888;font-size:14px;font-weight:600;font-family:inherit;cursor:pointer;padding:8px;}
+.appr-backdrop{position:absolute;inset:0;background:rgba(0,0,0,0.6);z-index:80;display:flex;align-items:center;justify-content:center;padding:24px;}
+.appr-popup{background:#fff;border-radius:24px;padding:28px 24px 24px;width:100%;max-width:360px;position:relative;animation:popIn 0.28s cubic-bezier(0.32,0.72,0,1);}
+@keyframes popIn{from{transform:scale(0.88);opacity:0;}to{transform:scale(1);opacity:1;}}
+.appr-close{position:absolute;top:16px;right:16px;width:28px;height:28px;border-radius:50%;border:none;background:#f0f0f0;color:#555;font-size:14px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;}
+.appr-badge{display:inline-block;background:#ADD036;color:#2a2a2a;font-size:11px;font-weight:800;padding:4px 12px;border-radius:20px;margin-bottom:14px;letter-spacing:0.4px;}
+.appr-title{font-size:21px;font-weight:800;color:#111;margin-bottom:8px;letter-spacing:-0.3px;}
+.appr-body{font-size:13px;color:#555;line-height:1.7;margin-bottom:20px;}
+.appr-card{background:#fdf4f6;border:1px solid #f0d4db;border-radius:14px;padding:14px 16px;margin-bottom:20px;}
+.appr-card-logo{margin-bottom:8px;}
+.appr-card-shop{font-size:15px;font-weight:800;color:#7B1533;margin-bottom:3px;}
+.appr-card-tagline{font-size:12px;color:#888;line-height:1.5;}
+.appr-card-url{font-size:11px;color:#ADD036;font-weight:700;margin-top:6px;}
+.appr-share-btn{width:100%;background:#7B1533;border:none;border-radius:12px;padding:13px 20px;display:flex;align-items:center;justify-content:center;gap:8px;color:#fff;font-size:14px;font-weight:700;font-family:inherit;cursor:pointer;margin-bottom:10px;}
+.appr-setting-btn{width:100%;background:transparent;border:1.5px solid #e5e5ea;border-radius:12px;padding:12px 20px;color:#555;font-size:14px;font-weight:600;font-family:inherit;cursor:pointer;}`
 
 function copy(key: string, lang: Lang) {
   return translations[key]?.[lang] ?? key
@@ -355,6 +369,7 @@ export default function HomePage() {
   const [error, setError] = useState<string | null>(null)
   const [savedShopIds, setSavedShopIds] = useState<Set<string>>(new Set())
   const [toast, setToast] = useState<string | null>(null)
+  const [approvalSeller, setApprovalSeller] = useState<{ id: string; shopName: string } | null>(null)
 
   const pageInnerMarkup = useMemo(
     () => renderHomeMarkup(lang, sellers, isLoading, error, profile, savedShopIds, sellerCategories, selectedCategory),
@@ -381,8 +396,16 @@ export default function HomePage() {
         : typeof metadata.picture === 'string' ? metadata.picture : null
 
       const { data: sellerRecord } = await supabase
-        .from('sellers').select('id').eq('user_id', user.id).maybeSingle()
-      if (!cancelled) setIsSeller(!!sellerRecord)
+        .from('sellers').select('id, shop_name, approved_at').eq('user_id', user.id).maybeSingle()
+      if (!cancelled) {
+        setIsSeller(!!sellerRecord)
+        if (sellerRecord?.approved_at) {
+          const key = `lk_appr_${sellerRecord.id}`
+          if (!localStorage.getItem(key)) {
+            setApprovalSeller({ id: sellerRecord.id, shopName: (sellerRecord as { id: string; shop_name: string | null; approved_at: string | null }).shop_name || 'Kedai anda' })
+          }
+        }
+      }
 
       const { data: buyerData } = await supabase
         .from('buyers').select('*').eq('user_id', user.id).maybeSingle()
@@ -563,6 +586,42 @@ export default function HomePage() {
               </button>
             </div>
           </>
+        ) : null}
+
+        {approvalSeller ? (
+          <div className="appr-backdrop" onClick={(e) => { if (e.target === e.currentTarget) { localStorage.setItem(`lk_appr_${approvalSeller.id}`, '1'); setApprovalSeller(null) } }}>
+            <div className="appr-popup" role="dialog" aria-modal="true">
+              <button className="appr-close" onClick={() => { localStorage.setItem(`lk_appr_${approvalSeller.id}`, '1'); setApprovalSeller(null) }} aria-label="Tutup">✕</button>
+              <div className="appr-badge">✅ DILULUSKAN</div>
+              <div className="appr-title">Tahniah! Kedai anda telah diluluskan 🎉</div>
+              <div className="appr-body">
+                Sila ke bahagian <strong>Dashboard Penjual → Setting</strong> untuk lengkapkan tetapan kedai anda dan mula menjual.
+              </div>
+              <div className="appr-card">
+                <div className="appr-card-logo">
+                  <img src="/icons/Logo-LOKALGO.png" alt="LokalGo" style={{ height: 24, width: 'auto', display: 'block' }} />
+                </div>
+                <div className="appr-card-shop">{approvalSeller.shopName}</div>
+                <div className="appr-card-tagline">Kini tersenarai sebagai penjual di LokalGo!<br />Dapatkan produk tempatan berkualiti dari jiran anda.</div>
+                <div className="appr-card-url">lokalgo.app</div>
+              </div>
+              <button className="appr-share-btn" onClick={async () => {
+                const text = `Kedai saya "${approvalSeller.shopName}" kini tersenarai di LokalGo! 🎉\n\nBeli produk tempatan berkualiti dari jiran anda. Jom tengok:`
+                const url = 'https://lokagoshop-dm2m.vercel.app'
+                if (navigator.share) {
+                  try { await navigator.share({ title: approvalSeller.shopName + ' di LokalGo!', text, url }) } catch { /* dismissed */ }
+                } else {
+                  try { await navigator.clipboard.writeText(`${text}\n${url}`); showToast('Teks disalin!') } catch { /* ignore */ }
+                }
+              }}>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>
+                Kongsi Kejayaan Saya
+              </button>
+              <button className="appr-setting-btn" onClick={() => { localStorage.setItem(`lk_appr_${approvalSeller.id}`, '1'); setApprovalSeller(null); window.location.href = '/seller/dashboard' }}>
+                Ke Dashboard Penjual
+              </button>
+            </div>
+          </div>
         ) : null}
 
         <aside className={`profile-sidebar${isSidebarOpen ? ' open' : ''}`} aria-hidden={!isSidebarOpen}>
