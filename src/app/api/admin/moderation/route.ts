@@ -108,6 +108,10 @@ export async function GET() {
       .sort((a, b) => b[1] - a[1])
       .map(([area, count]) => ({ area, count }))
 
+    const registeredUserIds = new Set<string>()
+    allBuyers.forEach((b) => { if (b.user_id) registeredUserIds.add(b.user_id as string) })
+    allSellers.forEach((s) => { if (s.user_id) registeredUserIds.add(s.user_id as string) })
+
     const warnings: string[] = [
       sellersResult.error?.message,
       buyersResult.error?.message,
@@ -146,6 +150,7 @@ export async function GET() {
         },
         sellersByBadge: badgeCount,
         sellersByArea,
+        totalRegisteredUsers: registeredUserIds.size,
       },
       warnings,
     })
