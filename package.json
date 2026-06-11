@@ -9,7 +9,9 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "next lint",
+    "seed:demo": "tsx --env-file=.env.local scripts/seed-demo.ts",
+    "seed:clean": "tsx --env-file=.env.local scripts/clean-demo.ts"
   },
   "dependencies": {
     "@auth/supabase-adapter": "^1.3.0",
@@ -29,6 +31,7 @@
     "eslint-config-next": "14.2.3",
     "postcss": "^8",
     "tailwindcss": "^3.4.1",
+    "tsx": "^4.19.2",
     "typescript": "^5"
   }
 }
