@@ -4,10 +4,12 @@ import { HtmlPrototypePage } from '@/components/shared/HtmlPrototypePage'
 
 const styles = `
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
-body{background:#07070a;font-family:'Plus Jakarta Sans',-apple-system,BlinkMacSystemFont,sans-serif;font-size:14px;color:#e8e8ec;-webkit-font-smoothing:antialiased;min-height:100vh;}
-::-webkit-scrollbar{width:5px;height:5px;}
+html{height:auto!important;overflow:auto!important;overscroll-behavior:auto!important;}
+body{background:#07070a;font-family:'Plus Jakarta Sans',-apple-system,BlinkMacSystemFont,sans-serif;font-size:14px;color:#e8e8ec;-webkit-font-smoothing:antialiased;min-height:100vh;height:auto!important;overflow:auto!important;overscroll-behavior:auto!important;touch-action:auto!important;padding:0!important;}
+::-webkit-scrollbar{display:block!important;width:5px;height:5px;}
 ::-webkit-scrollbar-track{background:transparent;}
 ::-webkit-scrollbar-thumb{background:rgba(255,255,255,0.1);border-radius:3px;}
+*{scrollbar-width:thin!important;}
 
 /* LAYOUT */
 .layout{display:flex;min-height:100vh;}
@@ -737,7 +739,13 @@ export default function Page() {
     <HtmlPrototypePage
       styles={styles}
       markup={markup}
-      scripts={[]}
+      scripts={[`
+        document.body.style.touchAction = 'auto';
+        document.body.style.overflow = 'auto';
+        document.body.style.height = 'auto';
+        document.documentElement.style.overflow = 'auto';
+        document.documentElement.style.height = 'auto';
+      `]}
       externalScripts={['/admin-panel.js']}
       externalStylesheets={['https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap']}
     />
