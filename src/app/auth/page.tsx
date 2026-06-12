@@ -67,10 +67,11 @@ export default function LoginPage() {
 
     const supabase = createAuthClient()
 
-    const { error } = await supabase.auth.signInWithOAuth({
+    const { data, error } = await supabase.auth.signInWithOAuth({
       provider: 'google',
       options: {
         redirectTo: callback.toString(),
+        skipBrowserRedirect: true,
       },
     })
 
@@ -78,6 +79,19 @@ export default function LoginPage() {
       console.error('Google OAuth login failed', error)
       alert(error.message || 'Google OAuth login failed')
       return
+    }
+
+    if (data?.url) {
+      try {
+        const res = await fetch(data.url, { redirect: 'manual' })
+        const googleUrl = res.headers.get('location') || ''
+        const gParams = new URL(googleUrl)
+        const clientId = gParams.searchParams.get('client_id') || 'TIADA'
+        alert('DEBUG client_id:\n' + clientId)
+      } catch {
+        alert('DEBUG Supabase URL:\n' + data.url.substring(0, 300))
+      }
+      window.location.href = data.url
     }
   }
 
