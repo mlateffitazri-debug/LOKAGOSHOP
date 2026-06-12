@@ -138,7 +138,7 @@ export default function FounderPage() {
           </div>
 
           {/* Body text (~60 words) */}
-          <p style={{ fontSize: 13, color: '#555', lineHeight: 1.5, marginBottom: 12 }}>
+          <p style={{ fontSize: 14, color: '#555', lineHeight: 1.6, marginBottom: 12 }}>
             Saya faham tekanan ekonomi yang kita hadapi. Ramai jiran kita mencari rezeki
             bukan untuk menjadi kaya, tetapi sekadar untuk{' '}
             <strong style={{ color: '#1E1E1E' }}>dapat tidur lena pada hari esok.</strong>{' '}
@@ -151,7 +151,7 @@ export default function FounderPage() {
           <blockquote style={{
             borderLeft: `3px solid ${MAROON}`, background: '#fdf4f5',
             padding: '8px 12px', borderRadius: '0 8px 8px 0',
-            fontSize: 12, color: '#555', lineHeight: 1.5, fontStyle: 'italic',
+            fontSize: 13, color: '#555', lineHeight: 1.6, fontStyle: 'italic',
             marginBottom: 8,
           }}>
             &ldquo;Setiap kita ada bakat tersendiri, tetapi{' '}
@@ -177,7 +177,7 @@ export default function FounderPage() {
 
           {/* QR section */}
           <div style={{ flexShrink: 0, paddingBottom: 16 }}>
-            <div style={{ fontSize: 14, fontWeight: 600, color: '#1E1E1E', textAlign: 'center', marginBottom: 4 }}>
+            <div style={{ fontSize: 15, fontWeight: 700, color: '#1E1E1E', textAlign: 'center', marginBottom: 4 }}>
               Imbas QR untuk menyokong
             </div>
             <div style={{
@@ -195,9 +195,9 @@ export default function FounderPage() {
                   onError={(e) => { e.currentTarget.style.display = 'none' }}
                   style={{ height: 18, width: 'auto', borderRadius: 4 }}
                 />
-                <span style={{ fontSize: 11, fontWeight: 600, color: '#0B7A3E' }}>TNG eWallet</span>
+                <span style={{ fontSize: 12, fontWeight: 600, color: '#0B7A3E' }}>TNG eWallet</span>
               </span>
-              <span style={{ fontSize: 11, color: '#6B6B6B' }}>Maybank · CIMB · lain-lain</span>
+              <span style={{ fontSize: 12, color: '#6B6B6B' }}>Maybank · CIMB · lain-lain</span>
             </div>
 
             <button

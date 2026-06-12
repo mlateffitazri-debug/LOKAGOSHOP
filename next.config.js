@@ -6,6 +6,10 @@ const supabaseHost = process.env.NEXT_PUBLIC_SUPABASE_URL
 
 const securityHeaders = [
   {
+    key: 'Strict-Transport-Security',
+    value: 'max-age=63072000; includeSubDomains; preload',
+  },
+  {
     key: 'X-DNS-Prefetch-Control',
     value: 'on',
   },
@@ -31,13 +35,13 @@ const securityHeaders = [
       // Default: self only
       `default-src 'self'`,
       // Scripts: self + inline scripts needed by Next.js (nonce not feasible with App Router SSG)
-      `script-src 'self' 'unsafe-inline' 'unsafe-eval'`,
+      `script-src 'self' 'unsafe-inline' 'unsafe-eval' https://unpkg.com`,
       // Styles: self + inline styles (used extensively in prototype pages)
       `style-src 'self' 'unsafe-inline' https://fonts.googleapis.com`,
       // Fonts
       `font-src 'self' https://fonts.gstatic.com`,
       // Images: self + Supabase storage + Google profile pics + data URIs
-      `img-src 'self' data: blob: https://${supabaseHost} https://lh3.googleusercontent.com`,
+      `img-src 'self' data: blob: https://${supabaseHost} https://lh3.googleusercontent.com https://*.tile.openstreetmap.org`,
       // Connections: self + Supabase API + WhatsApp (for wa.me links)
       `connect-src 'self' https://${supabaseHost} https://wa.me wss://${supabaseHost}`,
       // Frames: block all
@@ -56,8 +60,15 @@ const securityHeaders = [
 
 const nextConfig = {
   images: {
-    domains: [
-      'lh3.googleusercontent.com',
+    remotePatterns: [
+      {
+        protocol: 'https',
+        hostname: 'lh3.googleusercontent.com',
+      },
+      {
+        protocol: 'https',
+        hostname: supabaseHost,
+      },
     ],
   },
   async headers() {

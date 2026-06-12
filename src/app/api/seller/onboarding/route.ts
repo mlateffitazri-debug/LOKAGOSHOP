@@ -50,6 +50,15 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Missing seller onboarding fields' }, { status: 400 })
   }
 
+  if (
+    body.shop_name.trim().length > 100 ||
+    body.taman_name.trim().length > 100 ||
+    (body.kawasan && body.kawasan.trim().length > 100) ||
+    (body.postcode && body.postcode.trim().length > 10)
+  ) {
+    return NextResponse.json({ error: 'Input melebihi had panjang yang dibenarkan' }, { status: 400 })
+  }
+
   const sellerPayload = {
     user_id: user.id,
     shop_name: body.shop_name.trim(),

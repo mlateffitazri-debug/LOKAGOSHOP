@@ -9,7 +9,9 @@ export const dynamic = 'force-dynamic'
 export async function GET(request: Request) {
   const { searchParams, origin } = new URL(request.url)
   const code = searchParams.get('code')
-  const next = searchParams.get('next') || '/home'
+  const rawNext = searchParams.get('next') || '/home'
+  // Only allow relative paths — block open redirect via //attacker.com or http://...
+  const next = /^\/[^/\\]/.test(rawNext) ? rawNext : '/home'
 
   if (searchParams.get('error')) {
     const errorDescription = searchParams.get('error_description') || searchParams.get('error') || 'OAuth login failed'
@@ -64,7 +66,7 @@ export async function GET(request: Request) {
       const { data: seller } = await adminClient
         .from('sellers')
         .select('id')
-        .eq('email', user.email)
+        .eq('user_id', user.id)
         .maybeSingle()
 
       if (seller) {

@@ -25,6 +25,15 @@ function createAuthClient() {
 
 export default function LoginPage() {
   const [isClearingSession, setIsClearingSession] = useState(true)
+  const [splashDone, setSplashDone] = useState(false)
+  const [splashFading, setSplashFading] = useState(false)
+
+  useEffect(() => {
+    // Splash: show for 1.4s then fade out over 0.4s
+    const fadeTimer = setTimeout(() => setSplashFading(true), 1400)
+    const doneTimer = setTimeout(() => setSplashDone(true), 1800)
+    return () => { clearTimeout(fadeTimer); clearTimeout(doneTimer) }
+  }, [])
 
   useEffect(() => {
     let cancelled = false
@@ -79,6 +88,53 @@ export default function LoginPage() {
   return (
     <div style={{
       position: 'fixed', inset: 0, height: '100dvh', overflow: 'hidden',
+      background: '#0a0a0a',
+    }}>
+      {/* ── SPLASH SCREEN ── */}
+      {!splashDone && (
+        <div style={{
+          position: 'absolute', inset: 0, zIndex: 100,
+          background: '#7B1533',
+          display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+          gap: 0,
+          opacity: splashFading ? 0 : 1,
+          transition: 'opacity 0.4s ease',
+          pointerEvents: splashFading ? 'none' : 'auto',
+          paddingTop: 'env(safe-area-inset-top)',
+          paddingBottom: 'env(safe-area-inset-bottom)',
+        }}>
+          {/* Logo */}
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src="/icons/Logo-LOKALGO.png"
+            alt="LokalGo™"
+            style={{ width: 220, height: 'auto', display: 'block', marginBottom: 16 }}
+          />
+          <div style={{ fontSize: 13, fontWeight: 500, color: 'rgba(255,255,255,0.6)', letterSpacing: 0.3 }}>
+            Platform perniagaan lokal setempat
+          </div>
+          {/* Mascot */}
+          <Image
+            src={mascotSrc}
+            width={340}
+            height={340}
+            priority
+            style={{
+              width: '72%', maxWidth: 300,
+              height: 'auto',
+              objectFit: 'contain',
+              objectPosition: 'bottom',
+              display: 'block',
+              marginTop: 0,
+              position: 'absolute',
+              bottom: 0,
+            }}
+            alt="LokalGo Maskot"
+          />
+        </div>
+      )}
+    <div style={{
+      position: 'absolute', inset: 0, height: '100dvh', overflow: 'hidden',
       background: '#0a0a0a',
       display: 'flex', alignItems: 'flex-start', justifyContent: 'center',
       fontFamily: "'Plus Jakarta Sans', sans-serif",
@@ -212,6 +268,7 @@ export default function LoginPage() {
           </div>
         </div>
       </div>
+    </div>
     </div>
   )
 }

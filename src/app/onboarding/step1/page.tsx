@@ -121,7 +121,8 @@ const saveScript = `window.__saveSellerStep1 = function() {
 };`
 
 // Map initialisation with draggable marker + dragend + click handlers
-const mapScript = `document.addEventListener('DOMContentLoaded', function() {
+// Use setTimeout directly — avoids normalizeScript regex cutting nested callbacks
+const mapScript = `setTimeout(function() {
   var lat = 3.1025, lng = 101.6565;
   window.__lokagoPinCoords = { lat: lat, lng: lng };
 
@@ -153,25 +154,21 @@ const mapScript = `document.addEventListener('DOMContentLoaded', function() {
     }
   }
 
-  // Drag end — update coords when user finishes dragging
   marker.on('dragend', function(e) {
     updatePin(e.target.getLatLng());
   });
 
-  // Also update live while dragging for immediate feedback
   marker.on('drag', function(e) {
     window.__lokagoPinCoords = { lat: e.target.getLatLng().lat, lng: e.target.getLatLng().lng };
   });
 
-  // Click on map — move pin to clicked location
   map.on('click', function(e) {
     marker.setLatLng(e.latlng);
     updatePin(e.latlng);
   });
 
-  // Initialise display with default coords
   updatePin({ lat: lat, lng: lng });
-});`
+}, 0);`
 
 const scripts: string[] = [saveScript, mapScript]
 const externalScripts: string[] = ['https://unpkg.com/leaflet@1.9.4/dist/leaflet.js']

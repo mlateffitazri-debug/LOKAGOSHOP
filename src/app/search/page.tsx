@@ -118,7 +118,9 @@ export default function Page() {
         .order('created_at', { ascending: false })
 
       if (query) {
-        request = request.or(`taman_name.ilike.%${query}%,kawasan.ilike.%${query}%,shop_name.ilike.%${query}%`)
+        // Strip PostgREST filter syntax chars to prevent filter injection
+        const safeQuery = query.replace(/[(),.]/g, '')
+        request = request.or(`taman_name.ilike.%${safeQuery}%,kawasan.ilike.%${safeQuery}%,shop_name.ilike.%${safeQuery}%`)
       }
 
       if (sellerIdsByCategory) {
