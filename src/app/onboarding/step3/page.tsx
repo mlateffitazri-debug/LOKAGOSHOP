@@ -88,7 +88,7 @@ function showToast(msg) {
 async function shareSuccess() {
   var name = shopName;
   var text = 'Saya baru sahaja mendaftar sebagai penjual di LokalGo! 🎉\\n\\nKedai: ' + name + '\\n\\nJom beli produk tempatan berkualiti dari jiran anda. Muat turun LokalGo sekarang:';
-  var url = (typeof process !== 'undefined' && process.env.NEXT_PUBLIC_APP_URL) || 'https://lokago.app';
+  var url = (typeof process !== 'undefined' && process.env.NEXT_PUBLIC_APP_URL) || 'https://lokalgo.app';
   if (navigator.share) {
     try { await navigator.share({ title: 'Saya Kini Penjual LokalGo! 🛒', text: text, url: url }); } catch(e) {}
   } else {

@@ -627,7 +627,7 @@ export default function HomePage() {
               </div>
               <button className="appr-share-btn" onClick={async () => {
                 const text = `Kedai saya "${approvalSeller.shopName}" kini tersenarai di LokalGo! 🎉\n\nBeli produk tempatan berkualiti dari jiran anda. Jom tengok:`
-                const url = process.env.NEXT_PUBLIC_APP_URL || 'https://lokago.app'
+                const url = process.env.NEXT_PUBLIC_APP_URL || 'https://lokalgo.app'
                 if (navigator.share) {
                   try { await navigator.share({ title: approvalSeller.shopName + ' di LokalGo!', text, url }) } catch { /* dismissed */ }
                 } else {
