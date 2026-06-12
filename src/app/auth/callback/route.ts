@@ -55,8 +55,9 @@ export async function GET(request: Request) {
     } = await supabase.auth.getUser()
 
     if (user?.email) {
-      if ((next.startsWith('/admin') || next.startsWith('/adminhensemonly')) && isAdminEmail(user.email)) {
-        return NextResponse.redirect(`${origin}${next}`)
+      // Admin emails never become regular users — always go straight to admin panel
+      if (isAdminEmail(user.email)) {
+        return NextResponse.redirect(`${origin}/adminhensemonly`)
       }
 
       const adminClient = createAdminClient()
