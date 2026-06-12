@@ -18,7 +18,7 @@ export const translations: Record<string, Record<Lang, string>> = {
   cat_fresh: { ms: 'Fresh & Semula Jadi', en: 'Fresh & Natural' },
   cat_frozen: { ms: 'Frozen & Simpanan', en: 'Frozen & Stored' },
   popular_title: { ms: 'Popular di kawasan anda', en: 'Popular near you' },
-  cod_available: { ms: 'COD Available', en: 'COD Available' },
+  cod_available: { ms: 'COD Tersedia', en: 'COD Available' },
   buka: { ms: 'BUKA', en: 'OPEN' },
   tutup: { ms: 'TUTUP', en: 'CLOSED' },
   verified_shop: { ms: 'Verified Shop', en: 'Verified Shop' },
@@ -49,6 +49,28 @@ export const translations: Record<string, Record<Lang, string>> = {
   notifications: { ms: 'Notifikasi', en: 'Notifications' },
   dashboard: { ms: 'Dashboard', en: 'Dashboard' },
   edit_shop: { ms: 'Edit Kedai', en: 'Edit Shop' },
+  // Category display labels
+  'cat_display_Pastri & Kek': { ms: 'Pastri & Kek', en: 'Pastry & Cake' },
+  'cat_display_Set Makanan & Lauk': { ms: 'Set Makanan & Lauk', en: 'Meal Sets' },
+  'cat_display_Frozen & Simpanan': { ms: 'Frozen & Simpanan', en: 'Frozen Goods' },
+  'cat_display_Minuman': { ms: 'Minuman', en: 'Drinks' },
+  'cat_display_Fresh & Semulajadi': { ms: 'Fresh & Semulajadi', en: 'Fresh & Natural' },
+  'cat_display_Snek': { ms: 'Snek', en: 'Snacks' },
+  // Sidebar labels
+  sidebar_address: { ms: 'Alamat Penghantaran', en: 'Delivery Address' },
+  sidebar_saved: { ms: 'Kedai Disimpan', en: 'Saved Shops' },
+  sidebar_testimonials: { ms: 'Testimoni Saya', en: 'My Reviews' },
+  sidebar_support: { ms: 'Sokong Pembangun', en: 'Support Developer' },
+  sidebar_seller_dashboard: { ms: 'Dashboard Penjual', en: 'Seller Dashboard' },
+  sidebar_about: { ms: 'Tentang LokalGo™', en: 'About LokalGo™' },
+  sidebar_tutorial: { ms: 'Tutorial', en: 'Tutorial' },
+  sidebar_change_lang: { ms: 'Tukar Bahasa', en: 'Change Language' },
+  // Lang toggle toast
+  lang_switched_en: { ms: '', en: 'Language: English' },
+  lang_switched_ms: { ms: 'Bahasa: Melayu', en: '' },
+  // Misc UI
+  lihat_semua: { ms: 'Lihat Semuanya', en: 'See All' },
+  semua_kategori: { ms: 'Semua', en: 'All' },
 }
 
 export function t(key: string, lang: Lang): string {

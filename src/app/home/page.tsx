@@ -154,21 +154,22 @@ function badgeLabel(badge: Seller['badge']) {
   return 'New Seller'
 }
 
-function renderCatSection(selectedCategory: string | null) {
-  // "Semua" reset chip — visible only when a filter is active
+function renderCatSection(selectedCategory: string | null, lang: Lang) {
+  const resetLabel = lang === 'en' ? 'All' : 'Semua'
   const resetChip = selectedCategory
     ? `<div class="cat-item cat-reset" data-cat="">
       <div class="cat-box"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#7B1D2E" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></div>
-      <span class="cat-lbl">Semua</span>
+      <span class="cat-lbl">${resetLabel}</span>
     </div>`
     : ''
 
   const items = PRODUCT_CATEGORIES.map((cat) => {
     const isActive = selectedCategory === cat
+    const displayLabel = copy(`cat_display_${cat}`, lang)
     return `
     <div class="cat-item${isActive ? ' active' : ''}" data-cat="${escapeHtml(cat)}">
       <div class="cat-box">${CAT_ICONS[cat] ?? ''}</div>
-      <span class="cat-lbl">${escapeHtml(cat)}</span>
+      <span class="cat-lbl">${escapeHtml(displayLabel)}</span>
     </div>`
   }).join('')
 
@@ -298,14 +299,14 @@ function renderHomeMarkup(
 </div>
 
 <!-- CATEGORY FILTER -->
-${renderCatSection(selectedCategory)}
+${renderCatSection(selectedCategory, lang)}
 </header>
 
 <main class="home-scroll" onscroll="document.querySelector('.home-fixed').classList.toggle('scrolled', this.scrollTop > 4)">
 <!-- POPULAR -->
 <div class="sec-head">
   <span class="sec-head-title">${copy('popular_title', lang)}</span>
-  <a class="sec-head-link" href="#">Lihat Semuanya <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#7B1533" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg></a>
+  <a class="sec-head-link" href="#">${copy('lihat_semua', lang)} <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#7B1533" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg></a>
 </div>
 
 <div class="shop-list">
@@ -480,7 +481,7 @@ export default function HomePage() {
   async function handleClick(event: MouseEvent<HTMLDivElement>) {
     const target = event.target as HTMLElement
 
-    if (target.closest('.lang-btn')) { toggle(); return }
+    if (target.closest('.lang-btn')) { toggle(); showToast(lang === 'ms' ? 'Language: English' : 'Bahasa: Melayu'); return }
     if (target.closest('.coin-btn')) { window.location.href = '/sokong'; return }
     if (target.closest('.home-avatar')) { setIsSidebarOpen(true); return }
 
@@ -556,6 +557,12 @@ export default function HomePage() {
     } else {
       setIsSellerSheetOpen(true)
     }
+  }
+
+  function handleToggleLang() {
+    toggle()
+    setIsSidebarOpen(false)
+    showToast(lang === 'ms' ? 'Language: English' : 'Bahasa: Melayu')
   }
 
 
@@ -637,20 +644,20 @@ export default function HomePage() {
           </header>
 
           <div className="sidebar-body">
-            <SidebarLink href="/profile/address" icon={<MapPin size={20} color="#7B1D2E" />} label="Alamat Penghantaran" />
-            <SidebarLink href="/saved" icon={<Heart size={20} color="#7B1D2E" />} label="Kedai Disimpan" />
-            <SidebarLink href="/testimonials" icon={<MessageSquare size={20} color="#7B1D2E" />} label="Testimoni Saya" />
-            <SidebarLink href="/sokong" icon={<Coffee size={20} color="#7B1D2E" />} label="Sokong Pembangun" />
+            <SidebarLink href="/profile/address" icon={<MapPin size={20} color="#7B1D2E" />} label={lang === 'en' ? 'Delivery Address' : 'Alamat Penghantaran'} />
+            <SidebarLink href="/saved" icon={<Heart size={20} color="#7B1D2E" />} label={lang === 'en' ? 'Saved Shops' : 'Kedai Disimpan'} />
+            <SidebarLink href="/testimonials" icon={<MessageSquare size={20} color="#7B1D2E" />} label={lang === 'en' ? 'My Reviews' : 'Testimoni Saya'} />
+            <SidebarLink href="/sokong" icon={<Coffee size={20} color="#7B1D2E" />} label={lang === 'en' ? 'Support Developer' : 'Sokong Pembangun'} />
             <button type="button" onClick={goToSellerArea} className="sidebar-link">
               <span className="sidebar-icon"><Store size={20} color="#7B1D2E" /></span>
-              <span className="sidebar-label">Dashboard Penjual</span>
+              <span className="sidebar-label">{lang === 'en' ? 'Seller Dashboard' : 'Dashboard Penjual'}</span>
               <span className="sidebar-arrow">&gt;</span>
             </button>
-            <SidebarLink href="/about" icon={<Info size={20} color="#7B1D2E" />} label="Tentang LokalGo™" />
+            <SidebarLink href="/about" icon={<Info size={20} color="#7B1D2E" />} label={lang === 'en' ? 'About LokalGo™' : 'Tentang LokalGo™'} />
             <SidebarLink href="/tutorial" icon={<BookOpen size={20} color="#7B1D2E" />} label="Tutorial" />
-            <button type="button" onClick={toggle} className="sidebar-lang">
+            <button type="button" onClick={handleToggleLang} className="sidebar-lang">
               <span className="sidebar-icon"><Globe size={20} color="#7B1D2E" /></span>
-              <span className="sidebar-label">Tukar Bahasa</span>
+              <span className="sidebar-label">{lang === 'en' ? 'Change Language' : 'Tukar Bahasa'}</span>
               <span className="sidebar-lang-pill">{lang === 'ms' ? 'English' : 'BM'}</span>
             </button>
           </div>
@@ -658,7 +665,7 @@ export default function HomePage() {
           <div className="sidebar-footer">
             <button type="button" onClick={handleSignOut} className="logout-btn">
               <LogOut size={18} />
-              Log Keluar
+              {lang === 'en' ? 'Sign Out' : 'Log Keluar'}
             </button>
           </div>
         </aside>
