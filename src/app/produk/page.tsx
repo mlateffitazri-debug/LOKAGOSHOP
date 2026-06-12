@@ -177,32 +177,39 @@ function renderCartFlow(runtime: ProductWindow, buyer: BuyerProfile | null, trac
       return
     }
 
-    const lines = checkoutItems.map((item) => {
-      const dateLine = item.isPreorder && item.pickupDate
-        ? `\n  Tarikh diperlukan: ${new Date(`${item.pickupDate}T00:00:00`).toLocaleDateString('ms-MY', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}`
-        : ''
-      return `- ${item.name} x${item.qty} - RM${money(item.price * item.qty)} (RM${money(item.price)}/${item.unit})${dateLine}`
-    })
+    const normalItems = checkoutItems.filter((i) => !i.isPreorder)
+    const preorderItems = checkoutItems.filter((i) => i.isPreorder)
     const subtotal = money(cartSubtotal(checkoutItems))
     const methodLabel = method === 'cod' ? 'COD - Hantar ke Rumah' : 'Self Collect'
-    const message = [
-      `Salam ${seller.sellerName} 👋`,
-      '',
-      '*Pesanan Baru dari LokalGo™*',
-      '-----------------------------',
-      ...lines,
-      '-----------------------------',
-      `Subtotal: RM${subtotal}`,
-      method === 'cod' ? 'Penghantaran: Seller tentukan' : null,
-      '-----------------------------',
-      `Kaedah: ${methodLabel}`,
-      method === 'cod' ? `Alamat: ${address}` : null,
-      buyer?.name ? `Nama: ${buyer.name}` : null,
-      buyer?.whatsapp_number ? `No Telefon: ${buyer.whatsapp_number}` : null,
-      '-----------------------------',
-      'Pesanan dari LokalGo™',
-      seller.shopUrl,
-    ].filter(Boolean).join('\n')
+
+    let msg = `Assalamualaikum ${seller.sellerName} 👋\n\n`
+
+    if (normalItems.length > 0) {
+      msg += `📦 *Pesanan Biasa:*\n`
+      normalItems.forEach((i) => {
+        msg += `• ${i.name} x${i.qty} — RM${money(i.price * i.qty)} (RM${money(i.price)}/${i.unit})\n`
+      })
+      msg += '\n'
+    }
+
+    if (preorderItems.length > 0) {
+      msg += `📅 *Pra Tempahan:*\n`
+      preorderItems.forEach((i) => {
+        msg += `• ${i.name} x${i.qty} — RM${money(i.price * i.qty)}\n`
+        if (i.pickupDate) {
+          const dateLabel = new Date(`${i.pickupDate}T00:00:00`).toLocaleDateString('ms-MY', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })
+          msg += `  📆 Tarikh: ${dateLabel}\n`
+        }
+      })
+      msg += '\n'
+    }
+
+    msg += `💰 *Subtotal: RM${subtotal}*\n`
+    msg += `🚗 Kaedah: ${methodLabel}\n`
+    if (method === 'cod' && address) msg += `📍 Alamat: ${address}\n`
+    if (buyer?.name) msg += `👤 Nama: ${buyer.name}\n`
+    if (buyer?.whatsapp_number) msg += `📞 No Telefon: ${buyer.whatsapp_number}\n`
+    msg += `\n_Pesanan dari LokalGo™_\n${seller.shopUrl}`
 
     trackWhatsAppClick()
     const sellerPhone = normalizeWhatsapp(seller.sellerWhatsapp)
@@ -221,7 +228,8 @@ function renderCartFlow(runtime: ProductWindow, buyer: BuyerProfile | null, trac
     }
     document.addEventListener('visibilitychange', onReturn)
 
-    window.location.href = `https://wa.me/${sellerPhone}?text=${encodeURIComponent(message)}`
+    // Use window.open so iOS opens WhatsApp app directly instead of navigating away
+    window.open(`https://wa.me/${sellerPhone}?text=${encodeURIComponent(msg)}`, '_blank')
   }
 
   runtime.sendWhatsApp = () => {
