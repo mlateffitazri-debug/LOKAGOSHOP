@@ -44,7 +44,27 @@ function clearSupabaseAuthCookies(request: NextRequest, response: NextResponse) 
   })
 }
 
+function isMobile(request: NextRequest) {
+  const ua = request.headers.get('user-agent') ?? ''
+  return /Mobile|Android|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(ua)
+}
+
 export async function middleware(request: NextRequest) {
+  const { pathname } = request.nextUrl
+
+  // Mobile-only enforcement — skip for static assets, API, admin, and the warning page itself
+  const isExcluded =
+    pathname.startsWith('/desktop-only') ||
+    pathname.startsWith('/adminhensemonly') ||
+    pathname.startsWith('/api/') ||
+    pathname.startsWith('/_next/')
+
+  if (!isExcluded && !isMobile(request)) {
+    const url = request.nextUrl.clone()
+    url.pathname = '/desktop-only'
+    return NextResponse.redirect(url)
+  }
+
   let response = NextResponse.next({
     request: {
       headers: request.headers,
