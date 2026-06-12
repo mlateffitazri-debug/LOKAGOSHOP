@@ -44,6 +44,7 @@ export async function GET(request: Request) {
       savedShopsResult,
       pendingProductsResult,
       complaintsResult,
+      supportStatsResult,
     ] = await Promise.all([
       supabase.from('sellers').select('*', { count: 'exact' }).order('created_at', { ascending: false }).range(page * PAGE_SIZE, (page + 1) * PAGE_SIZE - 1),
       supabase.from('buyers').select('id, name, email, created_at', { count: 'exact' }).order('created_at', { ascending: false }).range(page * PAGE_SIZE, (page + 1) * PAGE_SIZE - 1),
@@ -51,6 +52,7 @@ export async function GET(request: Request) {
       supabase.from('saved_shops').select('*', { count: 'exact' }).order('created_at', { ascending: false }).range(page * PAGE_SIZE, (page + 1) * PAGE_SIZE - 1),
       supabase.from('products').select('*', { count: 'exact' }).eq('status', 'pending').order('created_at', { ascending: false }),
       supabase.from('suspended_sellers').select('*', { count: 'exact' }).order('suspend_date', { ascending: false }).range(page * PAGE_SIZE, (page + 1) * PAGE_SIZE - 1),
+      supabase.from('support_stats').select('qr_download_count').eq('id', 1).maybeSingle(),
     ])
 
     const sellers = sellersResult.data ?? []
@@ -79,7 +81,9 @@ export async function GET(request: Request) {
     const badgeCount = { seller_baharu: 0, seller_aktif: 0, verified: 0 }
     sellers.forEach((s) => {
       const b = (s.badge as string) || 'seller_baharu'
-      if (b in badgeCount) badgeCount[b as keyof typeof badgeCount]++
+      // DB stores 'verified_seller'; admin panel reads the 'verified' key
+      const key = b === 'verified_seller' ? 'verified' : b
+      if (key in badgeCount) badgeCount[key as keyof typeof badgeCount]++
     })
 
     const areaCount: Record<string, number> = {}
@@ -113,6 +117,7 @@ export async function GET(request: Request) {
       pendingProducts: pendingProductsResult.data ?? [],
       complaints: complaintsResult.data ?? [],
       buyerCount: buyersResult.count ?? buyers.length,
+      qrDownloadCount: supportStatsResult.data?.qr_download_count ?? 0,
       pagination: {
         page,
         pageSize: PAGE_SIZE,
@@ -180,7 +185,7 @@ export async function PATCH(request: Request) {
       if (body.action === 'badge_baharu' || body.action === 'badge_aktif' || body.action === 'badge_verified') {
         const badge = body.action === 'badge_baharu' ? 'seller_baharu'
           : body.action === 'badge_aktif' ? 'seller_aktif'
-          : 'verified'
+          : 'verified_seller'
         const r = await supabase.from('sellers').update({ badge }).eq('id', body.id)
         if (r.error) return NextResponse.json({ error: r.error.message }, { status: 500 })
         return NextResponse.json({ ok: true })

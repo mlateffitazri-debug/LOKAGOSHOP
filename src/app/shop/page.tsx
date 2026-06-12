@@ -273,6 +273,11 @@ window.__renderShopMap = function(sellerLat, sellerLng, shopName, tamanName) {
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
       attribution: '© OpenStreetMap'
     }).addTo(__shopMap);
+
+    // Re-measure after layout settles — prevents grey/offset tiles
+    setTimeout(function() { if (__shopMap) __shopMap.invalidateSize(); }, 50);
+    setTimeout(function() { if (__shopMap) __shopMap.invalidateSize(); }, 400);
+    window.addEventListener('resize', function() { if (__shopMap) __shopMap.invalidateSize(); });
   }
 
   clearShopMapLayers();
@@ -364,10 +369,8 @@ export default function Page() {
         return
       }
 
-      await supabase
-        .from('sellers')
-        .update({ view_count: (seller.view_count ?? 0) + 1 })
-        .eq('id', seller.id)
+      // SECURITY DEFINER RPC — direct updates are blocked by RLS for visitors
+      await supabase.rpc('increment_seller_view_count', { p_seller_id: seller.id })
 
       const [{ data: products }, { data: testimonials }, { data: buyerData }] = await Promise.all([
         supabase

@@ -6,6 +6,18 @@ export const metadata: Metadata = {
   title: 'LokalGo™ Shop',
   description: 'Platform perniagaan lokal setempat',
   manifest: '/manifest.json',
+  // iOS standalone PWA — fullscreen app feel when added to Home Screen
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: 'black-translucent',
+    title: 'LokalGo',
+  },
+  // Stop iOS auto-linking phone numbers/addresses (breaks app styling)
+  formatDetection: {
+    telephone: false,
+    address: false,
+    email: false,
+  },
   icons: {
     icon: [
       { url: '/icons/icon-192.png', sizes: '192x192', type: 'image/png' },

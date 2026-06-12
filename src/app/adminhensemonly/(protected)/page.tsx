@@ -383,7 +383,7 @@ const markup = `
         <div class="feat-card c-teal" onclick="switchTab('tab-stats',document.querySelector('[onclick*=tab-stats]'))">
           <div class="feat-icon it">&#9638;</div>
           <div class="feat-title">QR Downloads</div>
-          <div class="feat-desc">Jumlah QR code kedai yang dimuat turun</div>
+          <div class="feat-desc">Jumlah QR sokongan yang dimuat turun</div>
           <div class="feat-num teal" id="fc-qr">—</div>
           <div class="feat-sub">jumlah scan/download</div>
         </div>
@@ -462,7 +462,7 @@ const markup = `
               <th>Kawasan</th>
               <th>Badge</th>
               <th>Status</th>
-              <th>QR Download</th>
+              <th>Klik WA</th>
               <th>Buka</th>
               <th>Tarikh Daftar</th>
               <th>Tindakan</th>
@@ -652,14 +652,6 @@ const markup = `
       <div class="mo-field">
         <div class="mo-lbl">Nama Kedai *</div>
         <input id="edit-shop-name" class="mo-input" type="text" placeholder="Nama kedai seller">
-      </div>
-      <div class="mo-field">
-        <div class="mo-lbl">Deskripsi Kedai</div>
-        <textarea id="edit-description" class="mo-textarea" placeholder="Penerangan ringkas tentang kedai..."></textarea>
-      </div>
-      <div class="mo-field">
-        <div class="mo-lbl">URL Logo / Gambar Kedai</div>
-        <input id="edit-logo-url" class="mo-input" type="url" placeholder="https://...">
       </div>
       <div class="mo-field">
         <div class="mo-lbl">No. WhatsApp</div>

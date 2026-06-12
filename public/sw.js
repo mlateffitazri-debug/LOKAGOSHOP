@@ -1,15 +1,19 @@
 // LokalGo Service Worker
 // Strategy: network-first, auto-update on new deploy
 
-const CACHE_NAME = 'lokalgo-v1'
+const CACHE_NAME = 'lokalgo-v2'
+const OFFLINE_URL = '/offline.html'
 
-// Pages to pre-cache for offline
-const PRECACHE = ['/home', '/search', '/offline']
+// Pages to pre-cache for offline. Cached one-by-one (not addAll) so a
+// single failure doesn't cancel the whole precache.
+const PRECACHE = [OFFLINE_URL, '/auth', '/home', '/search']
 
 // Skip waiting — activate new SW immediately without waiting for tabs to close
 self.addEventListener('install', (event) => {
   event.waitUntil(
-    caches.open(CACHE_NAME).then((cache) => cache.addAll(PRECACHE).catch(() => {}))
+    caches.open(CACHE_NAME).then((cache) =>
+      Promise.allSettled(PRECACHE.map((url) => cache.add(url)))
+    )
   )
   self.skipWaiting()
 })
@@ -49,6 +53,13 @@ self.addEventListener('fetch', (event) => {
         }
         return response
       })
-      .catch(() => caches.match(request).then((cached) => cached ?? caches.match('/offline')))
+      .catch(() =>
+        caches.match(request).then((cached) => {
+          if (cached) return cached
+          // Only navigations fall back to the offline page; assets just fail
+          if (request.destination === 'document') return caches.match(OFFLINE_URL)
+          return Response.error()
+        })
+      )
   )
 })

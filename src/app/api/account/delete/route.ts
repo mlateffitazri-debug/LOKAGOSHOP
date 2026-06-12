@@ -13,6 +13,17 @@ export async function DELETE() {
 
     const adminClient = createAdminClient()
 
+    // Delete saved shops first — saved_shops.buyer_id references buyers.id, not auth user id
+    const { data: buyerRecord } = await adminClient
+      .from('buyers')
+      .select('id')
+      .eq('user_id', user.id)
+      .maybeSingle()
+
+    if (buyerRecord) {
+      await adminClient.from('saved_shops').delete().eq('buyer_id', buyerRecord.id)
+    }
+
     // Delete buyer record
     await adminClient.from('buyers').delete().eq('user_id', user.id)
 
@@ -40,9 +51,6 @@ export async function DELETE() {
       await adminClient.from('testimonials').delete().eq('seller_id', seller.id)
       await adminClient.from('saved_shops').delete().eq('shop_id', seller.id)
     }
-
-    // Delete saved shops by this buyer
-    await adminClient.from('saved_shops').delete().eq('buyer_id', user.id)
 
     // Delete the auth user (this cascades to all auth-linked data)
     const { error: deleteError } = await adminClient.auth.admin.deleteUser(user.id)

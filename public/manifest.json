@@ -1,8 +1,12 @@
 {
+  "id": "/",
   "name": "LokalGo™ Shop",
   "short_name": "LokalGo",
   "description": "Platform perniagaan lokal setempat",
+  "lang": "ms",
+  "dir": "ltr",
   "start_url": "/home",
+  "scope": "/",
   "display": "standalone",
   "background_color": "#7B1533",
   "theme_color": "#7B1533",

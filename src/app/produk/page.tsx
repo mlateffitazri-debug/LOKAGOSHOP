@@ -557,10 +557,8 @@ export default function Page() {
 
       const trackWhatsAppClick = () => {
         if (currentSeller) {
-          void supabase
-            .from('sellers')
-            .update({ wa_click_count: (currentSeller.wa_click_count ?? 0) + 1 })
-            .eq('id', currentSeller.id)
+          // SECURITY DEFINER RPC — direct updates are blocked by RLS for visitors
+          void supabase.rpc('increment_seller_wa_click', { p_seller_id: currentSeller.id })
         }
       }
       runtime.addToOrder = () => {

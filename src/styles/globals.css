@@ -40,6 +40,8 @@ html {
   height: 100%;
   overflow: hidden;
   overscroll-behavior: none;
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
 }
 
 body {
@@ -53,11 +55,32 @@ body {
   overscroll-behavior: none;
   -webkit-overflow-scrolling: touch;
   touch-action: pan-y;
+  /* App feel: no grey flash on tap (iOS/Android) */
+  -webkit-tap-highlight-color: transparent;
   /* Safe area for iPhone notch / Dynamic Island / Android status bar */
-  padding-top: env(safe-area-inset-top);
-  padding-bottom: env(safe-area-inset-bottom);
-  padding-left: env(safe-area-inset-left);
-  padding-right: env(safe-area-inset-right);
+  padding-top: env(safe-area-inset-top, 0px);
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+  padding-left: env(safe-area-inset-left, 0px);
+  padding-right: env(safe-area-inset-right, 0px);
+}
+
+/* App feel: no 300ms double-tap zoom delay on controls */
+button, a, [role='button'] {
+  touch-action: manipulation;
+}
+
+/* App feel: images behave like UI, not draggable/saveable content */
+img, svg {
+  -webkit-touch-callout: none;
+  -webkit-user-drag: none;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+/* Text fields keep normal selection behavior */
+input, textarea, [contenteditable] {
+  user-select: text;
+  -webkit-user-select: text;
 }
 
 /* Phone frame wrapper — semua page guna ini */
@@ -111,8 +134,12 @@ body {
 *::-webkit-scrollbar { display: none; }
 
 /* ── Mobile: ikut tinggi sebenar device, bukan frame 812px tetap ──
-   Semua scroll container guna 100dvh supaya tak terpotong pada
-   device pendek (SE/mini) dan penuhi skrin pada device tinggi (Pro Max) */
+   Semua scroll container ikut tinggi viewport sebenar supaya tak
+   terpotong pada device pendek (SE/mini) dan penuhi skrin pada device
+   tinggi (Pro Max). Safe-area insets ditolak kerana body sudah pad
+   kawasan notch/home-indicator — tanpa ini bahagian bawah terpotong
+   pada telefon bernotch. 100vh dikekalkan sebagai fallback untuk
+   browser lama tanpa sokongan dvh. */
 @media (max-width: 499px) {
   .scroll,
   .scroll-area,
@@ -120,7 +147,19 @@ body {
   .page-wrap,
   .page,
   .h-\[812px\] {
-    height: 100dvh !important;
-    max-height: 100dvh !important;
+    height: calc(100vh - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px)) !important;
+    height: calc(100dvh - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px)) !important;
+    max-height: calc(100dvh - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px)) !important;
+    min-height: 0 !important;
+  }
+
+  /* Lock the shell: scroll hanya berlaku dalam container, bukan body —
+     elak rubber-band / pull-to-refresh rasa laman web */
+  .scroll,
+  .scroll-area,
+  .page-scroll {
+    overflow-y: auto !important;
+    overscroll-behavior-y: contain !important;
+    -webkit-overflow-scrolling: touch;
   }
 }

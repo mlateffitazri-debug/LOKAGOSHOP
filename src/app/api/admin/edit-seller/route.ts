@@ -11,8 +11,6 @@ export async function PATCH(request: Request) {
     const body = await request.json() as {
       id?: string
       shop_name?: string
-      description?: string
-      logo_url?: string
       whatsapp_number?: string
       kawasan?: string
       postcode?: string
@@ -22,7 +20,8 @@ export async function PATCH(request: Request) {
     const { id, ...updates } = body
     if (!id) return NextResponse.json({ error: 'Missing seller id' }, { status: 400 })
 
-    const allowed = ['shop_name', 'description', 'logo_url', 'whatsapp_number', 'kawasan', 'postcode', 'is_open']
+    // Only columns that actually exist on the sellers table
+    const allowed = ['shop_name', 'whatsapp_number', 'kawasan', 'postcode', 'is_open']
     const patch: Record<string, unknown> = {}
     for (const k of allowed) {
       if (k in updates && updates[k as keyof typeof updates] !== undefined) {

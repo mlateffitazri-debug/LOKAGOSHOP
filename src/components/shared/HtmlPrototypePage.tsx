@@ -126,6 +126,32 @@ function loadScript(src: string) {
   })
 }
 
+function loadStylesheet(href: string) {
+  const existing = document.querySelector<HTMLLinkElement>(`link[data-prototype-href="${href}"]`)
+  if (existing) {
+    return existing.dataset.loaded === 'true' || existing.sheet
+      ? Promise.resolve()
+      : new Promise<void>((resolve) => {
+          existing.addEventListener('load', () => resolve(), { once: true })
+          existing.addEventListener('error', () => resolve(), { once: true })
+        })
+  }
+
+  return new Promise<void>((resolve) => {
+    const element = document.createElement('link')
+    element.rel = 'stylesheet'
+    element.href = href
+    element.dataset.prototypeHref = href
+    element.addEventListener('load', () => {
+      element.dataset.loaded = 'true'
+      resolve()
+    }, { once: true })
+    // Resolve on error too — a missing stylesheet must not block page scripts
+    element.addEventListener('error', () => resolve(), { once: true })
+    document.head.appendChild(element)
+  })
+}
+
 export function HtmlPrototypePage({
   styles,
   markup,
@@ -138,13 +164,7 @@ export function HtmlPrototypePage({
 
   useEffect(() => {
     externalStylesheets.forEach((href) => {
-      if (document.querySelector(`link[data-prototype-href="${href}"]`)) return
-
-      const element = document.createElement('link')
-      element.rel = 'stylesheet'
-      element.href = href
-      element.dataset.prototypeHref = href
-      document.head.appendChild(element)
+      void loadStylesheet(href)
     })
   }, [externalStylesheets])
 
@@ -162,6 +182,10 @@ export function HtmlPrototypePage({
     let cancelled = false
 
     async function runScripts() {
+      // Stylesheets must be applied before scripts run — Leaflet measures its
+      // container at init, and unstyled layout breaks tile/pin positioning
+      await Promise.all(externalStylesheets.map(loadStylesheet))
+
       for (const src of externalScripts) {
         await loadScript(src)
       }
@@ -182,7 +206,7 @@ export function HtmlPrototypePage({
     return () => {
       cancelled = true
     }
-  }, [externalScripts, scripts])
+  }, [externalScripts, externalStylesheets, scripts])
 
   useEffect(() => {
     function handleCatTabClick(e: Event) {

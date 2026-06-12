@@ -109,7 +109,7 @@ function renderDashboard() {
   var sellers = _data.sellers || [];
   var pending = (_data.pendingSellers || []).length;
   var pendingTesti = (_data.pendingTestimonials || []).length;
-  var totalQr = sellers.reduce(function(acc, sel) { return acc + (sel.qr_downloads || 0); }, 0);
+  var totalQr = _data.qrDownloadCount || 0;
 
   // Alert banners
   var alertHtml = '';
@@ -218,7 +218,7 @@ function renderSellers() {
           ? '<span class="pill p-suspended">Suspended</span>'
           : '<span class="pill p-deleted">' + esc(status) + '</span>';
 
-    var qrCount = s.qr_downloads != null ? s.qr_downloads : '—';
+    var qrCount = s.wa_click_count != null ? s.wa_click_count : '—';
 
     var isOpen = s.is_open
       ? '<span style="color:#acd036;font-size:12px;font-weight:700;">Buka</span>'
@@ -429,8 +429,6 @@ function openEditSeller(id) {
   var get = function(fid) { return document.getElementById(fid); };
   get('edit-seller-id').value = seller.id || '';
   get('edit-shop-name').value = seller.shop_name || seller.name || '';
-  get('edit-description').value = seller.description || '';
-  get('edit-logo-url').value = seller.logo_url || '';
   get('edit-whatsapp').value = seller.whatsapp_number || '';
   get('edit-kawasan').value = seller.kawasan || '';
   get('edit-postcode').value = seller.postcode || '';
@@ -453,8 +451,6 @@ function submitEditSeller() {
   var payload = {
     id: id,
     shop_name: shopName,
-    description: ((document.getElementById('edit-description') || {}).value || '').trim() || null,
-    logo_url: ((document.getElementById('edit-logo-url') || {}).value || '').trim() || null,
     whatsapp_number: ((document.getElementById('edit-whatsapp') || {}).value || '').trim() || null,
     kawasan: ((document.getElementById('edit-kawasan') || {}).value || '').trim() || null,
     postcode: ((document.getElementById('edit-postcode') || {}).value || '').trim() || null,
@@ -618,7 +614,7 @@ function exportSellersCSV() {
     return;
   }
   var sellers = _data.sellers;
-  var cols = ['id', 'shop_name', 'email', 'kawasan', 'postcode', 'status', 'badge', 'is_open', 'qr_downloads', 'created_at'];
+  var cols = ['id', 'shop_name', 'email', 'kawasan', 'postcode', 'status', 'badge', 'is_open', 'wa_click_count', 'created_at'];
   var rows = [cols.join(',')];
   sellers.forEach(function(s) {
     rows.push(cols.map(function(c) {

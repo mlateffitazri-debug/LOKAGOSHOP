@@ -37,7 +37,9 @@ const securityHeaders = [
       // Scripts: self + inline scripts needed by Next.js (nonce not feasible with App Router SSG)
       `script-src 'self' 'unsafe-inline' 'unsafe-eval' https://unpkg.com`,
       // Styles: self + inline styles (used extensively in prototype pages)
-      `style-src 'self' 'unsafe-inline' https://fonts.googleapis.com`,
+      // unpkg.com needed for leaflet.css — without it the map tiles render
+      // unpositioned (diagonal/grey map view)
+      `style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://unpkg.com`,
       // Fonts
       `font-src 'self' https://fonts.gstatic.com`,
       // Images: self + Supabase storage + Google profile pics + data URIs
