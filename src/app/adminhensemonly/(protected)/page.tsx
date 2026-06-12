@@ -4,8 +4,7 @@ import { HtmlPrototypePage } from '@/components/shared/HtmlPrototypePage'
 
 const styles = `
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
-html,body{height:100%;}
-body{background:#07070a;font-family:'Plus Jakarta Sans',-apple-system,BlinkMacSystemFont,sans-serif;font-size:14px;color:#e8e8ec;-webkit-font-smoothing:antialiased;}
+body{background:#07070a;font-family:'Plus Jakarta Sans',-apple-system,BlinkMacSystemFont,sans-serif;font-size:14px;color:#e8e8ec;-webkit-font-smoothing:antialiased;min-height:100vh;}
 ::-webkit-scrollbar{width:5px;height:5px;}
 ::-webkit-scrollbar-track{background:transparent;}
 ::-webkit-scrollbar-thumb{background:rgba(255,255,255,0.1);border-radius:3px;}
@@ -30,14 +29,13 @@ body{background:#07070a;font-family:'Plus Jakarta Sans',-apple-system,BlinkMacSy
 .sb-foot{padding:14px 20px;border-top:1px solid rgba(255,255,255,0.06);font-size:11px;color:rgba(240,240,240,0.2);line-height:1.55;}
 
 /* MAIN */
-.main{margin-left:230px;flex:1;display:flex;flex-direction:column;min-height:100vh;}
+.main{margin-left:230px;flex:1;display:flex;flex-direction:column;}
 
 /* TOP BAR */
-.top-bar{background:rgba(11,11,14,0.96);backdrop-filter:blur(12px);border-bottom:1px solid rgba(255,255,255,0.07);padding:13px 28px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:50;}
-.top-left{}
+.top-bar{background:rgba(11,11,14,0.96);backdrop-filter:blur(12px);border-bottom:1px solid rgba(255,255,255,0.07);padding:13px 28px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:50;flex-wrap:wrap;gap:8px;}
 .top-title{font-size:16px;font-weight:800;color:#f0f0f0;}
 .top-sub{font-size:11px;color:rgba(240,240,240,0.28);margin-top:1px;}
-.top-actions{display:flex;align-items:center;gap:9px;}
+.top-actions{display:flex;align-items:center;gap:9px;flex-wrap:wrap;}
 
 /* CONTENT */
 .content{padding:26px 28px;flex:1;}
@@ -261,9 +259,11 @@ body{background:#07070a;font-family:'Plus Jakarta Sans',-apple-system,BlinkMacSy
 .btn-danger:hover{background:rgba(240,96,96,0.18);}
 
 /* RESPONSIVE */
+.stat-strip-wrap{padding:20px 28px 0;}
+.stats-bottom-grid{display:grid;grid-template-columns:1fr 1fr;gap:20px;}
 @media(max-width:1280px){.feat-grid{grid-template-columns:repeat(3,1fr);}}
-@media(max-width:1024px){.stat-strip{grid-template-columns:repeat(2,1fr);}.feat-grid{grid-template-columns:repeat(2,1fr);}.dash-row{grid-template-columns:1fr;}.ps-grid{grid-template-columns:1fr 1fr;}.ps-card.s2{grid-column:span 1;}.ps-card.s3{grid-column:span 2;}}
-@media(max-width:820px){.sidebar{width:58px;}.sb-section,.sb-nav .nav-item span,.sb-foot,.sb-tag{display:none;}.main{margin-left:58px;}.content{padding:16px;}.feat-grid{grid-template-columns:repeat(2,1fr);}}
+@media(max-width:1024px){.stat-strip{grid-template-columns:repeat(2,1fr);}.feat-grid{grid-template-columns:repeat(2,1fr);}.dash-row{grid-template-columns:1fr;}.ps-grid{grid-template-columns:1fr 1fr;}.ps-card.s2{grid-column:span 1;}.ps-card.s3{grid-column:span 2;}.stats-bottom-grid{grid-template-columns:1fr;}}
+@media(max-width:820px){.sidebar{width:58px;}.sb-section,.sb-nav .nav-item span,.sb-foot,.sb-tag{display:none;}.main{margin-left:58px;}.content{padding:16px;}.feat-grid{grid-template-columns:repeat(2,1fr);}.stat-strip-wrap{padding:16px 16px 0;}}
 @media(max-width:580px){.sidebar{display:none;}.main{margin-left:0;}.stat-strip{grid-template-columns:1fr 1fr;}.feat-grid{grid-template-columns:1fr 1fr;}}
 `
 
@@ -318,7 +318,7 @@ const markup = `
   <div id="admin-error-banner"></div>
 
   <!-- STAT STRIP -->
-  <div style="padding:20px 28px 0;">
+  <div class="stat-strip-wrap">
     <div class="stat-strip">
       <div class="stat-card g"><div class="sc-num" id="st-active">—</div><div class="sc-lbl">Seller Aktif</div></div>
       <div class="stat-card o"><div class="sc-num o" id="st-pending">—</div><div class="sc-lbl">Pending Kelulusan</div></div>
@@ -585,7 +585,7 @@ const markup = `
         </div>
       </div>
 
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;">
+      <div class="stats-bottom-grid">
         <div>
           <div style="font-size:13px;font-weight:800;color:#f0f0f0;margin-bottom:14px;">Badge Seller</div>
           <div class="ps-grid" style="grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:0;">
