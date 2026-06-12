@@ -36,8 +36,7 @@ export default function AdminLoginPage() {
     setError(null)
 
     const supabase = createAuthClient()
-    const callback = new URL('/auth/callback', window.location.origin)
-    callback.searchParams.set('next', '/adminhensemonly')
+    const callback = new URL('/adminhensemonly/callback', window.location.origin)
 
     const { error: oauthError } = await supabase.auth.signInWithOAuth({
       provider: 'google',
