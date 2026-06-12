@@ -1,39 +1,51 @@
-// LokalGo Admin Panel — client-side logic
-// Loaded as a real <script> tag so functions are global (no new Function() transformation)
+// LokalGo Admin Panel — client-side logic (public/admin-panel.js)
 
 var _data = null;
 var _dbTable = '';
 var _sellersFilter = 'all';
+var _sellersSearch = '';
 var _buyersFilter = 'all';
 var _testiFilter = 'all';
 
-function switchTab(el, id) {
-  document.querySelectorAll('.tab').forEach(function(t){ t.classList.remove('active'); });
-  document.querySelectorAll('.section').forEach(function(s){ s.classList.remove('active'); });
-  el.classList.add('active');
-  document.getElementById(id).classList.add('active');
+/* ── Tab switching ─────────────────────────────────────────────────────────── */
+
+function switchTab(id, navEl) {
+  document.querySelectorAll('.section').forEach(function(s) { s.classList.remove('active'); });
+  document.querySelectorAll('.nav-item').forEach(function(n) { n.classList.remove('active'); });
+  var sec = document.getElementById(id);
+  if (sec) sec.classList.add('active');
+  if (navEl) navEl.classList.add('active');
 }
+
+/* ── Filter / search helpers ───────────────────────────────────────────────── */
 
 function filterSellers(el, f) {
   _sellersFilter = f;
-  document.querySelectorAll('#tab-sellers .f-chip').forEach(function(c){ c.classList.remove('active'); });
+  document.querySelectorAll('#tab-sellers .f-chip').forEach(function(c) { c.classList.remove('active'); });
   el.classList.add('active');
+  renderSellers();
+}
+
+function searchSellers(val) {
+  _sellersSearch = (val || '').trim().toLowerCase();
   renderSellers();
 }
 
 function filterBuyers(el, f) {
   _buyersFilter = f;
-  document.querySelectorAll('#tab-buyers .f-chip').forEach(function(c){ c.classList.remove('active'); });
+  document.querySelectorAll('#tab-buyers .f-chip').forEach(function(c) { c.classList.remove('active'); });
   el.classList.add('active');
   renderBuyers();
 }
 
 function filterTesti(el, f) {
   _testiFilter = f;
-  document.querySelectorAll('#tab-testimoni .f-chip').forEach(function(c){ c.classList.remove('active'); });
+  document.querySelectorAll('#tab-testimoni .f-chip').forEach(function(c) { c.classList.remove('active'); });
   el.classList.add('active');
   renderTesti();
 }
+
+/* ── DOM helpers ───────────────────────────────────────────────────────────── */
 
 function setText(id, v) {
   var el = document.getElementById(id);
@@ -45,237 +57,301 @@ function setHtml(id, v) {
   if (el) el.innerHTML = v;
 }
 
-function adminActionCall(type, id, action) {
-  return "adminAction('" + type + "','" + id + "','" + action + "')";
+function esc(v) {
+  return String(v == null ? '' : v)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
 }
 
-function adminDeleteCall(type, id, label) {
-  return "adminDelete('" + type + "','" + id + "','" + label + "')";
+function fmtDate(iso) {
+  if (!iso) return '—';
+  return new Date(iso).toLocaleDateString('ms-MY', { day: 'numeric', month: 'short', year: '2-digit' });
 }
+
+function timeAgo(iso) {
+  if (!iso) return '';
+  var diff = Date.now() - new Date(iso).getTime();
+  var m = Math.floor(diff / 60000);
+  if (m < 1) return 'baru';
+  if (m < 60) return m + ' min lalu';
+  var h = Math.floor(m / 60);
+  if (h < 24) return h + ' jam lalu';
+  return Math.floor(h / 24) + ' hari lalu';
+}
+
+/* ── Admin actions ─────────────────────────────────────────────────────────── */
 
 function adminAction(type, id, action) {
   fetch('/api/admin/moderation', {
     method: 'PATCH',
-    headers: {'Content-Type':'application/json'},
+    headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ type: type, id: id, action: action })
-  }).then(function(r){ return r.json(); }).then(function(payload){
+  }).then(function(r) { return r.json(); }).then(function(payload) {
     if (payload.error) { alert('Ralat: ' + payload.error); return; }
     loadAdminData();
-  }).catch(function(e){ alert('Ralat rangkaian: ' + e.message); });
+  }).catch(function(e) { alert('Ralat rangkaian: ' + e.message); });
 }
 
 function adminDelete(type, id, label) {
-  if (confirm('Padam ' + label + ' ini?')) adminAction(type, id, 'delete');
+  if (confirm('Padam ' + label + ' ini? Tindakan tidak boleh dibatalkan.')) {
+    adminAction(type, id, 'delete');
+  }
 }
+
+/* ── Render: Dashboard ─────────────────────────────────────────────────────── */
+
+function renderDashboard() {
+  if (!_data) return;
+  var s = _data.stats;
+  var sellers = _data.sellers || [];
+  var pending = (_data.pendingSellers || []).length;
+  var pendingTesti = (_data.pendingTestimonials || []).length;
+  var totalQr = sellers.reduce(function(acc, sel) { return acc + (sel.qr_downloads || 0); }, 0);
+
+  // Alert banners
+  var alertHtml = '';
+  if (pending > 0) {
+    alertHtml += '<div class="alert alert-o" onclick="switchTab(\'tab-sellers\',document.getElementById(\'nav-sellers\'))">'
+      + '&#9888;&nbsp; ' + pending + ' seller menunggu kelulusan — klik untuk semak</div>';
+  }
+  if (pendingTesti > 0) {
+    alertHtml += '<div class="alert alert-o" onclick="switchTab(\'tab-testimoni\',document.querySelector(\'[onclick*=tab-testimoni]\'))">'
+      + '&#9733;&nbsp; ' + pendingTesti + ' testimoni menunggu kelulusan</div>';
+  }
+  setHtml('dash-alert', alertHtml);
+
+  // Feature card counts
+  if (s) {
+    setText('fc-sellers', s.totalSellers || 0);
+    setText('fc-sellers-sub', (s.totalSellers === 1 ? 'seller' : 'seller') + ' berdaftar');
+    setText('fc-buyers', s.totalBuyers || 0);
+    setText('fc-testi', s.totalTestimonials || 0);
+    setText('fc-verified', s.sellersByBadge.verified || 0);
+    setText('fc-qr', totalQr);
+    setText('fc-saved', s.totalSavedShops || 0);
+    setText('fc-active', s.sellersByStatus.active || 0);
+  }
+
+  // Pending badges on cards
+  var pbEl = document.getElementById('fc-pending-badge');
+  if (pbEl) {
+    if (pending > 0) { pbEl.textContent = pending + ' pending'; pbEl.style.display = 'block'; }
+    else pbEl.style.display = 'none';
+  }
+  var tbEl = document.getElementById('fc-testi-badge');
+  if (tbEl) {
+    if (pendingTesti > 0) { tbEl.textContent = pendingTesti + ' pending'; tbEl.style.display = 'block'; }
+    else tbEl.style.display = 'none';
+  }
+
+  // Recent sellers
+  var recentSellers = sellers.slice(0, 5);
+  setHtml('dash-recent-sellers', recentSellers.length ? recentSellers.map(function(s) {
+    var name = esc((s.shop_name || s.name || '—').toString().slice(0, 24));
+    var initial = (s.shop_name || s.name || '?').charAt(0).toUpperCase();
+    var status = s.status || (s.permanent_ban ? 'suspended' : 'pending');
+    var pillCls = status === 'active' ? 'p-active' : status === 'pending' ? 'p-pending' : 'p-suspended';
+    return '<div class="ri"><div class="ri-av">' + esc(initial) + '</div>'
+      + '<div><div class="ri-name">' + name + '</div><div class="ri-sub">' + esc(s.kawasan || '—') + '</div></div>'
+      + '<span class="pill ' + pillCls + '" style="margin-left:auto;font-size:10px;">' + esc(status) + '</span></div>';
+  }).join('') : '<div style="text-align:center;color:rgba(240,240,240,0.2);padding:20px;font-size:13px;">Tiada data</div>');
+
+  // Recent buyers
+  var recentBuyers = (_data.buyers || []).slice(0, 5);
+  setHtml('dash-recent-buyers', recentBuyers.length ? recentBuyers.map(function(b) {
+    var name = esc((b.name || b.email || '—').toString().slice(0, 24));
+    var initial = (b.name || b.email || '?').charAt(0).toUpperCase();
+    return '<div class="ri"><div class="ri-av b">' + esc(initial) + '</div>'
+      + '<div><div class="ri-name">' + name + '</div><div class="ri-sub">' + timeAgo(b.created_at) + '</div></div>'
+      + '<span class="ri-time">' + fmtDate(b.created_at) + '</span></div>';
+  }).join('') : '<div style="text-align:center;color:rgba(240,240,240,0.2);padding:20px;font-size:13px;">Tiada data</div>');
+}
+
+/* ── Render: Sellers ────────────────────────────────────────────────────────── */
 
 function renderSellers() {
   if (!_data) return;
-
-  if (_sellersFilter === 'deleted') {
-    var deleted = _data.deletedSellers || [];
-    setText('sellers-count', deleted.length + ' dipadam');
-    if (!deleted.length) {
-      setHtml('sellers-tbody', '<tr><td colspan="7" style="text-align:center;color:rgba(240,240,240,0.3);padding:28px 16px;font-size:14px;">Tiada data</td></tr>');
-      return;
-    }
-    var html = deleted.map(function(s) {
-      var shopName = (s.shop_name || s.name || '-').toString().slice(0,22);
-      var kawasan = (s.kawasan || '-').toString().slice(0,14);
-      var deletedAt = s.deleted_at ? new Date(s.deleted_at).toLocaleDateString('ms-MY',{day:'numeric',month:'short',year:'2-digit'}) : '-';
-      var restoreBtn = '<button class="act-btn btn-green" title="Pulihkan" onclick="'+adminActionCall('seller', s.id, 'restore')+'">Pulih</button>';
-      return '<tr data-id="'+s.id+'" style="opacity:0.6;">' +
-        '<td class="td-name" title="'+(s.shop_name||s.name||'')+'">'+shopName+'</td>' +
-        '<td class="td-cell">'+kawasan+'</td>' +
-        '<td class="td-center">-</td>' +
-        '<td class="td-center">-</td>' +
-        '<td class="td-center"><span class="status-pill pill-deleted">dipadam</span></td>' +
-        '<td class="td-cell">'+deletedAt+'</td>' +
-        '<td class="td-actions">'+restoreBtn+'</td>' +
-        '</tr>';
-    }).join('');
-    setHtml('sellers-tbody', html);
-    return;
-  }
-
   var sellers = _data.sellers || [];
-  var filtered = _sellersFilter === 'all' ? sellers : sellers.filter(function(s){
+
+  // Apply status filter
+  var filtered = _sellersFilter === 'all' ? sellers : sellers.filter(function(s) {
     var st = s.status || (s.permanent_ban ? 'suspended' : 'pending');
     return st === _sellersFilter;
   });
+
+  // Apply search
+  if (_sellersSearch) {
+    filtered = filtered.filter(function(s) {
+      var name = (s.shop_name || s.name || '').toLowerCase();
+      var kawasan = (s.kawasan || '').toLowerCase();
+      return name.indexOf(_sellersSearch) !== -1 || kawasan.indexOf(_sellersSearch) !== -1;
+    });
+  }
+
   setText('sellers-count', filtered.length + ' rekod');
+
   if (!filtered.length) {
-    setHtml('sellers-tbody', '<tr><td colspan="7" style="text-align:center;color:rgba(240,240,240,0.3);padding:28px 16px;font-size:14px;">Tiada data</td></tr>');
+    setHtml('sellers-tbody', '<tr><td colspan="8" class="td-empty">Tiada seller dijumpai</td></tr>');
     return;
   }
+
   var html = filtered.map(function(s) {
     var status = s.status || (s.permanent_ban ? 'suspended' : 'pending');
     var badge = s.badge || 'seller_baharu';
-    var badgeLabel = (badge === 'verified' || badge === 'verified_seller')
-      ? '<span style="color:#acd036;font-weight:700;font-size:11px;">Verified</span>'
-      : badge === 'seller_aktif'
-        ? '<span style="color:#7eb8f7;font-weight:700;font-size:11px;">Aktif</span>'
-        : '<span style="color:rgba(240,240,240,0.45);font-weight:700;font-size:11px;">Baharu</span>';
-    var approveBtn = status === 'pending' ? '<button class="act-btn btn-green" onclick="'+adminActionCall('seller', s.id, 'approve')+'">OK</button>' : '';
+    var isVerified = badge === 'verified' || badge === 'verified_seller';
+    var isAktif = badge === 'seller_aktif';
+
+    var badgePill = isVerified
+      ? '<span class="pill p-verified">&#10003; Verified</span>'
+      : isAktif
+        ? '<span class="pill p-aktif">Aktif</span>'
+        : '<span class="pill p-baharu">Baharu</span>';
+
+    var statusPill = status === 'active'
+      ? '<span class="pill p-active">Aktif</span>'
+      : status === 'pending'
+        ? '<span class="pill p-pending">Pending</span>'
+        : status === 'suspended'
+          ? '<span class="pill p-suspended">Suspended</span>'
+          : '<span class="pill p-deleted">' + esc(status) + '</span>';
+
+    var qrCount = s.qr_downloads != null ? s.qr_downloads : '—';
+
+    var isOpen = s.is_open
+      ? '<span style="color:#acd036;font-size:12px;font-weight:700;">Buka</span>'
+      : '<span style="color:rgba(240,240,240,0.28);font-size:12px;">Tutup</span>';
+
+    // Action buttons
+    var approveBtn = status === 'pending'
+      ? '<button class="act-btn ab-g" onclick="adminAction(\'seller\',\'' + esc(s.id) + '\',\'approve\')">Lulus</button>' : '';
+    var rejectBtn = status === 'pending'
+      ? '<button class="act-btn ab-r" onclick="adminAction(\'seller\',\'' + esc(s.id) + '\',\'reject\')">Tolak</button>' : '';
     var suspendBtn = status === 'active'
-      ? '<button class="act-btn btn-orange" onclick="'+adminActionCall('seller', s.id, 'suspend')+'">Ban</button>'
+      ? '<button class="act-btn ab-o" onclick="adminAction(\'seller\',\'' + esc(s.id) + '\',\'suspend\')">Ban</button>'
       : status === 'suspended'
-        ? '<button class="act-btn btn-blue" onclick="'+adminActionCall('seller', s.id, 'unsuspend')+'">On</button>'
+        ? '<button class="act-btn ab-b" onclick="adminAction(\'seller\',\'' + esc(s.id) + '\',\'unsuspend\')">Aktif</button>'
         : '';
-    var delBtn = '<button class="act-btn btn-red" onclick="'+adminDeleteCall('seller', s.id, 'seller')+'">Del</button>';
-    var nextBadge = badge === 'seller_baharu' ? 'badge_aktif' : badge === 'seller_aktif' ? 'badge_verified' : 'badge_baharu';
-    var nextLbl = nextBadge === 'badge_aktif' ? 'B-A' : nextBadge === 'badge_verified' ? 'A-V' : 'V-B';
-    var badgeBtn = '<button class="act-btn btn-badge" title="Naik badge" onclick="'+adminActionCall('seller', s.id, nextBadge)+'">'+nextLbl+'</button>';
-    var shopName = (s.shop_name || s.name || '-').toString().slice(0,22);
-    var kawasan = (s.kawasan || '-').toString().slice(0,14);
-    var created = s.created_at ? new Date(s.created_at).toLocaleDateString('ms-MY',{day:'numeric',month:'short',year:'2-digit'}) : '-';
-    var isOpen = s.is_open ? '<span style="color:#acd036;font-size:11px;">Buka</span>' : '<span style="color:rgba(240,240,240,0.3);font-size:11px;">Tutup</span>';
-    var pillClass = status === 'active' ? 'pill-active' : status === 'pending' ? 'pill-pending' : 'pill-suspended';
-    return '<tr data-id="'+s.id+'" data-status="'+status+'">' +
-      '<td class="td-name" title="'+(s.shop_name||s.name||'')+'">'+shopName+'</td>' +
-      '<td class="td-cell">'+kawasan+'</td>' +
-      '<td class="td-center">'+badgeLabel+'</td>' +
-      '<td class="td-center">'+isOpen+'</td>' +
-      '<td class="td-center"><span class="status-pill '+pillClass+'">'+status+'</span></td>' +
-      '<td class="td-cell">'+created+'</td>' +
-      '<td class="td-actions">'+approveBtn+suspendBtn+delBtn+badgeBtn+'</td>' +
-      '</tr>';
+    var verifyBtn = !isVerified
+      ? '<button class="act-btn ab-g" title="Berikan Verified" onclick="adminAction(\'seller\',\'' + esc(s.id) + '\',\'badge_verified\')">&#10003; Verify</button>'
+      : '<button class="act-btn ab-o" title="Buang Verified" onclick="adminAction(\'seller\',\'' + esc(s.id) + '\',\'badge_aktif\')">Unverify</button>';
+    var editBtn = '<button class="act-btn ab-e" onclick="openEditSeller(\'' + esc(s.id) + '\')">&#9998; Edit</button>';
+    var delBtn = '<button class="act-btn ab-r" onclick="adminDelete(\'seller\',\'' + esc(s.id) + '\',\'' + esc(s.shop_name || s.name || 'seller') + '\')">Padam</button>';
+
+    var shopName = esc((s.shop_name || s.name || '—').toString());
+    var kawasan = esc((s.kawasan || '—').toString());
+
+    return '<tr data-id="' + esc(s.id) + '">'
+      + '<td><div class="td-shop" title="' + shopName + '">' + shopName.slice(0, 26) + '</div>'
+      + '<div class="td-sub">' + esc(s.email || '') + '</div></td>'
+      + '<td class="td-cell">' + kawasan + '</td>'
+      + '<td class="td-c">' + badgePill + '</td>'
+      + '<td class="td-c">' + statusPill + '</td>'
+      + '<td class="td-c" style="font-size:13px;font-weight:700;color:' + (qrCount > 0 ? '#acd036' : 'rgba(240,240,240,0.3)') + ';">' + qrCount + '</td>'
+      + '<td class="td-c">' + isOpen + '</td>'
+      + '<td class="td-cell">' + fmtDate(s.created_at) + '</td>'
+      + '<td class="td-r">' + approveBtn + rejectBtn + suspendBtn + verifyBtn + editBtn + delBtn + '</td>'
+      + '</tr>';
   }).join('');
+
   setHtml('sellers-tbody', html);
 }
 
+/* ── Render: Buyers ──────────────────────────────────────────────────────────── */
+
 function renderBuyers() {
   if (!_data) return;
-
-  if (_buyersFilter === 'deleted') {
-    var deleted = _data.deletedBuyers || [];
-    setText('buyers-count', deleted.length + ' dipadam');
-    if (!deleted.length) {
-      setHtml('buyers-tbody', '<tr><td colspan="5" style="text-align:center;color:rgba(240,240,240,0.3);padding:28px 16px;font-size:14px;">Tiada data</td></tr>');
-      return;
-    }
-    var html = deleted.map(function(b) {
-      var name = (b.name || '-').toString().slice(0,20);
-      var email = (b.email || '-').toString().slice(0,22);
-      var kawasan = (b.kawasan || '-').toString().slice(0,14);
-      var deletedAt = b.deleted_at ? new Date(b.deleted_at).toLocaleDateString('ms-MY',{day:'numeric',month:'short',year:'2-digit'}) : '-';
-      var restoreBtn = '<button class="act-btn btn-green" title="Pulihkan" onclick="'+adminActionCall('buyer', b.id, 'restore')+'">Pulih</button>';
-      return '<tr style="opacity:0.6;">' +
-        '<td class="td-name">'+name+'</td>' +
-        '<td class="td-cell" title="'+(b.email||'')+'">'+email+'</td>' +
-        '<td class="td-cell">'+kawasan+'</td>' +
-        '<td class="td-cell">'+deletedAt+'</td>' +
-        '<td class="td-actions">'+restoreBtn+'</td>' +
-        '</tr>';
-    }).join('');
-    setHtml('buyers-tbody', html);
-    return;
-  }
-
   var buyers = _data.buyers || [];
-  setText('buyers-count', buyers.length + ' total');
+  setText('buyers-count', buyers.length + ' rekod');
   if (!buyers.length) {
-    setHtml('buyers-tbody', '<tr><td colspan="5" style="text-align:center;color:rgba(240,240,240,0.3);padding:28px 16px;font-size:14px;">Tiada data</td></tr>');
+    setHtml('buyers-tbody', '<tr><td colspan="5" class="td-empty">Tiada data</td></tr>');
     return;
   }
   var html = buyers.map(function(b) {
-    var name = (b.name || '-').toString().slice(0,20);
-    var email = (b.email || '-').toString().slice(0,22);
-    var kawasan = (b.kawasan || '-').toString().slice(0,14);
-    var created = b.created_at ? new Date(b.created_at).toLocaleDateString('ms-MY',{day:'numeric',month:'short',year:'2-digit'}) : '-';
-    return '<tr><td class="td-name">'+name+'</td><td class="td-cell" title="'+(b.email||'')+'">'+email+'</td>' +
-      '<td class="td-cell">'+kawasan+'</td><td class="td-cell">'+created+'</td>' +
-      '<td class="td-actions"><button class="act-btn btn-red" onclick="'+adminDeleteCall('buyer', b.id, 'buyer')+'">Del</button></td></tr>';
+    var name = esc((b.name || '—').toString());
+    var email = esc((b.email || '—').toString());
+    var kawasan = esc((b.kawasan || '—').toString());
+    return '<tr>'
+      + '<td><div class="td-shop">' + name.slice(0, 22) + '</div></td>'
+      + '<td class="td-cell" title="' + email + '">' + email.slice(0, 28) + '</td>'
+      + '<td class="td-cell">' + kawasan + '</td>'
+      + '<td class="td-cell">' + fmtDate(b.created_at) + '</td>'
+      + '<td class="td-r"><button class="act-btn ab-r" onclick="adminDelete(\'buyer\',\'' + esc(b.id) + '\',\'' + name.slice(0, 20) + '\')">Padam</button></td>'
+      + '</tr>';
   }).join('');
   setHtml('buyers-tbody', html);
 }
 
+/* ── Render: Testimoni ───────────────────────────────────────────────────────── */
+
 function renderTesti() {
   if (!_data) return;
-
-  var sellers = _data.sellers || [];
   var sellerMap = {};
-  sellers.forEach(function(s){ sellerMap[s.id] = s.shop_name || s.name || '-'; });
-
-  if (_testiFilter === 'deleted') {
-    var deleted = _data.deletedTestimonials || [];
-    setText('testi-count', deleted.length + ' dipadam');
-    if (!deleted.length) {
-      setHtml('testi-tbody', '<tr><td colspan="6" style="text-align:center;color:rgba(240,240,240,0.3);padding:28px 16px;font-size:14px;">Tiada data</td></tr>');
-      return;
-    }
-    var html = deleted.map(function(t) {
-      var shop = (sellerMap[t.seller_id] || '-').toString().slice(0,16);
-      var buyer = (t.buyer_name || '-').toString().slice(0,16);
-      var content = (t.content || '-').toString().slice(0,28);
-      var deletedAt = t.deleted_at ? new Date(t.deleted_at).toLocaleDateString('ms-MY',{day:'numeric',month:'short',year:'2-digit'}) : '-';
-      var restoreBtn = '<button class="act-btn btn-green" title="Pulihkan" onclick="'+adminActionCall('testimonial', t.id, 'restore')+'">Pulih</button>';
-      return '<tr style="opacity:0.6;">' +
-        '<td class="td-cell">'+buyer+'</td><td class="td-cell">'+shop+'</td>' +
-        '<td class="td-name" title="'+(t.content||'')+'">'+content+'</td>' +
-        '<td class="td-center" style="color:rgba(240,240,240,0.3);font-size:11px;">'+deletedAt+'</td>' +
-        '<td class="td-center"><span class="status-pill pill-deleted">dipadam</span></td>' +
-        '<td class="td-actions">'+restoreBtn+'</td></tr>';
-    }).join('');
-    setHtml('testi-tbody', html);
-    return;
-  }
-
+  (_data.sellers || []).forEach(function(s) { sellerMap[s.id] = s.shop_name || s.name || '—'; });
   var all = _data.testimonials || [];
-  var filtered;
-  if (_testiFilter === 'pending') {
-    filtered = all.filter(function(t){ return !t.is_approved; });
-  } else if (_testiFilter === 'approved') {
-    filtered = all.filter(function(t){ return t.is_approved; });
-  } else {
-    filtered = all;
-  }
+  var filtered = _testiFilter === 'pending' ? all.filter(function(t) { return !t.is_approved; })
+    : _testiFilter === 'approved' ? all.filter(function(t) { return t.is_approved; })
+    : all;
   setText('testi-count', filtered.length + ' rekod');
   if (!filtered.length) {
-    setHtml('testi-tbody', '<tr><td colspan="6" style="text-align:center;color:rgba(240,240,240,0.3);padding:28px 16px;font-size:14px;">Tiada data</td></tr>');
+    setHtml('testi-tbody', '<tr><td colspan="7" class="td-empty">Tiada data</td></tr>');
     return;
   }
   var html = filtered.map(function(t) {
-    var shop = (sellerMap[t.seller_id] || '-').toString().slice(0,16);
-    var buyer = (t.buyer_name || '-').toString().slice(0,16);
-    var content = (t.content || '-').toString().slice(0,30);
+    var shop = esc((sellerMap[t.seller_id] || '—').toString().slice(0, 18));
+    var buyer = esc((t.buyer_name || '—').toString().slice(0, 18));
+    var content = esc((t.content || '—').toString().slice(0, 35));
     var stars = '';
-    for (var i = 0; i < (t.rating || 0); i++) stars += '*';
-    var rating = stars || '-';
-    var approved = t.is_approved
-      ? '<span style="color:#acd036;font-weight:700;font-size:11px;">Lulus</span>'
-      : '<span style="color:#f0c040;font-weight:700;font-size:11px;">Pending</span>';
-    var approveBtn = !t.is_approved ? '<button class="act-btn btn-green" onclick="'+adminActionCall('testimonial', t.id, 'approve')+'">OK</button>' : '';
-    var delBtn = '<button class="act-btn btn-red" onclick="'+adminDeleteCall('testimonial', t.id, 'testimoni')+'">Del</button>';
-    return '<tr><td class="td-cell">'+buyer+'</td><td class="td-cell">'+shop+'</td>' +
-      '<td class="td-name" title="'+(t.content||'')+'">'+content+'</td>' +
-      '<td class="td-center" style="color:#f0c040;font-size:13px;">'+rating+'</td>' +
-      '<td class="td-center">'+approved+'</td>' +
-      '<td class="td-actions">'+approveBtn+delBtn+'</td></tr>';
+    for (var i = 0; i < (t.rating || 0); i++) stars += '&#9733;';
+    var statusBadge = t.is_approved
+      ? '<span class="pill p-active" style="font-size:10px;">Lulus</span>'
+      : '<span class="pill p-pending" style="font-size:10px;">Pending</span>';
+    var approveBtn = !t.is_approved
+      ? '<button class="act-btn ab-g" onclick="adminAction(\'testimonial\',\'' + esc(t.id) + '\',\'approve\')">Lulus</button>' : '';
+    var delBtn = '<button class="act-btn ab-r" onclick="adminDelete(\'testimonial\',\'' + esc(t.id) + '\',\'testimoni\')">Padam</button>';
+    return '<tr>'
+      + '<td class="td-cell">' + buyer + '</td>'
+      + '<td class="td-cell">' + shop + '</td>'
+      + '<td style="max-width:200px;color:rgba(240,240,240,0.55);font-size:13px;" title="' + esc(t.content || '') + '">' + content + (t.content && t.content.length > 35 ? '…' : '') + '</td>'
+      + '<td class="td-c" style="color:#f0c040;font-size:13px;">' + (stars || '—') + '</td>'
+      + '<td class="td-c">' + statusBadge + '</td>'
+      + '<td class="td-cell">' + fmtDate(t.created_at) + '</td>'
+      + '<td class="td-r">' + approveBtn + delBtn + '</td>'
+      + '</tr>';
   }).join('');
   setHtml('testi-tbody', html);
 }
+
+/* ── Render: Saved Shops ─────────────────────────────────────────────────────── */
 
 function renderSaved() {
   if (!_data) return;
   var saved = _data.savedShops || [];
   setText('saved-count', saved.length + ' rekod');
   if (!saved.length) {
-    setHtml('saved-tbody', '<tr><td colspan="3" style="text-align:center;color:rgba(240,240,240,0.3);padding:28px 16px;font-size:14px;">Tiada data</td></tr>');
+    setHtml('saved-tbody', '<tr><td colspan="3" class="td-empty">Tiada data</td></tr>');
     return;
   }
   var html = saved.map(function(row) {
-    var buyer = (row.buyer_display || row.buyer_id || '-').toString().slice(0,22);
-    var shop = (row.shop_display || row.shop_id || '-').toString().slice(0,22);
-    var created = row.created_at ? new Date(row.created_at).toLocaleDateString('ms-MY',{day:'numeric',month:'short',year:'2-digit'}) : '-';
-    return '<tr><td class="td-cell">'+buyer+'</td><td class="td-cell">'+shop+'</td><td class="td-cell">'+created+'</td></tr>';
+    var buyer = esc((row.buyer_display || row.buyer_id || '—').toString().slice(0, 26));
+    var shop = esc((row.shop_display || row.shop_id || '—').toString().slice(0, 26));
+    return '<tr>'
+      + '<td class="td-cell">' + buyer + '</td>'
+      + '<td class="td-cell">' + shop + '</td>'
+      + '<td class="td-cell">' + fmtDate(row.created_at) + '</td>'
+      + '</tr>';
   }).join('');
   setHtml('saved-tbody', html);
 }
 
+/* ── Render: Platform Stats ──────────────────────────────────────────────────── */
+
 function renderStats() {
   if (!_data || !_data.stats) return;
   var s = _data.stats;
-  setText('ps-reg-users', s.totalRegisteredUsers || ((s.totalSellers || 0) + (s.totalBuyers || 0)));
+  setText('ps-reg-users', s.totalSellers + s.totalBuyers);
   setText('ps-sellers', s.totalSellers || 0);
   setText('ps-buyers', s.totalBuyers || 0);
   setText('ps-testi', s.totalTestimonials || 0);
@@ -285,195 +361,157 @@ function renderStats() {
   setText('ps-b-baharu', s.sellersByBadge.seller_baharu || 0);
   setText('ps-b-aktif', s.sellersByBadge.seller_aktif || 0);
   setText('ps-b-verified', s.sellersByBadge.verified || 0);
+
   var sb = s.sellersByStatus;
   setHtml('ps-sellers-detail',
-    '<div class="sc-line" style="color:#acd036;">* '+sb.active+' Aktif</div>' +
-    '<div class="sc-line" style="color:#f0c040;">* '+sb.pending+' Pending</div>' +
-    '<div class="sc-line" style="color:#f06060;">* '+sb.suspended+' Suspended</div>'
+    '<div class="ps-line" style="color:#acd036;">&#9679; ' + sb.active + ' Aktif</div>'
+    + '<div class="ps-line" style="color:#f0c040;">&#9679; ' + sb.pending + ' Pending</div>'
+    + '<div class="ps-line" style="color:#f06060;">&#9679; ' + sb.suspended + ' Suspended</div>'
   );
+
   var areas = s.sellersByArea || [];
   var max = areas.length ? areas[0].count : 1;
-  var areaHtml = areas.slice(0,8).map(function(a) {
+  var areaHtml = areas.slice(0, 10).map(function(a) {
     var pct = Math.round((a.count / max) * 100);
-    return '<div class="area-card">' +
-      '<div class="area-row"><span class="area-name">'+a.area+'</span><span class="area-count">'+a.count+' seller</span></div>' +
-      '<div class="area-bar"><div class="area-fill" style="width:'+pct+'%"></div></div>' +
-      '</div>';
+    return '<div class="area-item">'
+      + '<div class="area-name" title="' + esc(a.area) + '">' + esc(a.area) + '</div>'
+      + '<div class="area-outer"><div class="area-fill" style="width:' + pct + '%"></div></div>'
+      + '<div class="area-count">' + esc(a.count) + ' seller</div>'
+      + '</div>';
   }).join('');
-  if (!areaHtml) areaHtml = '<div style="text-align:center;color:rgba(240,240,240,0.3);padding:28px 16px;font-size:14px;">Tiada data</div>';
-  setHtml('area-bars', areaHtml);
+  setHtml('area-bars', areaHtml || '<div style="text-align:center;color:rgba(240,240,240,0.2);padding:20px;font-size:13px;">Tiada data</div>');
+
   renderRegistrationChart(_data.sellers || [], _data.buyers || []);
 }
 
 function renderRegistrationChart(sellers, buyers) {
   var now = new Date();
   var months = [];
-  var i;
-  for (i = 5; i >= 0; i--) {
+  for (var i = 5; i >= 0; i--) {
     var d = new Date(now.getFullYear(), now.getMonth() - i, 1);
     var key = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0');
     months.push({ label: d.toLocaleDateString('ms-MY', { month: 'short' }), key: key, s: 0, b: 0 });
   }
   var idx = {};
-  months.forEach(function(m, j){ idx[m.key] = j; });
-  sellers.forEach(function(s){ if (!s.created_at) return; var k = s.created_at.slice(0,7); if (idx[k] !== undefined) months[idx[k]].s++; });
-  buyers.forEach(function(b){ if (!b.created_at) return; var k = b.created_at.slice(0,7); if (idx[k] !== undefined) months[idx[k]].b++; });
-  var maxVals = months.map(function(m){ return Math.max(m.s, m.b); });
-  var maxVal = Math.max.apply(null, [1].concat(maxVals));
+  months.forEach(function(m, j) { idx[m.key] = j; });
+  sellers.forEach(function(s) {
+    if (!s.created_at) return;
+    var k = s.created_at.slice(0, 7);
+    if (idx[k] !== undefined) months[idx[k]].s++;
+  });
+  buyers.forEach(function(b) {
+    if (!b.created_at) return;
+    var k = b.created_at.slice(0, 7);
+    if (idx[k] !== undefined) months[idx[k]].b++;
+  });
+  var maxVal = Math.max(1, Math.max.apply(null, months.map(function(m) { return Math.max(m.s, m.b); })));
   var html = months.map(function(m) {
     var sp = Math.max(2, Math.round((m.s / maxVal) * 90));
     var bp = Math.max(2, Math.round((m.b / maxVal) * 90));
-    return '<div class="chart-col">' +
-      '<div class="chart-bar-group">' +
-        '<div class="chart-bar-wrap"><div class="chart-bar bar-seller" style="height:'+sp+'px;" title="'+m.s+' seller"></div></div>' +
-        '<div class="chart-bar-wrap"><div class="chart-bar bar-buyer" style="height:'+bp+'px;" title="'+m.b+' buyer"></div></div>' +
-      '</div>' +
-      '<div class="chart-lbl">'+m.label+'</div>' +
-    '</div>';
+    return '<div class="chart-col">'
+      + '<div class="chart-bg">'
+      + '<div class="chart-bw"><div class="chart-b sl" style="height:' + sp + 'px;" title="' + m.s + ' seller"></div></div>'
+      + '<div class="chart-bw"><div class="chart-b by" style="height:' + bp + 'px;" title="' + m.b + ' buyer"></div></div>'
+      + '</div>'
+      + '<div class="chart-lbl">' + m.label + '</div>'
+      + '</div>';
   }).join('');
-  setHtml('reg-chart', html || '<div style="color:rgba(240,240,240,0.3);font-size:13px;padding:20px 0;">Tiada data</div>');
+  setHtml('reg-chart', html || '<div style="color:rgba(240,240,240,0.2);font-size:12px;padding:20px 0;text-align:center;">Tiada data</div>');
 }
 
-function showAdminError(msg) {
-  var errEl = document.getElementById('admin-error-banner');
-  if (errEl) { errEl.textContent = '[ERROR] ' + msg; errEl.style.display = 'block'; }
-  var errRow = '<tr><td colspan="7" style="text-align:center;color:#f06060;padding:20px;font-size:13px;">[ERROR] ' + msg + '</td></tr>';
-  setHtml('sellers-tbody', errRow);
-  setHtml('buyers-tbody', errRow);
-  setHtml('testi-tbody', errRow);
-  setHtml('saved-tbody', errRow);
+/* ── Edit Seller Modal ────────────────────────────────────────────────────────── */
+
+function openEditSeller(id) {
+  if (!_data) return;
+  var seller = (_data.sellers || []).find(function(s) { return s.id === id; });
+  if (!seller) { alert('Seller tidak dijumpai.'); return; }
+
+  var get = function(fid) { return document.getElementById(fid); };
+  get('edit-seller-id').value = seller.id || '';
+  get('edit-shop-name').value = seller.shop_name || seller.name || '';
+  get('edit-description').value = seller.description || '';
+  get('edit-logo-url').value = seller.logo_url || '';
+  get('edit-whatsapp').value = seller.whatsapp_number || '';
+  get('edit-kawasan').value = seller.kawasan || '';
+  get('edit-postcode').value = seller.postcode || '';
+  get('edit-is-open').checked = !!seller.is_open;
+
+  document.getElementById('edit-modal').classList.add('open');
 }
 
-function loadAdminData() {
-  fetch('/api/admin/moderation', { cache: 'no-store' })
-    .then(function(r){
-      if (!r.ok) {
-        return r.json().then(function(d){ throw new Error(d.error || 'HTTP ' + r.status); });
-      }
-      return r.json();
-    })
-    .then(function(data) {
-      if (data.error) { showAdminError(data.error); return; }
-      var errEl = document.getElementById('admin-error-banner');
-      if (errEl) errEl.style.display = 'none';
-      _data = data;
-      setText('st-active', data.stats.sellersByStatus.active);
-      setText('st-pending', data.stats.sellersByStatus.pending);
-      setText('st-buyers', data.stats.totalBuyers);
-      setText('st-review', (data.pendingTestimonials || []).length + (data.complaints || []).length);
-      renderSellers();
-      renderBuyers();
-      renderTesti();
-      renderSaved();
-      renderStats();
-    })
-    .catch(function(e){ showAdminError(e.message || 'Ralat rangkaian'); });
+function closeEditSeller() {
+  document.getElementById('edit-modal').classList.remove('open');
 }
 
-function loadDbTable(table) {
-  if (!table) return;
-  _dbTable = table;
-  setHtml('db-info', 'Memuatkan ' + table + '...');
-  setHtml('db-content', '');
-  fetch('/api/admin/database?table=' + encodeURIComponent(table) + '&limit=50')
-    .then(function(r){ return r.json(); })
-    .then(function(data) {
-      if (data.error) { setHtml('db-info', 'Ralat: ' + data.error); return; }
-      var rows = data.rows || [];
-      setHtml('db-info', table + ' - ' + data.count + ' rekod (paparan: ' + rows.length + ')');
-      if (!rows.length) {
-        setHtml('db-content', '<div style="text-align:center;color:rgba(240,240,240,0.3);padding:28px 16px;font-size:14px;">Jadual kosong</div>');
-        return;
-      }
-      var cols = Object.keys(rows[0]);
-      var html = '<div class="tbl-wrap"><table class="tbl"><thead><tr>';
-      cols.forEach(function(c){ html += '<th>'+c+'</th>'; });
-      html += '<th>Del</th></tr></thead><tbody>';
-      rows.forEach(function(row) {
-        html += '<tr>';
-        cols.forEach(function(col) {
-          var val = row[col];
-          var display;
-          if (val === null || val === undefined) {
-            display = '-';
-          } else if (typeof val === 'boolean') {
-            display = val ? 'true' : 'false';
-          } else if (typeof val === 'object') {
-            display = JSON.stringify(val).slice(0,30);
-          } else {
-            display = String(val).slice(0,40);
-          }
-          html += '<td class="td-cell" title="'+String(row[col]||'')+'">'+display+'</td>';
-        });
-        html += '<td><button class="act-btn btn-red" data-id="'+row.id+'" onclick="deleteDbRow(this.dataset.id)">Del</button></td></tr>';
-      });
-      html += '</tbody></table></div>';
-      setHtml('db-content', html);
-    })
-    .catch(function(e){ setHtml('db-info', 'Ralat: ' + e.message); });
-}
+function submitEditSeller() {
+  var id = (document.getElementById('edit-seller-id') || {}).value;
+  if (!id) return;
 
-function deleteDbRow(id) {
-  if (!_dbTable) { alert('Pilih jadual dahulu.'); return; }
-  if (!confirm('Padam rekod ini dari ' + _dbTable + '?')) return;
-  fetch('/api/admin/database', {
-    method: 'POST',
-    headers: {'Content-Type':'application/json'},
-    body: JSON.stringify({ action: 'delete_row', table: _dbTable, id: id })
-  }).then(function(r){ return r.json(); }).then(function(d){
+  var shopName = ((document.getElementById('edit-shop-name') || {}).value || '').trim();
+  if (!shopName) { alert('Nama kedai diperlukan.'); return; }
+
+  var payload = {
+    id: id,
+    shop_name: shopName,
+    description: ((document.getElementById('edit-description') || {}).value || '').trim() || null,
+    logo_url: ((document.getElementById('edit-logo-url') || {}).value || '').trim() || null,
+    whatsapp_number: ((document.getElementById('edit-whatsapp') || {}).value || '').trim() || null,
+    kawasan: ((document.getElementById('edit-kawasan') || {}).value || '').trim() || null,
+    postcode: ((document.getElementById('edit-postcode') || {}).value || '').trim() || null,
+    is_open: !!(document.getElementById('edit-is-open') || {}).checked,
+  };
+
+  var btn = document.querySelector('#edit-modal .btn-submit');
+  if (btn) { btn.textContent = 'Menyimpan...'; btn.disabled = true; }
+
+  fetch('/api/admin/edit-seller', {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload)
+  }).then(function(r) { return r.json(); }).then(function(d) {
+    if (btn) { btn.textContent = 'Simpan Perubahan'; btn.disabled = false; }
     if (d.error) { alert('Ralat: ' + d.error); return; }
-    loadDbTable(_dbTable);
-  }).catch(function(e){ alert('Ralat: ' + e.message); });
-}
-
-function clearDbTable() {
-  if (!_dbTable) { alert('Pilih jadual dahulu.'); return; }
-  if (!confirm('AMARAN: Ini akan MEMADAM SEMUA rekod dari jadual "' + _dbTable + '". Tindakan ini tidak boleh dibatalkan. Teruskan?')) return;
-  if (!confirm('Sahkan sekali lagi: Padam SEMUA rekod dari "' + _dbTable + '"?')) return;
-  var confirmToken = 'CLEAR_' + _dbTable.toUpperCase();
-  fetch('/api/admin/database', {
-    method: 'POST',
-    headers: {'Content-Type':'application/json'},
-    body: JSON.stringify({ action: 'clear_table', table: _dbTable, confirm: confirmToken })
-  }).then(function(r){ return r.json(); }).then(function(d){
-    if (d.error) { alert('Ralat: ' + d.error); return; }
-    alert('Semua rekod dari "' + _dbTable + '" telah dipadam.');
-    loadDbTable(_dbTable);
+    closeEditSeller();
     loadAdminData();
-  }).catch(function(e){ alert('Ralat: ' + e.message); });
+  }).catch(function(e) {
+    if (btn) { btn.textContent = 'Simpan Perubahan'; btn.disabled = false; }
+    alert('Ralat rangkaian: ' + e.message);
+  });
 }
+
+/* ── Manual Onboard Modal ─────────────────────────────────────────────────────── */
 
 function openManualForm() {
-  var modal = document.getElementById('manual-modal');
-  if (modal) modal.classList.add('open');
+  document.getElementById('manual-modal').classList.add('open');
 }
 
 function closeManualForm() {
-  var modal = document.getElementById('manual-modal');
-  if (modal) modal.classList.remove('open');
-  var fields = ['mo-email','mo-shop','mo-taman','mo-phone','mo-kawasan','mo-postcode'];
-  fields.forEach(function(fid) {
+  document.getElementById('manual-modal').classList.remove('open');
+  ['mo-email', 'mo-shop', 'mo-taman', 'mo-phone', 'mo-kawasan', 'mo-postcode'].forEach(function(fid) {
     var el = document.getElementById(fid);
     if (el) el.value = '';
   });
 }
 
 function submitManualOnboard() {
-  var email    = (document.getElementById('mo-email')    || {value:''}).value.trim();
-  var shopName = (document.getElementById('mo-shop')     || {value:''}).value.trim();
-  var taman    = (document.getElementById('mo-taman')    || {value:''}).value.trim();
-  var phone    = (document.getElementById('mo-phone')    || {value:''}).value.trim();
-  var kawasan  = (document.getElementById('mo-kawasan')  || {value:''}).value.trim();
-  var postcode = (document.getElementById('mo-postcode') || {value:''}).value.trim();
+  var email    = ((document.getElementById('mo-email')    || {}).value || '').trim();
+  var shopName = ((document.getElementById('mo-shop')     || {}).value || '').trim();
+  var taman    = ((document.getElementById('mo-taman')    || {}).value || '').trim();
+  var phone    = ((document.getElementById('mo-phone')    || {}).value || '').trim();
+  var kawasan  = ((document.getElementById('mo-kawasan')  || {}).value || '').trim();
+  var postcode = ((document.getElementById('mo-postcode') || {}).value || '').trim();
 
   if (!email || !shopName || !taman || !phone) {
     alert('Sila lengkapkan: Email Google, Nama Kedai, Taman dan No. WhatsApp.');
     return;
   }
 
+  var btn = document.querySelector('#manual-modal .btn-submit');
+  if (btn) { btn.textContent = 'Mendaftar...'; btn.disabled = true; }
+
   fetch('/api/admin/manual-onboard', {
     method: 'POST',
-    headers: {'Content-Type': 'application/json'},
+    headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
       email: email,
       shop_name: shopName,
@@ -482,23 +520,199 @@ function submitManualOnboard() {
       kawasan: kawasan || taman,
       postcode: postcode || '00000'
     })
-  }).then(function(r){ return r.json(); })
+  }).then(function(r) { return r.json(); })
   .then(function(d) {
+    if (btn) { btn.textContent = 'Daftar Seller (Pending)'; btn.disabled = false; }
     if (d.error) { alert('Ralat: ' + d.error); return; }
-    var msg = 'Penjual berjaya didaftarkan! (Status: Pending)\n\nID: ' + d.sellerId;
+    var msg = 'Seller berjaya didaftarkan! (Status: Pending)\n\nID: ' + d.sellerId;
     if (d.linked) {
-      msg += '\n\nAkaun Google berjaya dikaitkan.';
+      msg += '\n\nAkaun Google berjaya dikaitkan. Seller boleh log masuk dan tunggu kelulusan.';
     } else {
-      msg += '\n\nEmail tidak dijumpai dalam sistem. Penjual perlu log masuk dengan Google sekali untuk mengaktifkan pautan akaun.';
+      msg += '\n\nEmail tidak dijumpai dalam sistem. Seller perlu log masuk dengan Google sekali untuk mengaktifkan pautan akaun.';
     }
     alert(msg);
     closeManualForm();
     loadAdminData();
-  })
-  .catch(function(e){ alert('Ralat rangkaian: ' + e.message); });
+  }).catch(function(e) {
+    if (btn) { btn.textContent = 'Daftar Seller (Pending)'; btn.disabled = false; }
+    alert('Ralat rangkaian: ' + e.message);
+  });
 }
 
-// Init — run after DOM ready
+/* ── Database Tab ─────────────────────────────────────────────────────────────── */
+
+function loadDbTable(table) {
+  if (!table) return;
+  _dbTable = table;
+  setHtml('db-info', 'Memuatkan ' + table + '...');
+  setHtml('db-content', '');
+  fetch('/api/admin/database?table=' + encodeURIComponent(table) + '&limit=100')
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+      if (data.error) { setHtml('db-info', '<span style="color:#f06060;">Ralat: ' + esc(data.error) + '</span>'); return; }
+      var rows = data.rows || [];
+      setHtml('db-info', table + ' — ' + data.count + ' jumlah rekod (paparan: ' + rows.length + ')');
+      if (!rows.length) {
+        setHtml('db-content', '<div style="text-align:center;color:rgba(240,240,240,0.2);padding:44px 16px;font-size:14px;">Jadual kosong</div>');
+        return;
+      }
+      var cols = Object.keys(rows[0]);
+      var html = '<div class="tbl-wrap"><table class="tbl" style="min-width:none;"><thead><tr>';
+      cols.forEach(function(c) { html += '<th>' + esc(c) + '</th>'; });
+      html += '<th>Del</th></tr></thead><tbody>';
+      rows.forEach(function(row) {
+        html += '<tr>';
+        cols.forEach(function(col) {
+          var val = row[col];
+          var display;
+          if (val === null || val === undefined) display = '<span style="color:rgba(240,240,240,0.2);">null</span>';
+          else if (typeof val === 'boolean') display = val
+            ? '<span style="color:#acd036;">true</span>'
+            : '<span style="color:rgba(240,240,240,0.3);">false</span>';
+          else if (typeof val === 'object') display = '<span style="color:rgba(240,240,240,0.4);font-size:11px;">' + esc(JSON.stringify(val).slice(0, 32)) + '…</span>';
+          else display = esc(String(val).slice(0, 45));
+          html += '<td class="td-cell" title="' + esc(String(row[col] || '')) + '">' + display + '</td>';
+        });
+        html += '<td><button class="act-btn ab-r" data-id="' + esc(row.id) + '" onclick="deleteDbRow(this.dataset.id)">Del</button></td></tr>';
+      });
+      html += '</tbody></table></div>';
+      setHtml('db-content', html);
+    })
+    .catch(function(e) { setHtml('db-info', '<span style="color:#f06060;">Ralat: ' + esc(e.message) + '</span>'); });
+}
+
+function deleteDbRow(id) {
+  if (!_dbTable) { alert('Pilih jadual dahulu.'); return; }
+  if (!confirm('Padam rekod ini dari ' + _dbTable + '?')) return;
+  fetch('/api/admin/database', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ action: 'delete_row', table: _dbTable, id: id })
+  }).then(function(r) { return r.json(); }).then(function(d) {
+    if (d.error) { alert('Ralat: ' + d.error); return; }
+    loadDbTable(_dbTable);
+  }).catch(function(e) { alert('Ralat: ' + e.message); });
+}
+
+function clearDbTable() {
+  if (!_dbTable) { alert('Pilih jadual dahulu.'); return; }
+  if (!confirm('AMARAN: Ini akan MEMADAM SEMUA rekod dari jadual "' + _dbTable + '". Tindakan tidak boleh dibatalkan. Teruskan?')) return;
+  if (!confirm('Sahkan sekali lagi: Padam SEMUA dari "' + _dbTable + '"?')) return;
+  fetch('/api/admin/database', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ action: 'clear_table', table: _dbTable, confirm: 'CLEAR_' + _dbTable.toUpperCase() })
+  }).then(function(r) { return r.json(); }).then(function(d) {
+    if (d.error) { alert('Ralat: ' + d.error); return; }
+    alert('Semua rekod dari "' + _dbTable + '" telah dipadam.');
+    loadDbTable(_dbTable);
+    loadAdminData();
+  }).catch(function(e) { alert('Ralat: ' + e.message); });
+}
+
+/* ── Export CSV ───────────────────────────────────────────────────────────────── */
+
+function exportSellersCSV() {
+  if (!_data || !_data.sellers || !_data.sellers.length) {
+    alert('Tiada data seller untuk diexport.');
+    return;
+  }
+  var sellers = _data.sellers;
+  var cols = ['id', 'shop_name', 'email', 'kawasan', 'postcode', 'status', 'badge', 'is_open', 'qr_downloads', 'created_at'];
+  var rows = [cols.join(',')];
+  sellers.forEach(function(s) {
+    rows.push(cols.map(function(c) {
+      var v = s[c];
+      if (v == null) return '';
+      var str = String(v);
+      if (str.indexOf(',') !== -1 || str.indexOf('"') !== -1 || str.indexOf('\n') !== -1) {
+        return '"' + str.replace(/"/g, '""') + '"';
+      }
+      return str;
+    }).join(','));
+  });
+  var blob = new Blob([rows.join('\n')], { type: 'text/csv;charset=utf-8;' });
+  var url = URL.createObjectURL(blob);
+  var a = document.createElement('a');
+  a.href = url;
+  a.download = 'lokalgo-sellers-' + new Date().toISOString().slice(0, 10) + '.csv';
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
+/* ── Error handling ───────────────────────────────────────────────────────────── */
+
+function showAdminError(msg) {
+  var errEl = document.getElementById('admin-error-banner');
+  if (errEl) { errEl.textContent = 'RALAT: ' + msg; errEl.style.display = 'block'; }
+  var errRow = '<tr><td colspan="8" style="text-align:center;color:#f06060;padding:24px;font-size:13px;">Ralat: ' + esc(msg) + '</td></tr>';
+  setHtml('sellers-tbody', errRow);
+  setHtml('buyers-tbody', errRow);
+  setHtml('testi-tbody', errRow);
+  setHtml('saved-tbody', errRow);
+}
+
+/* ── Load all admin data ──────────────────────────────────────────────────────── */
+
+function loadAdminData() {
+  setText('top-sub', 'Memuatkan...');
+  fetch('/api/admin/moderation', { cache: 'no-store' })
+    .then(function(r) {
+      if (!r.ok) return r.json().then(function(d) { throw new Error(d.error || 'HTTP ' + r.status); });
+      return r.json();
+    })
+    .then(function(data) {
+      if (data.error) { showAdminError(data.error); return; }
+
+      var errEl = document.getElementById('admin-error-banner');
+      if (errEl) errEl.style.display = 'none';
+
+      _data = data;
+
+      // Top stats
+      var s = data.stats;
+      setText('st-active', s.sellersByStatus.active);
+      setText('st-pending', s.sellersByStatus.pending);
+      setText('st-buyers', s.totalBuyers);
+      setText('st-review', (data.pendingTestimonials || []).length + (data.complaints || []).length);
+
+      // Nav badges
+      var nbPending = document.getElementById('nb-pending');
+      if (nbPending) {
+        if (s.sellersByStatus.pending > 0) {
+          nbPending.textContent = s.sellersByStatus.pending;
+          nbPending.style.display = 'inline';
+        } else {
+          nbPending.style.display = 'none';
+        }
+      }
+      var nbTesti = document.getElementById('nb-testi');
+      if (nbTesti) {
+        var pt = (data.pendingTestimonials || []).length;
+        if (pt > 0) {
+          nbTesti.textContent = pt;
+          nbTesti.style.display = 'inline';
+        } else {
+          nbTesti.style.display = 'none';
+        }
+      }
+
+      // Timestamp
+      setText('top-sub', 'Kemaskini: ' + new Date().toLocaleTimeString('ms-MY'));
+
+      renderDashboard();
+      renderSellers();
+      renderBuyers();
+      renderTesti();
+      renderSaved();
+      renderStats();
+    })
+    .catch(function(e) { showAdminError(e.message || 'Ralat rangkaian'); });
+}
+
+// Init
 if (document.readyState === 'loading') {
   document.addEventListener('DOMContentLoaded', loadAdminData);
 } else {
