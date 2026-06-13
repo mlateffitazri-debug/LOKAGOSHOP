@@ -572,9 +572,13 @@ export default function Page() {
           const label = document.querySelector<HTMLElement>(`[data-mode-label="${id}"]`)
           if (label) label.textContent = `● ${productModeLabel(flags)}`
           try {
+            const { data: { session } } = await supabase.auth.getSession()
             const res = await fetch('/api/seller/product-toggle', {
               method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
+              headers: {
+                'Content-Type': 'application/json',
+                ...(session?.access_token ? { 'Authorization': `Bearer ${session.access_token}` } : {}),
+              },
               body: JSON.stringify({ productId: id, field, value: toggle.checked }),
             })
             if (!res.ok) throw new Error('toggle failed')
