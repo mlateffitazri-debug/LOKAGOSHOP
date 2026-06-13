@@ -2,6 +2,7 @@
   "name": "LokalGo™ Shop",
   "short_name": "LokalGo",
   "description": "Platform perniagaan lokal setempat",
+  "scope": "/",
   "start_url": "/home",
   "display": "standalone",
   "background_color": "#7B1533",
