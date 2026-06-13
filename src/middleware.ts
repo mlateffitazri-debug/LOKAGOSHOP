@@ -57,7 +57,8 @@ export async function middleware(request: NextRequest) {
     pathname.startsWith('/desktop-only') ||
     pathname.startsWith('/adminhensemonly') ||
     pathname.startsWith('/api/') ||
-    pathname.startsWith('/_next/')
+    pathname.startsWith('/_next/') ||
+    /\.(?:js|css|json|ico|woff2?|ttf|eot|map|txt|xml)$/.test(pathname)
 
   // Dev sahaja: benarkan desktop browser untuk preview/testing tempatan
   if (process.env.NODE_ENV !== 'development' && !isExcluded && !isMobile(request)) {
