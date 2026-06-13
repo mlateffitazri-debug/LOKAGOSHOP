@@ -153,6 +153,20 @@ function firstInitial(name: string) {
   return name.trim().charAt(0).toUpperCase() || 'L'
 }
 
+function readCoord(val: number | string | null | undefined): number | null {
+  if (val == null || val === '') return null
+  const n = typeof val === 'number' ? val : parseFloat(val as string)
+  return isFinite(n) ? n : null
+}
+
+function haversineKm(lat1: number, lng1: number, lat2: number, lng2: number): number {
+  const R = 6371
+  const dLat = (lat2 - lat1) * Math.PI / 180
+  const dLng = (lng2 - lng1) * Math.PI / 180
+  const a = Math.sin(dLat / 2) ** 2 + Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * Math.sin(dLng / 2) ** 2
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))
+}
+
 function renderAvatar(profile: HomeProfile | null) {
   if (!profile) return '<span class="home-avatar-initial">L</span>'
   const safeAvatar = safeImageUrl(profile.avatarUrl)
@@ -278,6 +292,7 @@ function renderHomeMarkup(
   savedShopIds: Set<string>,
   sellerCategories: Map<string, string[]>,
   selectedCategory: string | null,
+  locationLabel: string | null,
 ) {
   const avatarHtml = profile?.avatarUrl
     ? `<img src="${escapeHtml(profile.avatarUrl)}" alt="${escapeHtml(profile.name)}">`
@@ -298,7 +313,7 @@ function renderHomeMarkup(
       <button class="home-avatar" aria-label="Buka menu profil">${avatarHtml}</button>
     </div>
   </div>
-  <div class="header-sub"><span data-i18n="tagline">${copy('tagline', lang)}</span></div>
+  <div class="header-sub"><span data-i18n="tagline">${copy('tagline', lang)}</span>${locationLabel ? ` &nbsp;·&nbsp; <span style="font-size:10px;color:rgba(255,255,255,0.75)">${escapeHtml(locationLabel)}</span>` : ''}</div>
   <div class="header-r2">
     <div class="search-wrap">
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#aaa" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
@@ -372,7 +387,10 @@ function SidebarLink({ href, icon, label }: { href: string; icon: React.ReactNod
 
 export default function HomePage() {
   const { lang, toggle } = useLang()
-  const [sellers, setSellers] = useState<Seller[]>([])
+  const [allSellers, setAllSellers] = useState<Seller[]>([])
+  const [userLocation, setUserLocation] = useState<{ lat: number; lng: number } | null>(null)
+  const [locationMode, setLocationMode] = useState<'gps' | 'kawasan' | 'all'>('all')
+  const [buyerKawasan, setBuyerKawasan] = useState<string | null>(null)
   const [sellerCategories, setSellerCategories] = useState<Map<string, string[]>>(new Map())
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null)
   const [profile, setProfile] = useState<HomeProfile | null>(null)
@@ -385,9 +403,44 @@ export default function HomePage() {
   const [toast, setToast] = useState<string | null>(null)
   const [approvalSeller, setApprovalSeller] = useState<{ id: string; shopName: string } | null>(null)
 
+  const sellers = useMemo(() => {
+    if (allSellers.length === 0) return allSellers
+    if (locationMode === 'gps' && userLocation) {
+      const nearby: Seller[] = []
+      const noPin: Seller[] = []
+      for (const s of allSellers) {
+        const lat = readCoord(s.latitude)
+        const lng = readCoord(s.longitude)
+        if (lat == null || lng == null) { noPin.push(s); continue }
+        if (haversineKm(userLocation.lat, userLocation.lng, lat, lng) <= 50) nearby.push(s)
+      }
+      return [...nearby, ...noPin]
+    }
+    if (locationMode === 'kawasan' && buyerKawasan) {
+      const kw = buyerKawasan.toLowerCase().trim()
+      if (kw && kw !== 'kawasan belum ditetapkan') {
+        const matched = allSellers.filter((s) => {
+          const sk = (s.kawasan ?? '').toLowerCase()
+          const st = (s.taman_name ?? '').toLowerCase()
+          return (sk && (sk.includes(kw) || kw.includes(sk))) || (st && (st.includes(kw) || kw.includes(st)))
+        })
+        if (matched.length > 0) return matched
+      }
+    }
+    return allSellers
+  }, [allSellers, locationMode, userLocation, buyerKawasan])
+
+  const locationLabel = useMemo(() => {
+    if (locationMode === 'gps' && userLocation) return '📍 Sekitar 50km dari anda'
+    if (locationMode === 'kawasan' && buyerKawasan && buyerKawasan !== 'Kawasan belum ditetapkan') {
+      return `📍 Kawasan: ${buyerKawasan}`
+    }
+    return null
+  }, [locationMode, userLocation, buyerKawasan])
+
   const pageInnerMarkup = useMemo(
-    () => renderHomeMarkup(lang, sellers, isLoading, error, profile, savedShopIds, sellerCategories, selectedCategory),
-    [error, isLoading, lang, profile, sellers, savedShopIds, sellerCategories, selectedCategory],
+    () => renderHomeMarkup(lang, sellers, isLoading, error, profile, savedShopIds, sellerCategories, selectedCategory, locationLabel),
+    [error, isLoading, lang, profile, sellers, savedShopIds, sellerCategories, selectedCategory, locationLabel],
   )
 
   useEffect(() => {
@@ -433,6 +486,7 @@ export default function HomePage() {
         kawasan: buyer?.kawasan || 'Kawasan belum ditetapkan',
         avatarUrl: metadataAvatar,
       })
+      setBuyerKawasan(buyer?.kawasan ?? null)
 
       if (buyer?.id) {
         const { data: savedData } = await supabase
@@ -451,7 +505,7 @@ export default function HomePage() {
           .eq('is_open', true)
           .order('approved_at', { ascending: false, nullsFirst: false })
           .order('created_at', { ascending: false })
-          .limit(20),
+          .limit(100),
         supabase
           .from('products')
           .select('seller_id,category')
@@ -463,10 +517,10 @@ export default function HomePage() {
 
       if (sellersRes.error) {
         setError('Tidak dapat memuatkan senarai kedai')
-        setSellers([])
+        setAllSellers([])
       } else {
         const loadedSellers = (sellersRes.data ?? []) as Seller[]
-        setSellers(loadedSellers)
+        setAllSellers(loadedSellers)
 
         // Build map: sellerId → unique sorted categories
         const catMap = new Map<string, string[]>()
@@ -484,6 +538,30 @@ export default function HomePage() {
 
     loadData()
     return () => { cancelled = true }
+  }, [])
+
+  useEffect(() => {
+    if (typeof navigator === 'undefined' || !navigator.geolocation) {
+      setLocationMode('all')
+      return
+    }
+    let lastLat = 0
+    let lastLng = 0
+    const watchId = navigator.geolocation.watchPosition(
+      (pos) => {
+        const { latitude: lat, longitude: lng } = pos.coords
+        const moved = lastLat === 0 ? Infinity : haversineKm(lastLat, lastLng, lat, lng)
+        if (moved >= 1) {
+          lastLat = lat
+          lastLng = lng
+          setUserLocation({ lat, lng })
+          setLocationMode('gps')
+        }
+      },
+      () => setLocationMode('kawasan'),
+      { enableHighAccuracy: false, timeout: 10000, maximumAge: 300000 },
+    )
+    return () => navigator.geolocation.clearWatch(watchId)
   }, [])
 
   function showToast(message: string) {

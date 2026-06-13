@@ -26,6 +26,9 @@ export interface Seller {
   taman_name: string
   profile_image_url: string | null
   pickup_instruction: string | null
+  // Pin GPS kedai dari onboarding step 1 — boleh jadi string (lajur text) atau number
+  latitude?: number | string | null
+  longitude?: number | string | null
   badge: BadgeLevel
   status: ShopStatus
   is_open: boolean
