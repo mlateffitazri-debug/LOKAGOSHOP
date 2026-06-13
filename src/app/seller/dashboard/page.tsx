@@ -716,26 +716,32 @@ export default function Page() {
     const originalToggle = (window as DashboardWindow).toggleShop
     ;(window as DashboardWindow).toggleShop = (checkbox: HTMLInputElement) => {
       originalToggle?.(checkbox)
-      if (currentSeller) {
-        fetch('/api/seller/shop-status', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ is_open: checkbox.checked }),
-        })
-          .then(async (res) => {
-            if (!res.ok) {
-              // Revert UI on failure
-              checkbox.checked = !checkbox.checked
-              originalToggle?.(checkbox)
-              alert('Gagal kemaskini status kedai. Sila cuba lagi.')
-            }
+      if (!currentSeller) return
+      const isOpen = checkbox.checked
+      void (async () => {
+        try {
+          // iOS PWA uses a separate cookie store — pass token explicitly so the
+          // API route can authenticate without relying on cookies from the request
+          const { data: { session } } = await supabase.auth.getSession()
+          const res = await fetch('/api/seller/shop-status', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              ...(session?.access_token ? { 'Authorization': `Bearer ${session.access_token}` } : {}),
+            },
+            body: JSON.stringify({ is_open: isOpen }),
           })
-          .catch(() => {
-            checkbox.checked = !checkbox.checked
+          if (!res.ok) {
+            checkbox.checked = !isOpen
             originalToggle?.(checkbox)
-            alert('Tiada sambungan. Status kedai tidak dikemaskini.')
-          })
-      }
+            alert('Gagal kemaskini status kedai. Sila cuba lagi.')
+          }
+        } catch {
+          checkbox.checked = !isOpen
+          originalToggle?.(checkbox)
+          alert('Tiada sambungan. Status kedai tidak dikemaskini.')
+        }
+      })()
     }
 
     loadDashboard().catch((error) => {
