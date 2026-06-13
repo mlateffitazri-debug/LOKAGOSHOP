@@ -1,10 +1,7 @@
 'use client'
 
 import { createBrowserClient } from '@supabase/ssr'
-import Image from 'next/image'
 import { useEffect, useState } from 'react'
-
-const mascotSrc = '/assets/IMG_5827.PNG'
 
 function createAuthClient() {
   return createBrowserClient(
@@ -90,47 +87,47 @@ export default function LoginPage() {
       position: 'fixed', inset: 0, height: '100dvh', overflow: 'hidden',
       background: '#0a0a0a',
     }}>
+      {/* Logo pop-in (overshoot bounce) — pop-out handled by the fading wrapper below */}
+      <style>{`
+        @keyframes splashLogoPop {
+          0% { transform: scale(0.4); opacity: 0; }
+          55% { transform: scale(1.07); opacity: 1; }
+          75% { transform: scale(0.97); }
+          100% { transform: scale(1); opacity: 1; }
+        }
+      `}</style>
       {/* ── SPLASH SCREEN ── */}
       {!splashDone && (
         <div style={{
           position: 'absolute', inset: 0, zIndex: 100,
           background: '#7B1533',
           display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
-          gap: 0,
           opacity: splashFading ? 0 : 1,
           transition: 'opacity 0.4s ease',
           pointerEvents: splashFading ? 'none' : 'auto',
           paddingTop: 'env(safe-area-inset-top)',
           paddingBottom: 'env(safe-area-inset-bottom)',
         }}>
-          {/* Logo */}
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            src="/icons/Logo-LOKALGO.png"
-            alt="LokalGo™"
-            style={{ width: 220, height: 'auto', display: 'block', marginBottom: 16 }}
-          />
-          <div style={{ fontSize: 13, fontWeight: 500, color: 'rgba(255,255,255,0.6)', letterSpacing: 0.3 }}>
-            Platform perniagaan lokal setempat
+          {/* Pop-out: scales down together with the fade */}
+          <div style={{
+            transform: splashFading ? 'scale(0.82)' : 'scale(1)',
+            transition: 'transform 0.4s ease',
+          }}>
+            <div style={{
+              display: 'flex', flexDirection: 'column', alignItems: 'center',
+              animation: 'splashLogoPop 0.65s cubic-bezier(0.34, 1.56, 0.64, 1) both',
+            }}>
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src="/icons/Logo-LOKALGO.png"
+                alt="LokalGo™"
+                style={{ width: 'min(260px, 68vw)', height: 'auto', display: 'block', marginBottom: 18 }}
+              />
+              <div style={{ fontSize: 14, fontWeight: 500, color: 'rgba(255,255,255,0.65)', letterSpacing: 0.3, textAlign: 'center' }}>
+                Platform perniagaan lokal setempat
+              </div>
+            </div>
           </div>
-          {/* Mascot */}
-          <Image
-            src={mascotSrc}
-            width={340}
-            height={340}
-            priority
-            style={{
-              width: '72%', maxWidth: 300,
-              height: 'auto',
-              objectFit: 'contain',
-              objectPosition: 'bottom',
-              display: 'block',
-              marginTop: 0,
-              position: 'absolute',
-              bottom: 0,
-            }}
-            alt="LokalGo Maskot"
-          />
         </div>
       )}
     <div style={{
@@ -148,35 +145,20 @@ export default function LoginPage() {
         height: '100%',
       }}>
 
-        {/* TOP — Logo + Mascot (flex fills remaining height) */}
+        {/* TOP — Logo + tagline, centred in remaining height */}
         <div style={{
-          display: 'flex', flexDirection: 'column', alignItems: 'center',
-          padding: '44px 32px 0',
+          display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+          padding: '32px 32px 24px',
           flex: 1, minHeight: 0, overflow: 'hidden',
         }}>
-
-          {/* Logo */}
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
             src="/icons/Logo-LOKALGO.png"
             alt="LokalGo™"
-            style={{ width: 200, height: 'auto', display: 'block', flexShrink: 0, marginBottom: 10 }}
+            style={{ width: 'min(270px, 72vw)', height: 'auto', display: 'block', flexShrink: 0, marginBottom: 14 }}
           />
-
-          <div style={{ fontSize: 13, fontWeight: 500, color: 'rgba(255,255,255,0.55)', textAlign: 'center', marginBottom: 8, flexShrink: 0 }}>
+          <div style={{ fontSize: 16, fontWeight: 600, color: 'rgba(255,255,255,0.75)', textAlign: 'center', letterSpacing: 0.2, lineHeight: 1.5, flexShrink: 0 }}>
             Platform perniagaan lokal setempat
-          </div>
-
-          {/* Mascot — fills all remaining top space */}
-          <div style={{ flex: 1, minHeight: 0, width: '100%', display: 'flex', alignItems: 'flex-end', justifyContent: 'center' }}>
-            <Image
-              src={mascotSrc}
-              width={380}
-              height={380}
-              priority
-              style={{ width: '100%', maxWidth: 380, height: '100%', objectFit: 'contain', objectPosition: 'bottom', display: 'block' }}
-              alt="LokalGo Maskot"
-            />
           </div>
         </div>
 

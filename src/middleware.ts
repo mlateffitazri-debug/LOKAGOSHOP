@@ -59,7 +59,8 @@ export async function middleware(request: NextRequest) {
     pathname.startsWith('/api/') ||
     pathname.startsWith('/_next/')
 
-  if (!isExcluded && !isMobile(request)) {
+  // Dev sahaja: benarkan desktop browser untuk preview/testing tempatan
+  if (process.env.NODE_ENV !== 'development' && !isExcluded && !isMobile(request)) {
     const url = request.nextUrl.clone()
     url.pathname = '/desktop-only'
     return NextResponse.redirect(url)
