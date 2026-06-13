@@ -42,7 +42,6 @@ async function compressImage(file: File): Promise<File> {
 }
 
 export default function TambahProdukPage() {
-  const supabase = createClient()
   const [sellerId, setSellerId] = useState<string | null>(null)
   const [shopStatus, setShopStatus] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
@@ -60,6 +59,7 @@ export default function TambahProdukPage() {
 
   useEffect(() => {
     async function loadSeller() {
+      const supabase = createClient()
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) { window.location.href = '/auth'; return }
       const { data: seller } = await supabase
@@ -73,7 +73,7 @@ export default function TambahProdukPage() {
       setLoading(false)
     }
     loadSeller().catch(console.error)
-  }, [supabase])
+  }, [])
 
   async function handleImageChange(e: React.ChangeEvent<HTMLInputElement>) {
     const files = Array.from(e.target.files ?? [])
@@ -130,6 +130,7 @@ export default function TambahProdukPage() {
 
     setSubmitting(true)
     try {
+      const supabase = createClient()
       const uploadedUrls: string[] = []
       for (const file of imageFiles) {
         const fd = new FormData()
