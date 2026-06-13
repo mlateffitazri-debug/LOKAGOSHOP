@@ -19,22 +19,23 @@ export default function Page() {
   useEffect(() => {
     const supabase = createClient()
 
-    async function verifySession() {
-      const { data } = await supabase.auth.getUser()
-      if (!data.user) {
-        window.location.href = '/auth'
-      }
-    }
+    async function init() {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) { window.location.href = '/auth'; return }
 
-    function loadSavedAddresses() {
+      // Load from localStorage first (structured form data)
+      const rawHome = localStorage.getItem('lokalgo_home_addr')
+      let hasLocalData = false
       try {
-        const home = JSON.parse(localStorage.getItem('lokalgo_home_addr') || '{}') as Record<string, string>
-        setInputValue('homeAddr1', home.line1)
-        setInputValue('homeArea', home.area)
-        setInputValue('homePostcode', home.postcode)
-        setInputValue('homeCity', home.city)
-        setInputValue('homeState', home.state)
-
+        const home = JSON.parse(rawHome || '{}') as Record<string, string>
+        if (home.line1) {
+          hasLocalData = true
+          setInputValue('homeAddr1', home.line1)
+          setInputValue('homeArea', home.area)
+          setInputValue('homePostcode', home.postcode)
+          setInputValue('homeCity', home.city)
+          setInputValue('homeState', home.state)
+        }
         const office = JSON.parse(localStorage.getItem('lokalgo_office_addr') || '{}') as Record<string, string>
         if (office.line1) {
           const toggle = document.getElementById('officeToggle') as HTMLInputElement | null
@@ -45,13 +46,69 @@ export default function Page() {
           setInputValue('officePostcode', office.postcode)
           setInputValue('officeCity', office.city)
         }
-      } catch (error) {
-        console.error(error)
+      } catch { /* ignore */ }
+
+      // Fallback: populate from Supabase if localStorage has no data
+      if (!hasLocalData) {
+        const { data: buyerRow } = await supabase
+          .from('buyers')
+          .select('address_rumah, address_pejabat')
+          .eq('user_id', user.id)
+          .maybeSingle()
+        if (buyerRow?.address_rumah?.trim()) {
+          setInputValue('homeAddr1', buyerRow.address_rumah)
+        }
+        if (buyerRow?.address_pejabat?.trim()) {
+          const toggle = document.getElementById('officeToggle') as HTMLInputElement | null
+          if (toggle) toggle.checked = true
+          setInputValue('officeAddr1', buyerRow.address_pejabat)
+        }
+      }
+
+      // Override static saveAddresses to also sync to Supabase
+      ;(window as Window & { saveAddresses?: () => Promise<void> }).saveAddresses = async () => {
+        const g = (id: string) =>
+          (document.getElementById(id) as HTMLInputElement | HTMLSelectElement | null)?.value?.trim() || ''
+
+        const line1 = g('homeAddr1')
+        const area = g('homeArea')
+        const postcode = g('homePostcode')
+        const city = g('homeCity')
+        const state = g('homeState')
+
+        // Save structured data to localStorage (for form re-population)
+        localStorage.setItem('lokalgo_home_addr', JSON.stringify({ line1, area, postcode, city, state }))
+
+        // Build plain string for Supabase (used directly in WA message)
+        const addressRumah = [line1, area, [postcode, city].filter(Boolean).join(' '), state]
+          .filter(Boolean).join(', ') || null
+
+        const officeActive = (document.getElementById('officeToggle') as HTMLInputElement | null)?.checked
+        const offAddr = officeActive ? {
+          company: g('officeCompany'),
+          line1: g('officeAddr1'),
+          area: g('officeArea'),
+          postcode: g('officePostcode'),
+          city: g('officeCity'),
+        } : null
+        localStorage.setItem('lokalgo_office_addr', offAddr ? JSON.stringify(offAddr) : '')
+        const addressPejabat = offAddr
+          ? [offAddr.company, offAddr.line1, offAddr.area, [offAddr.postcode, offAddr.city].filter(Boolean).join(' ')]
+            .filter(Boolean).join(', ')
+          : null
+
+        // Sync to Supabase buyers table — checkout reads address_rumah from here
+        await supabase.from('buyers').update({
+          address_rumah: addressRumah,
+          address_pejabat: addressPejabat || null,
+        }).eq('user_id', user.id)
+
+        alert('✓ Alamat disimpan!')
+        history.back()
       }
     }
 
-    verifySession().catch(console.error)
-    loadSavedAddresses()
+    init().catch(console.error)
   }, [])
 
   return (

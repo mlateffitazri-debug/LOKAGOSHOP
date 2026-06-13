@@ -249,10 +249,10 @@ const markup = `<div class="page">
 <div class="toggle-card">
   <div class="toggle-left">
     <div class="toggle-title"><span data-i18n="status_kedai">Status Kedai</span></div>
-    <div class="toggle-status open" id="toggleStatus">● Kedai sedang dibuka</div>
+    <div class="toggle-status" id="toggleStatus">● Memuat...</div>
   </div>
   <label class="switch">
-    <input type="checkbox" checked id="shopToggle" onchange="toggleShop(this)">
+    <input type="checkbox" id="shopToggle" onchange="toggleShop(this)">
     <span class="slider"></span>
   </label>
 </div>
@@ -717,11 +717,24 @@ export default function Page() {
     ;(window as DashboardWindow).toggleShop = (checkbox: HTMLInputElement) => {
       originalToggle?.(checkbox)
       if (currentSeller) {
-        void fetch('/api/seller/shop-status', {
+        fetch('/api/seller/shop-status', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ is_open: checkbox.checked }),
         })
+          .then(async (res) => {
+            if (!res.ok) {
+              // Revert UI on failure
+              checkbox.checked = !checkbox.checked
+              originalToggle?.(checkbox)
+              alert('Gagal kemaskini status kedai. Sila cuba lagi.')
+            }
+          })
+          .catch(() => {
+            checkbox.checked = !checkbox.checked
+            originalToggle?.(checkbox)
+            alert('Tiada sambungan. Status kedai tidak dikemaskini.')
+          })
       }
     }
 

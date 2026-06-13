@@ -169,50 +169,50 @@ function renderCartFlow(runtime: ProductWindow, buyer: BuyerProfile | null, trac
     const checkoutItems = readCart().filter((item) => item.sellerId === cart[0]?.sellerId)
     if (checkoutItems.length === 0) return
     const seller = checkoutItems[0]
-    const address = buyer?.address_rumah?.trim()
+    const address = buyer?.address_rumah?.trim() || null
 
     if (method === 'cod' && !address) {
-      alert('Sila isi alamat rumah dulu untuk COD.')
-      window.location.href = '/alamat'
+      alert('Sila isi alamat penghantaran dahulu.')
+      window.location.href = '/profile/address'
       return
     }
 
-    const normalItems = checkoutItems.filter((i) => !i.isPreorder)
-    const preorderItems = checkoutItems.filter((i) => i.isPreorder)
-    const subtotal = money(cartSubtotal(checkoutItems))
-    const methodLabel = method === 'cod' ? 'COD - Hantar ke Rumah' : 'Self Collect'
-
-    let msg = `Assalamualaikum ${seller.sellerName} 👋\n\n`
-
-    if (normalItems.length > 0) {
-      msg += `📦 *Pesanan Biasa:*\n`
-      normalItems.forEach((i) => {
-        msg += `• ${i.name} x${i.qty} — RM${money(i.price * i.qty)} (RM${money(i.price)}/${i.unit})\n`
-      })
-      msg += '\n'
+    const sellerPhone = normalizeWhatsapp(seller.sellerWhatsapp)
+    if (!sellerPhone || sellerPhone.length < 9) {
+      alert('Nombor WhatsApp penjual belum tersedia.')
+      return
     }
 
-    if (preorderItems.length > 0) {
-      msg += `📅 *Pra Tempahan:*\n`
-      preorderItems.forEach((i) => {
-        msg += `• ${i.name} x${i.qty} — RM${money(i.price * i.qty)}\n`
-        if (i.pickupDate) {
-          const dateLabel = new Date(`${i.pickupDate}T00:00:00`).toLocaleDateString('ms-MY', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })
-          msg += `  📆 Tarikh: ${dateLabel}\n`
-        }
-      })
-      msg += '\n'
-    }
+    const isAllPreorder = checkoutItems.every((i) => i.isPreorder)
+    const total = cartSubtotal(checkoutItems)
+    const now = new Date()
+    const dateStr = new Intl.DateTimeFormat('ms-MY', { day: 'numeric', month: 'long', year: 'numeric' }).format(now)
+    const timeStr = new Intl.DateTimeFormat('ms-MY', { hour: '2-digit', minute: '2-digit', hour12: true }).format(now)
 
-    msg += `💰 *Subtotal: RM${subtotal}*\n`
-    msg += `🚗 Kaedah: ${methodLabel}\n`
-    if (method === 'cod' && address) msg += `📍 Alamat: ${address}\n`
-    if (buyer?.name) msg += `👤 Nama: ${buyer.name}\n`
-    if (buyer?.whatsapp_number) msg += `📞 No Telefon: ${buyer.whatsapp_number}\n`
-    msg += `\n_Pesanan dari LokalGo™_\n${seller.shopUrl}`
+    const lines: string[] = ['Assalamualaikum!', '', isAllPreorder ? 'Saya nak buat pre-order:' : 'Saya nak tempah:']
+    for (const i of checkoutItems) {
+      const pricePart = i.price > 0 ? ` = RM ${money(i.price)} x ${i.qty}` : ''
+      lines.push(`${i.qty} x ${i.name}${pricePart}`)
+      if (i.isPreorder && i.pickupDate) {
+        const pickup = new Date(`${i.pickupDate}T00:00:00`).toLocaleDateString('ms-MY', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })
+        lines.push(`  Tarikh pickup: ${pickup}`)
+      }
+    }
+    lines.push('', '---', '', `Jumlah RM ${money(total)}`, '', '---', '')
+    if (method === 'cod' && address) {
+      lines.push('Dan tempahan ini dihantar di alamat:', address, '')
+    }
+    if (isAllPreorder) {
+      lines.push('Boleh saya tahu tarikh ready, cara bayaran dan anggaran delivery?')
+    } else if (method === 'cod') {
+      lines.push('Boleh berikan saya harga tambahan untuk delivery?')
+    } else {
+      lines.push('Kaedah: Self Pickup (Ambil sendiri di lokasi anda)')
+    }
+    lines.push('', '---', '', 'Pesanan dari: https://lokalgo.app', `Masa: ${timeStr}`, `Tarikh: ${dateStr}`)
+    const msg = lines.join('\n')
 
     trackWhatsAppClick()
-    const sellerPhone = normalizeWhatsapp(seller.sellerWhatsapp)
     window.localStorage.removeItem(CART_KEY)
 
     // Save pending review — shown when user returns from WhatsApp
@@ -498,11 +498,36 @@ export default function Page() {
         })
         goBtn?.addEventListener('click', () => {
           if (!calDate?.value) return
-          const priceTxt = exactPrice ? `RM${money(exactPrice)}/${unit}` : 'Harga ikut pesanan'
-          const message = `Hi ${currentSeller?.shop_name || 'Seller LokalGo'}, saya nak buat *PRE-ORDER*:\n${displayName} - ${priceTxt}\nTarikh diperlukan: ${formatBmDate(calDate.value)}`
+          const calPhone = normalizeWhatsapp(currentSeller?.whatsapp_number || '')
+          if (!calPhone || calPhone.length < 9) {
+            alert('Nombor WhatsApp penjual belum tersedia.')
+            overlay.remove()
+            return
+          }
+          const qtyVal = Math.max(1, parseInt((document.getElementById('qtyInput') as HTMLInputElement | null)?.value || '1', 10))
+          const pricePart = exactPrice > 0 ? ` = RM ${money(exactPrice)} x ${qtyVal}` : ''
+          const pickupLabel = formatBmDate(calDate.value)
+          const now = new Date()
+          const dateStr = new Intl.DateTimeFormat('ms-MY', { day: 'numeric', month: 'long', year: 'numeric' }).format(now)
+          const timeStr = new Intl.DateTimeFormat('ms-MY', { hour: '2-digit', minute: '2-digit', hour12: true }).format(now)
+          const addr = buyerProfile?.address_rumah?.trim() || null
+          const lines: string[] = [
+            'Assalamualaikum!', '',
+            'Saya nak buat pre-order:',
+            `${qtyVal} x ${displayName}${pricePart}`,
+            `  Tarikh pickup: ${pickupLabel}`,
+            '', '---', '',
+            ...(exactPrice > 0 ? [`Jumlah RM ${money(exactPrice * qtyVal)}`, '', '---', ''] : []),
+            ...(addr ? ['Dan tempahan ini dihantar di alamat:', addr, ''] : []),
+            'Boleh saya tahu tarikh ready, cara bayaran dan anggaran delivery?',
+            '', '---', '',
+            'Pesanan dari: https://lokalgo.app',
+            `Masa: ${timeStr}`,
+            `Tarikh: ${dateStr}`,
+          ]
           trackWhatsAppClick()
           overlay.remove()
-          window.open(`https://wa.me/${normalizeWhatsapp(currentSeller?.whatsapp_number || '')}?text=${encodeURIComponent(message)}`, '_blank')
+          window.open(`https://wa.me/${calPhone}?text=${encodeURIComponent(lines.join('\n'))}`, '_blank')
         })
       }
 
@@ -561,6 +586,10 @@ export default function Page() {
           void supabase.rpc('increment_seller_wa_click', { p_seller_id: currentSeller.id })
         }
       }
+      // Neutralize old static-script WA functions — React cart flow handles all WA messages
+      ;(window as Window & { buildAndSendWA?: () => void }).buildAndSendWA = () => void 0
+      ;(window as Window & { selectDelivery?: () => void }).selectDelivery = () => void 0
+      ;(window as Window & { showAddressPicker?: () => void }).showAddressPicker = () => void 0
       runtime.addToOrder = () => {
         const ctx = runtime.__lokalgoProductContext
         if (!ctx) return
