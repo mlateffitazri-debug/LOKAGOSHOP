@@ -131,13 +131,18 @@ export default function TambahProdukPage() {
     setSubmitting(true)
     try {
       const supabase = createClient()
+      const { data: { session } } = await supabase.auth.getSession()
       const uploadedUrls: string[] = []
       for (const file of imageFiles) {
         const fd = new FormData()
         fd.append('file', file)
-        const res = await fetch('/api/seller/product-image', { method: 'POST', body: fd })
+        const res = await fetch('/api/seller/product-image', {
+          method: 'POST',
+          body: fd,
+          ...(session?.access_token ? { headers: { 'Authorization': `Bearer ${session.access_token}` } } : {}),
+        })
         const json = await res.json() as { url?: string; error?: string }
-        if (!res.ok || !json.url) throw new Error(json.error ?? 'Gagal muat naik gambar')
+        if (!res.ok || !json.url) throw new Error(json.error ?? 'Gagal muat naik gambar. Sila cuba lagi.')
         uploadedUrls.push(json.url)
       }
 

@@ -5,8 +5,14 @@ import { createClient as createServerClient } from '@/lib/supabase/server'
 const ALLOWED_FIELDS = new Set(['is_available', 'is_preorder'])
 
 export async function POST(request: Request) {
-  const authClient = createServerClient()
-  const { data: { user }, error: authError } = await authClient.auth.getUser()
+  const adminClient = createAdminClient()
+  const authHeader = request.headers.get('Authorization')
+  const bearerToken = authHeader?.startsWith('Bearer ') ? authHeader.slice(7) : null
+
+  const { data: { user }, error: authError } = bearerToken
+    ? await adminClient.auth.getUser(bearerToken)
+    : await createServerClient().auth.getUser()
+
   if (authError || !user) return NextResponse.json({ error: 'Not authenticated' }, { status: 401 })
 
   const body = await request.json() as { productId?: string; field?: string; value?: boolean }
@@ -18,8 +24,6 @@ export async function POST(request: Request) {
   if (!ALLOWED_FIELDS.has(field)) {
     return NextResponse.json({ error: 'Invalid field' }, { status: 400 })
   }
-
-  const adminClient = createAdminClient()
 
   const { data: seller } = await adminClient
     .from('sellers')
