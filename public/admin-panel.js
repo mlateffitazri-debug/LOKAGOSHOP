@@ -708,6 +708,68 @@ function loadAdminData() {
     .catch(function(e) { showAdminError(e.message || 'Ralat rangkaian'); });
 }
 
+/* ── Broadcast / Platform Settings ─────────────────────────────────────────── */
+
+function loadBroadcast() {
+  fetch('/api/platform-settings')
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+      var s = data.settings || {};
+      var arabic = document.getElementById('bc-arabic');
+      var trans = document.getElementById('bc-trans');
+      if (arabic && s.broadcast_doa) arabic.value = s.broadcast_doa;
+      if (trans && s.broadcast_doa_trans) trans.value = s.broadcast_doa_trans;
+    })
+    .catch(function(e) { showAdminError('Gagal muat broadcast: ' + e.message); });
+}
+
+function saveBroadcast() {
+  var arabic = (document.getElementById('bc-arabic') || {}).value || '';
+  var trans = (document.getElementById('bc-trans') || {}).value || '';
+  var statusEl = document.getElementById('broadcast-status');
+
+  Promise.all([
+    fetch('/api/platform-settings', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ key: 'broadcast_doa', value: arabic }),
+    }),
+    fetch('/api/platform-settings', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ key: 'broadcast_doa_trans', value: trans }),
+    }),
+  ])
+    .then(function(responses) {
+      return Promise.all(responses.map(function(r) { return r.json(); }));
+    })
+    .then(function(results) {
+      var allOk = results.every(function(r) { return r.ok; });
+      if (statusEl) {
+        statusEl.textContent = allOk ? '✓ Broadcast berjaya disimpan dan akan dipaparkan kepada semua seller.' : 'Ralat: ' + JSON.stringify(results);
+        statusEl.style.display = 'block';
+        statusEl.style.background = allOk ? 'rgba(172,208,54,0.1)' : 'rgba(240,96,96,0.1)';
+        statusEl.style.color = allOk ? '#acd036' : '#f06060';
+        setTimeout(function() { if (statusEl) statusEl.style.display = 'none'; }, 4000);
+      }
+    })
+    .catch(function(e) {
+      if (statusEl) {
+        statusEl.textContent = 'Gagal: ' + e.message;
+        statusEl.style.display = 'block';
+        statusEl.style.background = 'rgba(240,96,96,0.1)';
+        statusEl.style.color = '#f06060';
+      }
+    });
+}
+
+// Load broadcast settings when switching to the broadcast tab
+var _origSwitchTab = switchTab;
+switchTab = function(id, navEl) {
+  _origSwitchTab(id, navEl);
+  if (id === 'tab-broadcast') loadBroadcast();
+};
+
 // Init
 if (document.readyState === 'loading') {
   document.addEventListener('DOMContentLoaded', loadAdminData);

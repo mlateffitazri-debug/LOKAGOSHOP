@@ -296,6 +296,7 @@ const markup = `
     <div class="sb-section">Analitik</div>
     <div class="nav-item" onclick="switchTab('tab-stats',this)"><span class="ni">&#9783;</span><span>Platform Stats</span></div>
     <div class="sb-section">Sistem</div>
+    <div class="nav-item" onclick="switchTab('tab-broadcast',this)"><span class="ni">&#128226;</span><span>Broadcast</span></div>
     <div class="nav-item" onclick="switchTab('tab-database',this)"><span class="ni">&#128451;</span><span>Database</span></div>
   </nav>
   <div class="sb-foot">NS0308474-A<br>LokalGo Admin</div>
@@ -605,6 +606,29 @@ const markup = `
       </div>
     </div>
 
+    <!-- ── BROADCAST ── -->
+    <div class="section" id="tab-broadcast">
+      <div class="sec-head">
+        <div><div class="sec-title">Broadcast kepada Seller</div><div class="sec-sub">Tetapkan teks doa/mesej yang dipaparkan di dashboard semua seller</div></div>
+      </div>
+      <div class="tbl-card" style="max-width:680px;">
+        <div id="broadcast-status" style="display:none;background:rgba(172,208,54,0.1);color:#acd036;border-radius:10px;padding:10px 14px;font-size:13px;font-weight:700;margin-bottom:16px;"></div>
+        <div class="mo-field" style="margin-bottom:16px;">
+          <div class="mo-lbl" style="margin-bottom:6px;font-size:12px;font-weight:700;color:rgba(240,240,240,0.5);text-transform:uppercase;letter-spacing:0.5px;">Teks Arab / Doa</div>
+          <textarea id="bc-arabic" rows="3" style="width:100%;background:#0b0b0e;border:1px solid rgba(255,255,255,0.12);border-radius:10px;padding:12px 14px;font-size:16px;color:#f0f0f0;font-family:'Noto Naskh Arabic',serif;direction:rtl;resize:vertical;outline:none;line-height:1.8;">اللَّهُمَّ إِنِّي أَسْأَلُكَ عِلْمًا نَافِعًا وَرِزْقًا طَيِّبًا وَعَمَلًا مُتَقَبَّلًا</textarea>
+        </div>
+        <div class="mo-field" style="margin-bottom:20px;">
+          <div class="mo-lbl" style="margin-bottom:6px;font-size:12px;font-weight:700;color:rgba(240,240,240,0.5);text-transform:uppercase;letter-spacing:0.5px;">Terjemahan / Huraian (dipaparkan di bawah doa)</div>
+          <textarea id="bc-trans" rows="3" style="width:100%;background:#0b0b0e;border:1px solid rgba(255,255,255,0.12);border-radius:10px;padding:12px 14px;font-size:14px;color:#f0f0f0;font-family:inherit;resize:vertical;outline:none;line-height:1.6;">Ya Allah, aku memohon kepada-Mu ilmu yang bermanfaat, rezeki yang baik, dan amalan yang diterima.</textarea>
+        </div>
+        <div style="display:flex;gap:10px;">
+          <button class="btn btn-primary" onclick="saveBroadcast()" style="flex:1;">&#128190; Simpan &amp; Broadcast ke Semua Seller</button>
+          <button class="btn btn-ghost" onclick="loadBroadcast()">&#8635; Muat Semula</button>
+        </div>
+        <div style="font-size:11px;color:rgba(240,240,240,0.25);margin-top:12px;line-height:1.6;">Perubahan akan dipaparkan serta-merta di dashboard seller selepas disimpan. Teks ini dipaparkan dalam kotak doa di halaman utama dashboard seller.</div>
+      </div>
+    </div>
+
     <!-- ── DATABASE ── -->
     <div class="section" id="tab-database">
       <div class="sec-head">
@@ -739,7 +763,7 @@ export default function Page() {
         document.documentElement.style.height = 'auto';
       `]}
       externalScripts={['/admin-panel.js']}
-      externalStylesheets={['https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap']}
+      externalStylesheets={['https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Noto+Naskh+Arabic:wght@400;700&display=swap']}
     />
   )
 }

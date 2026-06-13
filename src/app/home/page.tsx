@@ -32,14 +32,14 @@ body{background:#0a0a0a;font-family:'Plus Jakarta Sans',-apple-system,sans-serif
 .page{position:relative;width:100%;max-width:430px;margin:0 auto;height:100dvh;background:var(--c-bg);overflow:hidden;}
 @media(min-width:500px){body{padding:40px 20px;display:flex;justify-content:center;align-items:flex-start;}.page{height:calc(100dvh - 80px);border-radius:36px;border:8px solid #1a1a1a;box-shadow:0 32px 80px rgba(0,0,0,0.7);}}
 @media(min-width:1024px){body{align-items:center;padding:40px;}}
-.home-shell{height:100%;display:flex;flex-direction:column;overflow:hidden;padding-top:env(safe-area-inset-top);}
+.home-shell{height:100%;display:flex;flex-direction:column;overflow:hidden;}
 .home-fixed{flex-shrink:0;position:relative;z-index:10;transition:box-shadow 0.2s;}
 .home-fixed.scrolled{box-shadow:0 2px 8px rgba(0,0,0,0.05);}
 .home-scroll{flex:1;min-height:0;overflow-y:auto;overscroll-behavior-y:contain;-webkit-overflow-scrolling:touch;padding-bottom:env(safe-area-inset-bottom);}
 .home-scroll::-webkit-scrollbar{display:none;}
 .empty-state{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;padding:48px 24px;text-align:center;}
 .empty-state-txt{font-size:13px;color:#888;line-height:1.6;}
-.header{background:var(--c-primary);padding:14px 20px 12px;}
+.header{background:var(--c-primary);padding:calc(env(safe-area-inset-top) + 14px) 20px 12px;}
 .header-r1{display:flex;align-items:center;justify-content:space-between;margin-bottom:3px;}
 .header-sub{font-size:11px;color:rgba(255,255,255,0.55);margin-bottom:10px;}
 .header-r2{display:flex;gap:8px;align-items:center;}
@@ -85,7 +85,7 @@ body{background:#0a0a0a;font-family:'Plus Jakarta Sans',-apple-system,sans-serif
 .img-bg-fallback{background:linear-gradient(135deg,#7B1D2E,#4A0F1A);display:flex;align-items:center;justify-content:center;}
 .shop-initial{font-size:32px;font-weight:700;color:#fff;}
 .sidebar-backdrop{position:absolute;inset:0;background:rgba(0,0,0,0.4);z-index:40;}
-.profile-sidebar{position:absolute;top:0;right:0;width:280px;height:100dvh;background:#fff;z-index:50;transform:translateX(100%);transition:transform 0.3s ease;overflow:hidden;display:flex;flex-direction:column;font-family:'Plus Jakarta Sans',sans-serif;box-shadow:-18px 0 50px rgba(0,0,0,0.22);}
+.profile-sidebar{position:absolute;top:0;right:0;width:280px;height:100%;background:#fff;z-index:50;transform:translateX(100%);transition:transform 0.3s ease;overflow:hidden;display:flex;flex-direction:column;font-family:'Plus Jakarta Sans',sans-serif;box-shadow:-18px 0 50px rgba(0,0,0,0.22);}
 .profile-sidebar.open{transform:translateX(0);}
 .profile-sidebar-header{position:relative;background:#7B1533;padding:20px;color:#fff;}
 .sidebar-close{position:absolute;top:16px;right:16px;width:32px;height:32px;border:0;border-radius:50%;background:rgba(255,255,255,0.15);color:#fff;font-size:16px;font-weight:800;line-height:1;cursor:pointer;}
@@ -100,7 +100,7 @@ body{background:#0a0a0a;font-family:'Plus Jakarta Sans',-apple-system,sans-serif
 .sidebar-label{flex:1;font-weight:600;}
 .sidebar-arrow{color:#bbb;}
 .sidebar-lang-pill{border-radius:999px;background:#ADD036;padding:4px 10px;font-size:10px;font-weight:800;color:#3D4D0E;}
-.sidebar-footer{background:#fff;padding:16px;border-top:1px solid var(--border,#ECECEC);}
+.sidebar-footer{background:#fff;padding:16px 16px max(16px,env(safe-area-inset-bottom));border-top:1px solid var(--border,#ECECEC);}
 .logout-btn{width:100%;min-height:44px;display:flex;align-items:center;justify-content:center;gap:8px;border:1.5px solid var(--brand-maroon,#7B1D2E);border-radius:12px;background:#fff;padding:12px;font-family:'Plus Jakarta Sans',sans-serif;font-size:14px;font-weight:800;color:var(--brand-maroon,#7B1D2E);cursor:pointer;}
 .toast{position:absolute;bottom:90px;left:50%;transform:translateX(-50%);background:rgba(0,0,0,0.82);color:#fff;padding:10px 22px;border-radius:20px;font-size:13px;font-weight:600;z-index:200;white-space:nowrap;pointer-events:none;animation:toastIn 0.2s ease;}
 @keyframes toastIn{from{opacity:0;transform:translateX(-50%) translateY(8px);}to{opacity:1;transform:translateX(-50%) translateY(0);}}

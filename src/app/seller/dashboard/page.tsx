@@ -35,19 +35,21 @@ function safeImageUrl(url: string | null | undefined): string | null {
 
 function renderDashboardProducts(products: Product[]) {
   if (products.length === 0) {
-    return '<div class="produk-row"><div class="produk-meta"><div class="produk-name">Belum ada produk diluluskan</div><div class="produk-status-txt ps-unavail">Tambah produk selepas kedai diluluskan.</div></div></div>'
+    return '<div class="produk-row"><div class="produk-meta"><div class="produk-name">Belum ada produk</div><div class="produk-status-txt ps-unavail">Klik "Tambah" untuk muat naik produk pertama anda.</div></div></div>'
   }
 
   const rows = products.map((product, index) => {
     const displayName = (product as Product & { name?: string | null }).name?.trim() || product.category || 'Produk'
+    const isPending = product.status === 'pending'
+    const pendingBadge = isPending ? '<span style="font-size:9px;background:#FFF3CD;color:#856404;border-radius:6px;padding:1px 6px;font-weight:700;margin-left:4px;">Dalam Semakan</span>' : ''
     return `<div class="produk-row" data-product-row="${escapeHtml(product.id)}">
     <div class="produk-thumb">${product.images?.[0] ? `<img src="${escapeHtml(product.images[0])}" alt="" style="width:100%;height:100%;object-fit:cover;border-radius:10px;">` : '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#7B1533" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>'}</div>
     <div class="produk-meta">
-      <div class="produk-name">${escapeHtml(displayName)}</div>
-      <div class="produk-status-txt" id="product-status-${index}" data-mode-label="${escapeHtml(product.id)}">● ${productModeLabel(product)}</div>
-      <a class="edit-btn" href="/produk?product=${escapeHtml(product.id)}&seller=${escapeHtml(product.seller_id)}" style="width:auto;height:auto;background:none;border:none;font-size:10px;color:#7B1533;font-weight:600;text-decoration:underline;display:inline;">Lihat</a>
+      <div class="produk-name">${escapeHtml(displayName)}${pendingBadge}</div>
+      <div class="produk-status-txt" id="product-status-${index}" data-mode-label="${escapeHtml(product.id)}">● ${isPending ? 'Menunggu kelulusan admin' : productModeLabel(product)}</div>
+      ${!isPending ? `<a class="edit-btn" href="/produk?product=${escapeHtml(product.id)}&seller=${escapeHtml(product.seller_id)}" style="width:auto;height:auto;background:none;border:none;font-size:10px;color:#7B1533;font-weight:600;text-decoration:underline;display:inline;">Lihat</a>` : ''}
     </div>
-    <div class="produk-actions" style="flex-direction:column;align-items:flex-end;gap:5px;">
+    <div class="produk-actions" style="flex-direction:column;align-items:flex-end;gap:5px;${isPending ? 'opacity:0.4;pointer-events:none;' : ''}">
       <div style="display:flex;align-items:center;gap:6px;"><span style="font-size:9px;color:#888;font-weight:600;">Jual Terus</span><label class="p-switch"><input type="checkbox" data-product-id="${escapeHtml(product.id)}" data-field="is_available" ${product.is_available ? 'checked' : ''}><span class="p-slider"></span></label></div>
       <div style="display:flex;align-items:center;gap:6px;"><span style="font-size:9px;color:#888;font-weight:600;">Terima Pre-Order</span><label class="p-switch"><input type="checkbox" data-product-id="${escapeHtml(product.id)}" data-field="is_preorder" ${product.is_preorder ? 'checked' : ''}><span class="p-slider"></span></label></div>
     </div>
@@ -83,7 +85,7 @@ body{background:#0a0a0a;font-family:'Plus Jakarta Sans',-apple-system,sans-serif
 .dash-scroll::-webkit-scrollbar{display:none;}
 
 /* HEADER — ikut gaya /home: logo + ikon bulat (kopi + avatar) */
-.header{flex-shrink:0;background:var(--c-primary);padding:14px 20px 12px;}
+.header{flex-shrink:0;background:var(--c-primary);padding:calc(env(safe-area-inset-top) + 14px) 20px 12px;}
 .header-r1{display:flex;align-items:center;justify-content:space-between;margin-bottom:3px;}
 .header-sub{font-size:11px;color:rgba(255,255,255,0.55);}
 .header-actions{display:flex;align-items:center;gap:10px;}
@@ -172,7 +174,7 @@ input:checked+.slider:before{transform:translateX(22px);}
 
 /* SIDEBAR PROFIL — ikut gaya /home */
 .sidebar-backdrop{position:absolute;inset:0;background:rgba(0,0,0,0.4);z-index:40;}
-.profile-sidebar{position:absolute;top:0;right:0;width:280px;height:100%;background:#fff;z-index:50;transform:translateX(100%);transition:transform 0.3s ease;overflow:hidden;display:flex;flex-direction:column;font-family:'Plus Jakarta Sans',sans-serif;box-shadow:-18px 0 50px rgba(0,0,0,0.22);}
+.profile-sidebar{position:absolute;top:0;right:0;width:280px;height:100%;background:#fff;z-index:50;transform:translateX(100%);transition:transform 0.3s ease;overflow:hidden;display:flex;flex-direction:column;font-family:'Plus Jakarta Sans',sans-serif;box-shadow:-18px 0 50px rgba(0,0,0,0.22);padding-bottom:env(safe-area-inset-bottom);}
 .profile-sidebar.open{transform:translateX(0);}
 .profile-sidebar-header{position:relative;background:#7B1533;padding:20px;color:#fff;}
 .sidebar-close{position:absolute;top:16px;right:16px;width:32px;height:32px;border:0;border-radius:50%;background:rgba(255,255,255,0.15);color:#fff;font-size:16px;font-weight:800;line-height:1;cursor:pointer;}
@@ -188,7 +190,7 @@ input:checked+.slider:before{transform:translateX(22px);}
 .sidebar-label{flex:1;font-weight:600;}
 .sidebar-arrow{color:#bbb;}
 .sidebar-lang-pill{border-radius:999px;background:#ADD036;padding:4px 10px;font-size:10px;font-weight:800;color:#3D4D0E;}
-.sidebar-footer{background:#fff;padding:16px;border-top:1px solid var(--c-border);}
+.sidebar-footer{background:#fff;padding:16px 16px max(16px,env(safe-area-inset-bottom));border-top:1px solid var(--c-border);}
 .logout-btn{width:100%;min-height:44px;display:flex;align-items:center;justify-content:center;gap:8px;border:1.5px solid var(--c-primary);border-radius:12px;background:#fff;padding:12px;font-family:'Plus Jakarta Sans',sans-serif;font-size:14px;font-weight:800;color:var(--c-primary);cursor:pointer;}`
 
 const markup = `<div class="page">
@@ -226,13 +228,13 @@ const markup = `<div class="page">
     <a href="/notifikasi" style="text-decoration:none;">
       <button class="notif-btn" title="Notifikasi — views, review, badge">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#555" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
-        <div class="notif-badge">3</div>
+        <div class="notif-badge" id="notifBadge" style="display:none;">0</div>
       </button>
     </a>
     <a href="/inbox" style="text-decoration:none;">
       <button class="notif-btn" title="Mesej Admin — warning, flag, announcement">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#555" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
-        <div class="notif-badge" style="background:#F0A500;">1</div>
+        <div class="notif-badge" id="msgBadge" style="background:#F0A500;display:none;">0</div>
       </button>
     </a>
   </div>
@@ -257,9 +259,8 @@ const markup = `<div class="page">
 
 <!-- DOA -->
 <div class="doa-section">
-  <div class="doa-arabic">اللَّهُمَّ إِنِّي أَسْأَلُكَ عِلْمًا نَافِعًا وَرِزْقًا طَيِّبًا وَعَمَلًا مُتَقَبَّلًا</div>
-  <div style="font-size:11px;color:#7B1533;font-style:italic;margin:6px 0 6px;line-height:1.6;">Allahumma inni as'aluka 'ilman nafi'an, wa rizqan tayyiban, wa 'amalan mutaqabbalan.</div>
-  <div class="doa-trans">"Ya Allah, aku memohon kepada-Mu ilmu yang bermanfaat, rezeki yang baik, dan amalan yang diterima."</div>
+  <div class="doa-arabic" id="doaArabic">اللَّهُمَّ إِنِّي أَسْأَلُكَ عِلْمًا نَافِعًا وَرِزْقًا طَيِّبًا وَعَمَلًا مُتَقَبَّلًا</div>
+  <div class="doa-trans" id="doaTrans">"Ya Allah, aku memohon kepada-Mu ilmu yang bermanfaat, rezeki yang baik, dan amalan yang diterima."</div>
 </div>
 
 <!-- STATS -->
@@ -291,7 +292,7 @@ const markup = `<div class="page">
 <!-- PRODUK -->
 <div class="produk-head">
   <span class="produk-title"><span data-i18n="produk_saya">Produk Saya</span></span>
-  <button class="tambah-btn">
+  <button class="tambah-btn" onclick="location.href='/seller/produk/tambah'">
     <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
     Tambah
   </button>
@@ -510,7 +511,7 @@ export default function Page() {
           .from('products')
           .select('*')
           .eq('seller_id', currentSeller.id)
-          .eq('status', 'approved')
+          .in('status', ['pending', 'approved'])
           .order('created_at', { ascending: false }),
         supabase
           .from('testimonials')
@@ -649,6 +650,31 @@ export default function Page() {
           status.className = currentSeller.is_open ? 'toggle-status open' : 'toggle-status'
         }
       }
+
+      // Live admin message unread count
+      fetch('/api/admin-messages')
+        .then((r) => r.json())
+        .then((payload: { messages?: { is_read: boolean }[] }) => {
+          const unread = (payload.messages ?? []).filter((m) => !m.is_read).length
+          const badge = document.getElementById('msgBadge')
+          if (badge) {
+            badge.textContent = String(unread)
+            badge.style.display = unread > 0 ? 'flex' : 'none'
+          }
+        })
+        .catch(() => { /* silently ignore if offline */ })
+
+      // Admin broadcast doa text
+      fetch('/api/platform-settings')
+        .then((r) => r.json())
+        .then((payload: { settings?: Record<string, string> }) => {
+          const s = payload.settings ?? {}
+          const arabic = document.getElementById('doaArabic')
+          const trans = document.getElementById('doaTrans')
+          if (arabic && s.broadcast_doa) arabic.textContent = s.broadcast_doa
+          if (trans && s.broadcast_doa_trans) trans.textContent = s.broadcast_doa_trans
+        })
+        .catch(() => { /* keep default text */ })
     }
 
     const originalToggle = (window as DashboardWindow).toggleShop
