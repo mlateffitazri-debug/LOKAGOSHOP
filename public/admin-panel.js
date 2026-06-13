@@ -15,6 +15,9 @@ function switchTab(id, navEl) {
   var sec = document.getElementById(id);
   if (sec) sec.classList.add('active');
   if (navEl) navEl.classList.add('active');
+  // Lazy-load per-tab data
+  if (id === 'tab-broadcast') loadBroadcast();
+  if (id === 'tab-messages') loadMessages();
 }
 
 /* ── Filter / search helpers ───────────────────────────────────────────────── */
@@ -937,14 +940,6 @@ function saveBroadcast() {
       }
     });
 }
-
-// Lazy-load data when switching to tabs that need separate fetches
-var _origSwitchTab = switchTab;
-switchTab = function(id, navEl) {
-  _origSwitchTab(id, navEl);
-  if (id === 'tab-broadcast') loadBroadcast();
-  if (id === 'tab-messages') loadMessages();
-};
 
 // Init
 if (document.readyState === 'loading') {
