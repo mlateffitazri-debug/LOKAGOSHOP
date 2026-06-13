@@ -555,6 +555,7 @@ export default function Page() {
       const bellLink = document.querySelector<HTMLAnchorElement>('a[href="/notifikasi"]')
       if (bellLink) {
         bellLink.addEventListener('click', () => {
+          if (!currentSeller) return
           localStorage.setItem(seenKey, JSON.stringify({
             products: approvedProducts.map((p) => p.id),
             active: currentSeller.status === 'active',
