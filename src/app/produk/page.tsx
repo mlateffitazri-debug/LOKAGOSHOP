@@ -250,7 +250,7 @@ function renderCartFlow(runtime: ProductWindow, buyer: BuyerProfile | null, trac
     `).join('')
 
     document.body.insertAdjacentHTML('beforeend', `
-      <div id="cartReviewOverlay" style="position:fixed;inset:0;background:rgba(0,0,0,0.55);z-index:120;display:flex;align-items:flex-end;justify-content:center;">
+      <div id="cartReviewOverlay" style="position:fixed;inset:0;background:rgba(0,0,0,0.55);z-index:10000;display:flex;align-items:flex-end;justify-content:center;">
         <div style="background:#fff;width:100%;max-width:430px;border-radius:20px 20px 0 0;padding:18px 18px 24px;max-height:88vh;overflow:auto;">
           <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
             <div style="font-size:15px;font-weight:800;color:#111;">Pesanan Anda</div>
@@ -421,6 +421,10 @@ export default function Page() {
       }
 
       renderGallery(currentProduct.images || [])
+
+      // Hide variety section — no variants column in DB; static markup has placeholder values
+      const varietySection = document.querySelector<HTMLElement>('.variety-section')
+      if (varietySection) varietySection.style.display = 'none'
 
       // Fix date input — use local timezone instead of UTC
       const dateInput = document.getElementById('pickupDate') as HTMLInputElement | null

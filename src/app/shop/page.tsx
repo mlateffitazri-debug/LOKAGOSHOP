@@ -3,7 +3,6 @@
 import { useEffect } from 'react'
 import { HtmlPrototypePage } from '@/components/shared/HtmlPrototypePage'
 import { createClient } from '@/lib/supabase/client'
-import { formatMYPhoneNumber, buildWAEnquiryMessage } from '@/lib/wa-order'
 import type { Product, Seller, Testimonial } from '@/types/database'
 
 type SellerWithCoordinates = Seller & Record<string, unknown>
@@ -510,32 +509,6 @@ export default function Page() {
         }
       }
 
-      // ── WhatsApp Enquiry Button ──────────────────────────────────────
-      if (!document.getElementById('shopWaEnquiry')) {
-        const waDiv = document.createElement('div')
-        waDiv.id = 'shopWaEnquiry'
-        waDiv.style.cssText = 'padding:0 20px 14px;background:#fff;border-bottom:1px solid #eee;'
-        document.querySelector('.shop-info')?.insertAdjacentElement('afterend', waDiv)
-      }
-      const waEl = document.getElementById('shopWaEnquiry')
-      if (waEl) {
-        if (seller.is_open === false) {
-          waEl.innerHTML = '<div style="background:#FFF8E1;border-radius:10px;padding:10px 14px;font-size:12px;color:#856404;line-height:1.6;">Kedai sedang ditutup buat masa ini. Anda boleh simpan kedai ini dan datang semula nanti.</div>'
-        } else {
-          const sellerPhone = formatMYPhoneNumber(seller.whatsapp_number)
-          const WA_SVG = '<svg width="18" height="18" viewBox="0 0 24 24" fill="#fff"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347z"/><path d="M12 0C5.373 0 0 5.373 0 12c0 2.125.558 4.122 1.528 5.855L0 24l6.335-1.507C8.05 23.453 9.99 24 12 24c6.627 0 12-5.373 12-12S18.627 0 12 0zm0 22c-1.885 0-3.638-.518-5.145-1.416l-.369-.219-3.76.895.942-3.655-.24-.378A9.933 9.933 0 0 1 2 12C2 6.477 6.477 2 12 2s10 4.477 10 10-4.477 10-10 10z"/></svg>'
-          waEl.innerHTML = `<button id="shopWaEnquiryBtn" style="width:100%;background:#25D366;border:none;border-radius:14px;padding:14px;font-size:14px;font-weight:700;color:#fff;font-family:'Plus Jakarta Sans',sans-serif;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;box-shadow:0 4px 14px rgba(37,211,102,0.35);">${WA_SVG}Tanya Seller via WhatsApp</button>`
-          document.getElementById('shopWaEnquiryBtn')?.addEventListener('click', () => {
-            if (!sellerPhone) {
-              showShopToast('Nombor WhatsApp penjual belum tersedia.')
-              return
-            }
-            const msg = buildWAEnquiryMessage(seller.shop_name)
-            void supabase.rpc('increment_seller_wa_click', { p_seller_id: seller.id })
-            window.open(`https://wa.me/${sellerPhone}?text=${encodeURIComponent(msg)}`, '_blank')
-          })
-        }
-      }
     }
 
     // Sokong-btn — coin icon only, no text
