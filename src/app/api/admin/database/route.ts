@@ -3,7 +3,7 @@ import { requireAdmin } from '@/lib/admin/access'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { safeError } from '@/lib/safe-error'
 
-const ALLOWED_TABLES = ['sellers', 'buyers', 'testimonials', 'saved_shops', 'products', 'suspended_sellers'] as const
+const ALLOWED_TABLES = ['sellers', 'buyers', 'testimonials', 'saved_shops', 'products', 'suspended_sellers', 'admin_messages', 'platform_settings'] as const
 
 export async function GET(request: Request) {
   try {

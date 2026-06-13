@@ -28,6 +28,7 @@ body{background:#07070a;font-family:'Plus Jakarta Sans',-apple-system,BlinkMacSy
 .nav-item .ni{width:16px;text-align:center;font-size:15px;flex-shrink:0;}
 .nav-badge{margin-left:auto;background:rgba(240,192,64,0.15);color:#f0c040;font-size:10px;font-weight:700;padding:2px 7px;border-radius:8px;}
 .nav-badge.green{background:rgba(172,208,54,0.14);color:#acd036;}
+.nav-badge.red{background:rgba(240,96,96,0.14);color:#f06060;}
 .sb-foot{padding:14px 20px;border-top:1px solid rgba(255,255,255,0.06);font-size:11px;color:rgba(240,240,240,0.2);line-height:1.55;}
 
 /* MAIN */
@@ -292,6 +293,8 @@ const markup = `
     <div class="nav-item" onclick="switchTab('tab-sellers',this)" id="nav-sellers"><span class="ni">&#128722;</span><span>Sellers</span><span class="nav-badge" id="nb-pending" style="display:none">0</span></div>
     <div class="nav-item" onclick="switchTab('tab-buyers',this)"><span class="ni">&#128100;</span><span>Buyers</span></div>
     <div class="nav-item" onclick="switchTab('tab-testimoni',this)"><span class="ni">&#9733;</span><span>Testimoni</span><span class="nav-badge" id="nb-testi" style="display:none">0</span></div>
+    <div class="nav-item" onclick="switchTab('tab-products',this)" id="nav-products"><span class="ni">&#127873;</span><span>Produk</span><span class="nav-badge red" id="nb-products" style="display:none">0</span></div>
+    <div class="nav-item" onclick="switchTab('tab-messages',this)"><span class="ni">&#9993;</span><span>Mesej Seller</span></div>
     <div class="nav-item" onclick="switchTab('tab-saved',this)"><span class="ni">&#9825;</span><span>Saved Shops</span></div>
     <div class="sb-section">Analitik</div>
     <div class="nav-item" onclick="switchTab('tab-stats',this)"><span class="ni">&#9783;</span><span>Platform Stats</span></div>
@@ -606,6 +609,103 @@ const markup = `
       </div>
     </div>
 
+    <!-- ── PRODUCTS ── -->
+    <div class="section" id="tab-products">
+      <div class="sec-head">
+        <div><div class="sec-title">Semakan Produk</div><div class="sec-sub">Lulus atau tolak produk yang dihantar oleh seller</div></div>
+        <button class="btn btn-primary" onclick="loadAdminData()">&#8635; Refresh</button>
+      </div>
+      <div class="tbl-card">
+        <div class="tbl-card-head">
+          <div style="display:flex;align-items:center;gap:10px;">
+            <span class="tbl-card-title">Produk Pending</span>
+            <span class="cnt" id="products-count">—</span>
+          </div>
+        </div>
+        <div class="tbl-wrap">
+          <table class="tbl">
+            <thead><tr>
+              <th>Gambar</th>
+              <th>Nama / Kategori</th>
+              <th>Kedai</th>
+              <th>Harga (RM)</th>
+              <th>Dihantar</th>
+              <th class="td-r">Tindakan</th>
+            </tr></thead>
+            <tbody id="products-tbody"><tr><td colspan="6" class="td-empty">Memuatkan...</td></tr></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── MESSAGES ── -->
+    <div class="section" id="tab-messages">
+      <div class="sec-head">
+        <div><div class="sec-title">Mesej Admin ke Seller</div><div class="sec-sub">Hantar notifikasi, amaran atau mesej terus kepada seller</div></div>
+        <button class="btn btn-primary" onclick="toggleComposeMsg()">&#43; Hantar Mesej</button>
+      </div>
+
+      <!-- Compose form (hidden by default) -->
+      <div id="compose-form" class="tbl-card" style="display:none;margin-bottom:16px;max-width:720px;">
+        <div style="font-size:14px;font-weight:800;color:#f0f0f0;margin-bottom:14px;">Tulis Mesej Baru</div>
+        <div id="compose-status" style="display:none;border-radius:10px;padding:10px 14px;font-size:13px;font-weight:700;margin-bottom:14px;"></div>
+        <div class="mo-field" style="margin-bottom:12px;">
+          <div class="mo-lbl" style="font-size:11px;font-weight:700;color:rgba(240,240,240,0.4);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:5px;">Pilih Seller *</div>
+          <select id="msg-seller" style="width:100%;background:#0b0b0e;border:1px solid rgba(255,255,255,0.12);border-radius:10px;padding:10px 12px;font-size:14px;color:#f0f0f0;font-family:inherit;outline:none;">
+            <option value="">-- Pilih Seller --</option>
+          </select>
+        </div>
+        <div style="display:flex;gap:12px;margin-bottom:12px;">
+          <div style="flex:1;">
+            <div class="mo-lbl" style="font-size:11px;font-weight:700;color:rgba(240,240,240,0.4);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:5px;">Jenis *</div>
+            <select id="msg-type" style="width:100%;background:#0b0b0e;border:1px solid rgba(255,255,255,0.12);border-radius:10px;padding:10px 12px;font-size:14px;color:#f0f0f0;font-family:inherit;outline:none;">
+              <option value="info">&#8505; Info</option>
+              <option value="success">&#10003; Success</option>
+              <option value="warning">&#9888; Warning</option>
+              <option value="flag">&#9873; Flag</option>
+            </select>
+          </div>
+          <div style="flex:2;">
+            <div class="mo-lbl" style="font-size:11px;font-weight:700;color:rgba(240,240,240,0.4);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:5px;">Tajuk *</div>
+            <input id="msg-title" type="text" maxlength="80" placeholder="Cth: Produk anda telah diluluskan" style="width:100%;background:#0b0b0e;border:1px solid rgba(255,255,255,0.12);border-radius:10px;padding:10px 12px;font-size:14px;color:#f0f0f0;font-family:inherit;outline:none;">
+          </div>
+        </div>
+        <div class="mo-field" style="margin-bottom:14px;">
+          <div class="mo-lbl" style="font-size:11px;font-weight:700;color:rgba(240,240,240,0.4);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:5px;">Kandungan *</div>
+          <textarea id="msg-body" rows="3" maxlength="500" placeholder="Tulis mesej lengkap di sini..." style="width:100%;background:#0b0b0e;border:1px solid rgba(255,255,255,0.12);border-radius:10px;padding:10px 12px;font-size:14px;color:#f0f0f0;font-family:inherit;outline:none;resize:vertical;line-height:1.6;"></textarea>
+        </div>
+        <div style="display:flex;gap:10px;">
+          <button class="btn btn-primary" onclick="sendAdminMessage()" style="flex:1;">&#9993; Hantar Mesej</button>
+          <button class="btn btn-ghost" onclick="toggleComposeMsg()">Batal</button>
+        </div>
+      </div>
+
+      <!-- Messages list -->
+      <div class="tbl-card">
+        <div class="tbl-card-head">
+          <div style="display:flex;align-items:center;gap:10px;">
+            <span class="tbl-card-title">Semua Mesej</span>
+            <span class="cnt" id="messages-count">—</span>
+          </div>
+          <button class="btn btn-ghost" onclick="loadMessages()" style="font-size:12px;">&#8635; Muat Semula</button>
+        </div>
+        <div class="tbl-wrap">
+          <table class="tbl">
+            <thead><tr>
+              <th>Seller</th>
+              <th>Jenis</th>
+              <th>Tajuk</th>
+              <th>Kandungan</th>
+              <th>Baca</th>
+              <th>Dihantar</th>
+              <th class="td-r">Del</th>
+            </tr></thead>
+            <tbody id="messages-tbody"><tr><td colspan="7" class="td-empty">Klik tab untuk muat mesej</td></tr></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
     <!-- ── BROADCAST ── -->
     <div class="section" id="tab-broadcast">
       <div class="sec-head">
@@ -644,6 +744,8 @@ const markup = `
             <option value="saved_shops">saved_shops</option>
             <option value="products">products</option>
             <option value="suspended_sellers">suspended_sellers</option>
+            <option value="admin_messages">admin_messages</option>
+            <option value="platform_settings">platform_settings</option>
           </select>
           <button class="btn btn-primary" onclick="loadDbTable(document.getElementById('db-table-select').value)">Muat</button>
         </div>

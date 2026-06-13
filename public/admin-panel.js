@@ -704,8 +704,183 @@ function loadAdminData() {
       renderTesti();
       renderSaved();
       renderStats();
+      renderProducts();
     })
     .catch(function(e) { showAdminError(e.message || 'Ralat rangkaian'); });
+}
+
+/* ── Render: Products ───────────────────────────────────────────────────────── */
+
+function renderProducts() {
+  if (!_data) return;
+  var products = _data.pendingProducts || [];
+  var sellerMap = {};
+  (_data.sellers || []).forEach(function(s) { sellerMap[s.id] = s.shop_name || s.name || s.id; });
+
+  setText('products-count', products.length + ' pending');
+
+  var nbProducts = document.getElementById('nb-products');
+  if (nbProducts) {
+    if (products.length > 0) { nbProducts.textContent = products.length; nbProducts.style.display = 'inline'; }
+    else nbProducts.style.display = 'none';
+  }
+
+  if (!products.length) {
+    setHtml('products-tbody', '<tr><td colspan="6" class="td-empty">Tiada produk pending &#10003;</td></tr>');
+    return;
+  }
+
+  var typeColors = { warning: '#f0c040', info: '#7eb8f7', flag: '#f06060', success: '#acd036' };
+
+  var html = products.map(function(p) {
+    var name = esc((p.name || p.category || '—').toString().slice(0, 32));
+    var category = esc((p.category || '—').toString());
+    var shop = esc((sellerMap[p.seller_id] || '—').toString().slice(0, 20));
+    var price = p.price_from != null ? 'RM ' + Number(p.price_from).toFixed(2) : '—';
+    var imgHtml = (p.images && p.images[0])
+      ? '<img src="' + esc(p.images[0]) + '" style="width:44px;height:44px;object-fit:cover;border-radius:8px;border:1px solid rgba(255,255,255,0.08);">'
+      : '<div style="width:44px;height:44px;background:#1a1a1e;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:18px;">&#127873;</div>';
+    return '<tr>'
+      + '<td>' + imgHtml + '</td>'
+      + '<td><div class="td-shop" style="max-width:180px;" title="' + name + '">' + name + '</div>'
+      + '<div class="td-sub">' + category + '</div></td>'
+      + '<td class="td-cell">' + shop + '</td>'
+      + '<td class="td-cell" style="font-weight:700;color:#acd036;">' + price + '</td>'
+      + '<td class="td-cell">' + fmtDate(p.created_at) + '</td>'
+      + '<td class="td-r">'
+      + '<button class="act-btn ab-g" onclick="adminAction(\'product\',\'' + esc(p.id) + '\',\'approve\')">Lulus</button>'
+      + '<button class="act-btn ab-r" onclick="adminAction(\'product\',\'' + esc(p.id) + '\',\'reject\')">Tolak</button>'
+      + '</td></tr>';
+  }).join('');
+  setHtml('products-tbody', html);
+}
+
+/* ── Admin Messages ─────────────────────────────────────────────────────────── */
+
+var _messagesLoaded = false;
+
+function loadMessages() {
+  _messagesLoaded = false;
+  setHtml('messages-tbody', '<tr><td colspan="7" style="text-align:center;color:rgba(240,240,240,0.2);padding:24px;font-size:13px;">Memuatkan...</td></tr>');
+  fetch('/api/admin/messages')
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+      _messagesLoaded = true;
+      var messages = data.messages || [];
+      setText('messages-count', messages.length + ' mesej');
+      if (!messages.length) {
+        setHtml('messages-tbody', '<tr><td colspan="7" class="td-empty">Tiada mesej dihantar lagi</td></tr>');
+        return;
+      }
+      var typeCls = { warning: 'p-pending', info: 'p-aktif', flag: 'p-suspended', success: 'p-active' };
+      var typeLabel = { warning: '&#9888; Warning', info: '&#8505; Info', flag: '&#9873; Flag', success: '&#10003; Success' };
+      var html = messages.map(function(m) {
+        var shop = esc((m.shop_name || m.seller_id || '—').toString().slice(0, 20));
+        var title = esc((m.title || '—').toString().slice(0, 36));
+        var body = esc((m.body || '—').toString().slice(0, 50));
+        var typePill = '<span class="pill ' + (typeCls[m.type] || 'p-aktif') + '" style="font-size:10px;">' + (typeLabel[m.type] || esc(m.type)) + '</span>';
+        var readBadge = m.is_read
+          ? '<span style="color:#acd036;font-size:11px;font-weight:700;">Dibaca</span>'
+          : '<span style="color:rgba(240,240,240,0.3);font-size:11px;">Belum</span>';
+        return '<tr>'
+          + '<td class="td-cell">' + shop + '</td>'
+          + '<td class="td-c">' + typePill + '</td>'
+          + '<td class="td-cell" title="' + title + '">' + title + '</td>'
+          + '<td class="td-cell" style="color:rgba(240,240,240,0.45);" title="' + body + '">' + body + (m.body && m.body.length > 50 ? '…' : '') + '</td>'
+          + '<td class="td-c">' + readBadge + '</td>'
+          + '<td class="td-cell">' + fmtDate(m.sent_at) + '</td>'
+          + '<td class="td-r"><button class="act-btn ab-r" onclick="deleteAdminMessage(\'' + esc(m.id) + '\')">Del</button></td>'
+          + '</tr>';
+      }).join('');
+      setHtml('messages-tbody', html);
+
+      // Populate seller dropdown in compose form
+      if (_data && _data.sellers) {
+        var sel = document.getElementById('msg-seller');
+        if (sel && sel.options.length <= 1) {
+          (_data.sellers || []).filter(function(s) { return s.status === 'active'; }).forEach(function(s) {
+            var opt = document.createElement('option');
+            opt.value = s.id;
+            opt.textContent = (s.shop_name || s.name || s.id) + ' — ' + (s.kawasan || '');
+            sel.appendChild(opt);
+          });
+        }
+      }
+    })
+    .catch(function(e) { showAdminError('Gagal muat mesej: ' + e.message); });
+}
+
+function toggleComposeMsg() {
+  var form = document.getElementById('compose-form');
+  if (!form) return;
+  var showing = form.style.display !== 'none';
+  form.style.display = showing ? 'none' : 'block';
+  if (!showing && _data && _data.sellers) {
+    var sel = document.getElementById('msg-seller');
+    if (sel && sel.options.length <= 1) {
+      (_data.sellers || []).filter(function(s) { return s.status === 'active'; }).forEach(function(s) {
+        var opt = document.createElement('option');
+        opt.value = s.id;
+        opt.textContent = (s.shop_name || s.name || s.id) + ' — ' + (s.kawasan || '');
+        sel.appendChild(opt);
+      });
+    }
+  }
+}
+
+function sendAdminMessage() {
+  var sellerId = ((document.getElementById('msg-seller') || {}).value || '').trim();
+  var type = ((document.getElementById('msg-type') || {}).value || '').trim();
+  var title = ((document.getElementById('msg-title') || {}).value || '').trim();
+  var body = ((document.getElementById('msg-body') || {}).value || '').trim();
+  var statusEl = document.getElementById('compose-status');
+
+  if (!sellerId || !type || !title || !body) {
+    if (statusEl) { statusEl.textContent = 'Sila lengkapkan semua medan.'; statusEl.style.display = 'block'; statusEl.style.background = 'rgba(240,96,96,0.1)'; statusEl.style.color = '#f06060'; }
+    return;
+  }
+
+  var btn = document.querySelector('#compose-form .btn-primary');
+  if (btn) { btn.textContent = 'Menghantar...'; btn.disabled = true; }
+
+  fetch('/api/admin/messages', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ seller_id: sellerId, type: type, title: title, body: body })
+  })
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+      if (btn) { btn.textContent = '✉ Hantar Mesej'; btn.disabled = false; }
+      if (data.error) {
+        if (statusEl) { statusEl.textContent = 'Ralat: ' + data.error; statusEl.style.display = 'block'; statusEl.style.background = 'rgba(240,96,96,0.1)'; statusEl.style.color = '#f06060'; }
+        return;
+      }
+      if (statusEl) { statusEl.textContent = '✓ Mesej berjaya dihantar!'; statusEl.style.display = 'block'; statusEl.style.background = 'rgba(172,208,54,0.1)'; statusEl.style.color = '#acd036'; }
+      document.getElementById('msg-title').value = '';
+      document.getElementById('msg-body').value = '';
+      document.getElementById('msg-seller').value = '';
+      setTimeout(function() { if (statusEl) statusEl.style.display = 'none'; }, 3000);
+      loadMessages();
+    })
+    .catch(function(e) {
+      if (btn) { btn.textContent = '✉ Hantar Mesej'; btn.disabled = false; }
+      if (statusEl) { statusEl.textContent = 'Ralat rangkaian: ' + e.message; statusEl.style.display = 'block'; statusEl.style.color = '#f06060'; }
+    });
+}
+
+function deleteAdminMessage(id) {
+  if (!confirm('Padam mesej ini?')) return;
+  fetch('/api/admin/messages', {
+    method: 'DELETE',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ id: id })
+  })
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+      if (data.error) { alert('Ralat: ' + data.error); return; }
+      loadMessages();
+    })
+    .catch(function(e) { alert('Ralat: ' + e.message); });
 }
 
 /* ── Broadcast / Platform Settings ─────────────────────────────────────────── */
@@ -763,11 +938,12 @@ function saveBroadcast() {
     });
 }
 
-// Load broadcast settings when switching to the broadcast tab
+// Lazy-load data when switching to tabs that need separate fetches
 var _origSwitchTab = switchTab;
 switchTab = function(id, navEl) {
   _origSwitchTab(id, navEl);
   if (id === 'tab-broadcast') loadBroadcast();
+  if (id === 'tab-messages') loadMessages();
 };
 
 // Init
