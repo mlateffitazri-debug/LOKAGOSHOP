@@ -717,10 +717,11 @@ export default function Page() {
     ;(window as DashboardWindow).toggleShop = (checkbox: HTMLInputElement) => {
       originalToggle?.(checkbox)
       if (currentSeller) {
-        void supabase
-          .from('sellers')
-          .update({ is_open: checkbox.checked })
-          .eq('id', currentSeller.id)
+        void fetch('/api/seller/shop-status', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ is_open: checkbox.checked }),
+        })
       }
     }
 
