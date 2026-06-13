@@ -66,10 +66,6 @@ function productModeLabel(flags: { is_available: boolean; is_preorder: boolean }
   return 'Tidak Aktif (tersembunyi dari pembeli)'
 }
 
-type DashboardWindow = Window & {
-  toggleShop?: (checkbox: HTMLInputElement) => void
-}
-
 // Shell ikut /home: html/body terkunci, scroll hanya dalam .dash-scroll —
 // elak pinch/pan keluar skrin (rubber-band) pada iOS Safari.
 // Nota: jangan guna nama kelas .scroll/.page-scroll — globals.css paksa
@@ -252,7 +248,7 @@ const markup = `<div class="page">
     <div class="toggle-status" id="toggleStatus">● Memuat...</div>
   </div>
   <label class="switch">
-    <input type="checkbox" id="shopToggle" onchange="toggleShop(this)">
+    <input type="checkbox" id="shopToggle">
     <span class="slider"></span>
   </label>
 </div>
@@ -679,12 +675,60 @@ export default function Page() {
       renderNota()
 
       if (shopToggle) {
-        shopToggle.checked = Boolean(currentSeller.is_open)
-        const status = document.getElementById('toggleStatus')
-        if (status) {
-          status.textContent = currentSeller.is_open ? '● Kedai sedang dibuka' : '● Kedai ditutup'
-          status.className = currentSeller.is_open ? 'toggle-status open' : 'toggle-status'
+        // Rule: null/undefined is_open = treat as open (seller benefit of the doubt).
+        // Only false (explicit close) means closed. Never write false due to loading state.
+        const isOpenInDB: boolean = currentSeller.is_open !== false
+        let shopIsOpen = isOpenInDB
+
+        const statusEl = document.getElementById('toggleStatus')
+        const updateToggleUI = (open: boolean) => {
+          shopToggle!.checked = open
+          if (statusEl) {
+            statusEl.textContent = open ? '● Kedai sedang dibuka' : '● Kedai ditutup'
+            statusEl.className = open ? 'toggle-status open' : 'toggle-status'
+          }
         }
+        // READ from DB — set UI. This does NOT trigger 'change' event.
+        updateToggleUI(shopIsOpen)
+
+        // Attach listener ONLY HERE, after data has loaded and toggle is set.
+        // Nothing before this point can trigger a DB write — no inline onchange,
+        // no initialization race, no hydration side-effect.
+        shopToggle.addEventListener('change', async () => {
+          const nextState = shopToggle!.checked
+          const prevState = shopIsOpen
+          // Optimistically update text (checkbox visual already changed)
+          if (statusEl) {
+            statusEl.textContent = nextState ? '● Kedai sedang dibuka' : '● Kedai ditutup'
+            statusEl.className = nextState ? 'toggle-status open' : 'toggle-status'
+          }
+          try {
+            // getSession() handles auto-refresh; send token explicitly for iOS PWA
+            // (WKWebView cookie store is separate from Safari — cookies may be absent)
+            const { data: { session } } = await supabase.auth.getSession()
+            const res = await fetch('/api/seller/shop-status', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                ...(session?.access_token ? { 'Authorization': `Bearer ${session.access_token}` } : {}),
+              },
+              body: JSON.stringify({ is_open: nextState }),
+            })
+            if (!res.ok) {
+              // API failed — revert UI to previous DB state
+              shopIsOpen = prevState
+              updateToggleUI(prevState)
+              const body = await res.json().catch(() => ({})) as { error?: string }
+              alert(`Gagal kemaskini status kedai (${body.error ?? res.status}). Sila cuba lagi.`)
+              return
+            }
+            shopIsOpen = nextState
+          } catch {
+            shopIsOpen = prevState
+            updateToggleUI(prevState)
+            alert('Tiada sambungan. Status kedai tidak dikemaskini.')
+          }
+        })
       }
 
       // Live admin message unread count
@@ -713,45 +757,12 @@ export default function Page() {
         .catch(() => { /* keep default text */ })
     }
 
-    const originalToggle = (window as DashboardWindow).toggleShop
-    ;(window as DashboardWindow).toggleShop = (checkbox: HTMLInputElement) => {
-      originalToggle?.(checkbox)
-      if (!currentSeller) return
-      const isOpen = checkbox.checked
-      void (async () => {
-        try {
-          // iOS PWA uses a separate cookie store — pass token explicitly so the
-          // API route can authenticate without relying on cookies from the request
-          const { data: { session } } = await supabase.auth.getSession()
-          const res = await fetch('/api/seller/shop-status', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              ...(session?.access_token ? { 'Authorization': `Bearer ${session.access_token}` } : {}),
-            },
-            body: JSON.stringify({ is_open: isOpen }),
-          })
-          if (!res.ok) {
-            checkbox.checked = !isOpen
-            originalToggle?.(checkbox)
-            alert('Gagal kemaskini status kedai. Sila cuba lagi.')
-          }
-        } catch {
-          checkbox.checked = !isOpen
-          originalToggle?.(checkbox)
-          alert('Tiada sambungan. Status kedai tidak dikemaskini.')
-        }
-      })()
-    }
-
     loadDashboard().catch((error) => {
       console.error(error)
       setText('.shop-name', 'Dashboard tidak dapat dimuatkan')
     })
 
-    return () => {
-      ;(window as DashboardWindow).toggleShop = originalToggle
-    }
+    return () => { /* no window.toggleShop override to restore */ }
   }, [])
 
   return (

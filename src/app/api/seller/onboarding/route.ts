@@ -59,7 +59,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Input melebihi had panjang yang dibenarkan' }, { status: 400 })
   }
 
-  const sellerPayload = {
+  const basePayload = {
     user_id: user.id,
     shop_name: body.shop_name.trim(),
     email: body.email?.trim() || user.email || null,
@@ -71,8 +71,8 @@ export async function POST(request: Request) {
     latitude: typeof body.latitude === 'number' && !Number.isNaN(body.latitude) ? body.latitude : null,
     longitude: typeof body.longitude === 'number' && !Number.isNaN(body.longitude) ? body.longitude : null,
     status: 'pending',
-    is_open: false,
   }
+
   const { data: existingSeller, error: lookupError } = await adminClient
     .from('sellers')
     .select('id')
@@ -83,9 +83,11 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Failed to check existing seller' }, { status: 500 })
   }
 
+  // INSERT new sellers with is_open: false (must explicitly open from dashboard).
+  // UPDATE existing sellers WITHOUT touching is_open — seller controls that via toggle.
   const { data, error: saveError } = existingSeller
-    ? await adminClient.from('sellers').update(sellerPayload).eq('id', existingSeller.id).select('id').single()
-    : await adminClient.from('sellers').insert(sellerPayload).select('id').single()
+    ? await adminClient.from('sellers').update(basePayload).eq('id', existingSeller.id).select('id').single()
+    : await adminClient.from('sellers').insert({ ...basePayload, is_open: false }).select('id').single()
 
   if (saveError) {
     return NextResponse.json({ error: saveError.message }, { status: 500 })
