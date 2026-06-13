@@ -7,11 +7,44 @@ import type { ProductCategory } from '@/types/database'
 
 const MAX_IMAGES = 4
 
+async function compressImage(file: File): Promise<File> {
+  // HEIC/HEIF cannot be decoded by canvas — skip compression, pass raw
+  if (file.type === 'image/heic' || file.type === 'image/heif') return file
+
+  return new Promise((resolve) => {
+    const img = new Image()
+    const url = URL.createObjectURL(file)
+    img.onload = () => {
+      URL.revokeObjectURL(url)
+      const MAX_DIM = 1920
+      let { width, height } = img
+      if (width > MAX_DIM || height > MAX_DIM) {
+        if (width >= height) { height = Math.round(height * MAX_DIM / width); width = MAX_DIM }
+        else { width = Math.round(width * MAX_DIM / height); height = MAX_DIM }
+      }
+      const canvas = document.createElement('canvas')
+      canvas.width = width
+      canvas.height = height
+      const ctx = canvas.getContext('2d')
+      if (!ctx) { resolve(file); return }
+      ctx.drawImage(img, 0, 0, width, height)
+      canvas.toBlob((blob) => {
+        if (!blob) { resolve(file); return }
+        const name = file.name.replace(/\.[^.]+$/, '.webp')
+        resolve(new File([blob], name, { type: 'image/webp', lastModified: Date.now() }))
+      }, 'image/webp', 0.85)
+    }
+    img.onerror = () => { URL.revokeObjectURL(url); resolve(file) }
+    img.src = url
+  })
+}
+
 export default function TambahProdukPage() {
   const supabase = createClient()
   const [sellerId, setSellerId] = useState<string | null>(null)
   const [shopStatus, setShopStatus] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
+  const [compressing, setCompressing] = useState(false)
   const [submitting, setSubmitting] = useState(false)
   const [name, setName] = useState('')
   const [category, setCategory] = useState<ProductCategory>(PRODUCT_CATEGORIES[0])
@@ -40,25 +73,47 @@ export default function TambahProdukPage() {
     loadSeller().catch(console.error)
   }, [supabase])
 
-  function handleImageChange(e: React.ChangeEvent<HTMLInputElement>) {
+  async function handleImageChange(e: React.ChangeEvent<HTMLInputElement>) {
     const files = Array.from(e.target.files ?? [])
     const remaining = MAX_IMAGES - imageFiles.length
     const toAdd = files.slice(0, remaining)
     if (toAdd.length === 0) return
-    setImageFiles((prev) => [...prev, ...toAdd])
-    toAdd.forEach((file) => {
-      const reader = new FileReader()
-      reader.onload = (ev) => {
-        setImagePreviews((prev) => [...prev, ev.target?.result as string])
-      }
-      reader.readAsDataURL(file)
-    })
     e.target.value = ''
+
+    setCompressing(true)
+    try {
+      const compressed = await Promise.all(toAdd.map(compressImage))
+      setImageFiles((prev) => [...prev, ...compressed])
+      compressed.forEach((file) => {
+        const reader = new FileReader()
+        reader.onload = (ev) => {
+          setImagePreviews((prev) => [...prev, ev.target?.result as string])
+        }
+        reader.readAsDataURL(file)
+      })
+    } finally {
+      setCompressing(false)
+    }
   }
 
   function removeImage(index: number) {
     setImageFiles((prev) => prev.filter((_, i) => i !== index))
     setImagePreviews((prev) => prev.filter((_, i) => i !== index))
+  }
+
+  function moveImage(index: number, dir: -1 | 1) {
+    const newIdx = index + dir
+    if (newIdx < 0 || newIdx >= imageFiles.length) return
+    setImageFiles((prev) => {
+      const arr = [...prev];
+      [arr[index], arr[newIdx]] = [arr[newIdx], arr[index]]
+      return arr
+    })
+    setImagePreviews((prev) => {
+      const arr = [...prev];
+      [arr[index], arr[newIdx]] = [arr[newIdx], arr[index]]
+      return arr
+    })
   }
 
   async function handleSubmit(e: React.FormEvent) {
@@ -143,26 +198,43 @@ export default function TambahProdukPage() {
         <form onSubmit={handleSubmit} style={{ padding: '16px 16px 8px' }}>
           {/* Images */}
           <div style={{ background: '#fff', borderRadius: 16, padding: 16, marginBottom: 12 }}>
-            <div style={{ fontSize: 13, fontWeight: 700, color: '#111', marginBottom: 10 }}>Gambar Produk ({imagePreviews.length}/{MAX_IMAGES})</div>
+            <div style={{ fontSize: 13, fontWeight: 700, color: '#111', marginBottom: 6 }}>Gambar Produk ({imagePreviews.length}/{MAX_IMAGES})</div>
+            <div style={{ fontSize: 11, color: '#888', marginBottom: 10 }}>Gunakan anak panah ← → untuk susun semula gambar mengikut urutan paparan.</div>
+
             <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
               {imagePreviews.map((src, i) => (
-                <div key={i} style={{ position: 'relative', width: 80, height: 80, borderRadius: 10, overflow: 'hidden', border: '1px solid #E5E5EA' }}>
+                <div key={i} style={{ position: 'relative', width: 80, height: 80, borderRadius: 10, overflow: 'visible', border: '1px solid #E5E5EA', flexShrink: 0 }}>
                   {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img src={src} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                  <button type="button" onClick={() => removeImage(i)} style={{ position: 'absolute', top: 3, right: 3, background: 'rgba(0,0,0,0.55)', border: 'none', borderRadius: '50%', width: 20, height: 20, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', padding: 0 }}>
-                    <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="3" strokeLinecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                  <img src={src} alt="" style={{ width: 80, height: 80, objectFit: 'cover', borderRadius: 10, display: 'block' }} />
+                  {/* position badge */}
+                  <div style={{ position: 'absolute', bottom: 3, left: 3, background: 'rgba(0,0,0,0.55)', borderRadius: 4, padding: '1px 5px', fontSize: 9, color: '#fff', fontWeight: 700 }}>{i + 1}</div>
+                  {/* remove */}
+                  <button type="button" onClick={() => removeImage(i)} style={{ position: 'absolute', top: -6, right: -6, background: '#e44', border: '2px solid #fff', borderRadius: '50%', width: 20, height: 20, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', padding: 0, zIndex: 1 }}>
+                    <svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="3.5" strokeLinecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
                   </button>
+                  {/* reorder arrows */}
+                  <div style={{ position: 'absolute', top: -6, left: '50%', transform: 'translateX(-50%)', display: 'flex', gap: 2, zIndex: 1 }}>
+                    <button type="button" onClick={() => moveImage(i, -1)} disabled={i === 0} style={{ background: i === 0 ? '#ccc' : '#7B1533', border: '2px solid #fff', borderRadius: 4, width: 18, height: 18, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: i === 0 ? 'default' : 'pointer', padding: 0 }}>
+                      <svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+                    </button>
+                    <button type="button" onClick={() => moveImage(i, 1)} disabled={i === imageFiles.length - 1} style={{ background: i === imageFiles.length - 1 ? '#ccc' : '#7B1533', border: '2px solid #fff', borderRadius: 4, width: 18, height: 18, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: i === imageFiles.length - 1 ? 'default' : 'pointer', padding: 0 }}>
+                      <svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+                    </button>
+                  </div>
                 </div>
               ))}
               {imagePreviews.length < MAX_IMAGES && (
-                <button type="button" onClick={() => fileInputRef.current?.click()} style={{ width: 80, height: 80, borderRadius: 10, border: '2px dashed #D0D0D8', background: '#F8F8FA', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', gap: 4 }}>
-                  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#7B1533" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-                  <span style={{ fontSize: 10, color: '#888', fontWeight: 600 }}>Gambar</span>
+                <button type="button" onClick={() => fileInputRef.current?.click()} disabled={compressing} style={{ width: 80, height: 80, borderRadius: 10, border: '2px dashed #D0D0D8', background: '#F8F8FA', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', cursor: compressing ? 'wait' : 'pointer', gap: 4 }}>
+                  {compressing
+                    ? <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#7B1533" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
+                    : <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#7B1533" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                  }
+                  <span style={{ fontSize: 10, color: '#888', fontWeight: 600 }}>{compressing ? 'Mampat…' : 'Gambar'}</span>
                 </button>
               )}
             </div>
             <input ref={fileInputRef} type="file" accept="image/*" multiple onChange={handleImageChange} style={{ display: 'none' }} />
-            <div style={{ fontSize: 11, color: '#AAA', marginTop: 8 }}>Muat naik sehingga 4 gambar. Format: JPG, PNG, WEBP.</div>
+            <div style={{ fontSize: 11, color: '#AAA', marginTop: 10 }}>Gambar dari kamera akan dimampatkan secara automatik. Format: JPG, PNG, WEBP, HEIC. Sehingga 4 gambar.</div>
           </div>
 
           {/* Name + Category */}
@@ -206,8 +278,8 @@ export default function TambahProdukPage() {
             <div style={{ background: '#FFF0F0', border: '1px solid #FFCDD2', borderRadius: 10, padding: '10px 14px', marginBottom: 12, fontSize: 13, color: '#C62828', fontWeight: 600 }}>{error}</div>
           )}
 
-          <button type="submit" disabled={submitting} style={{ width: '100%', background: submitting ? '#C0A0A8' : '#7B1533', color: '#fff', border: 'none', borderRadius: 14, padding: '15px', fontSize: 15, fontWeight: 700, cursor: submitting ? 'not-allowed' : 'pointer', fontFamily: 'inherit' }}>
-            {submitting ? 'Menghantar…' : 'Hantar untuk Semakan'}
+          <button type="submit" disabled={submitting || compressing} style={{ width: '100%', background: (submitting || compressing) ? '#C0A0A8' : '#7B1533', color: '#fff', border: 'none', borderRadius: 14, padding: '15px', fontSize: 15, fontWeight: 700, cursor: (submitting || compressing) ? 'not-allowed' : 'pointer', fontFamily: 'inherit' }}>
+            {submitting ? 'Menghantar…' : compressing ? 'Memampatkan gambar…' : 'Hantar untuk Semakan'}
           </button>
         </form>
       </div>

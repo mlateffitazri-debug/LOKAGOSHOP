@@ -307,7 +307,7 @@ function renderHomeMarkup(
 <!-- HEADER -->
 <div class="header">
   <div class="header-r1">
-    <img src="/icons/Logo-LOKALGO.png" alt="LokalGo™" style="height:40px;width:auto;display:block;">
+    <button onclick="window.location.reload()" style="background:none;border:none;padding:0;cursor:pointer;display:flex;align-items:center;" aria-label="Muat semula"><img src="/icons/Logo-LOKALGO.png" alt="LokalGo™" style="height:40px;width:auto;display:block;"></button>
     <div class="header-actions">
       <button class="coin-btn" aria-label="Sokong Pembangun"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#C8E44A" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 8h1a4 4 0 1 1 0 8h-1"/><path d="M3 8h14v9a4 4 0 0 1-4 4H7a4 4 0 0 1-4-4Z"/><line x1="6" y1="2" x2="6" y2="4"/><line x1="10" y1="2" x2="10" y2="4"/><line x1="14" y1="2" x2="14" y2="4"/></svg></button>
       <button class="home-avatar" aria-label="Buka menu profil">${avatarHtml}</button>
@@ -502,7 +502,6 @@ export default function HomePage() {
           .from('sellers')
           .select('*')
           .eq('status', 'active')
-          .eq('is_open', true)
           .order('approved_at', { ascending: false, nullsFirst: false })
           .order('created_at', { ascending: false })
           .limit(100),

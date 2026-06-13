@@ -199,9 +199,9 @@ const markup = `<div class="page">
 <!-- HEADER -->
 <div class="header">
   <div class="header-r1">
-    <a href="/home" title="Ke Halaman Utama" style="display:flex;align-items:center;">
+    <button onclick="window.location.reload()" style="background:none;border:none;padding:0;cursor:pointer;display:flex;align-items:center;" aria-label="Muat semula">
     <img src="/icons/Logo-LOKALGO.png" alt="LokalGo™" style="height:40px;width:auto;display:block;">
-    </a>
+    </button>
     <div class="header-actions">
       <button class="coin-btn sokong-btn" aria-label="Sokong Pembangun"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#C8E44A" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 8h1a4 4 0 1 1 0 8h-1"/><path d="M3 8h14v9a4 4 0 0 1-4 4H7a4 4 0 0 1-4-4Z"/><line x1="6" y1="2" x2="6" y2="4"/><line x1="10" y1="2" x2="10" y2="4"/><line x1="14" y1="2" x2="14" y2="4"/></svg></button>
       <button class="home-avatar" id="dashAvatarBtn" onclick="dashOpenSidebar()" aria-label="Buka menu profil">L</button>
@@ -219,7 +219,7 @@ const markup = `<div class="page">
 <div class="shop-name-row">
   <div>
     <div class="shop-name">Resepi Kak Mila</div>
-    <a href="/shop" style="font-size:11px;color:#7B1533;font-weight:600;text-decoration:none;display:flex;align-items:center;gap:3px;margin-top:3px;">
+    <a id="viewShopLink" href="/shop" style="font-size:11px;color:#7B1533;font-weight:600;text-decoration:none;display:flex;align-items:center;gap:3px;margin-top:3px;">
       <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#7B1533" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
       Lihat kedai saya
     </a>
@@ -533,6 +533,35 @@ export default function Page() {
       setText('.stats-grid .stat-card:nth-child(4) .stat-num', `${Math.min(100, Math.round(((currentSeller.view_count ?? 0) + (currentSeller.wa_click_count ?? 0) + (sellerTestimonials.length * 10)) / 5))}%`)
       setHtml('.produk-list', renderDashboardProducts(sellerProducts))
 
+      // Fix "Lihat kedai saya" link to point to this seller's actual shop
+      const viewShopLink = document.getElementById('viewShopLink') as HTMLAnchorElement | null
+      if (viewShopLink) viewShopLink.href = `/shop?seller=${currentSeller.id}`
+
+      // Bell notification — count unseen approved products + new verified status
+      const seenKey = `lk_seen_${currentSeller.id}`
+      let seen: { products: string[]; active: boolean } = { products: [], active: false }
+      try { seen = JSON.parse(localStorage.getItem(seenKey) || '{}') } catch { /* ignore */ }
+      seen.products = seen.products ?? []
+      const approvedProducts = sellerProducts.filter((p) => p.status === 'approved')
+      const unseenApproved = approvedProducts.filter((p) => !seen.products.includes(p.id))
+      const isNewlyActive = currentSeller.status === 'active' && !seen.active
+      const notifCount = unseenApproved.length + (isNewlyActive ? 1 : 0)
+      const notifBadge = document.getElementById('notifBadge')
+      if (notifBadge) {
+        notifBadge.textContent = notifCount > 9 ? '9+' : String(notifCount)
+        notifBadge.style.display = notifCount > 0 ? 'flex' : 'none'
+      }
+      // Mark as seen when bell is clicked
+      const bellLink = document.querySelector<HTMLAnchorElement>('a[href="/notifikasi"]')
+      if (bellLink) {
+        bellLink.addEventListener('click', () => {
+          localStorage.setItem(seenKey, JSON.stringify({
+            products: approvedProducts.map((p) => p.id),
+            active: currentSeller.status === 'active',
+          }))
+        }, { once: true })
+      }
+
       // Product mode toggles — Jual Terus / Terima Pre-Order
       const flagsById = new Map(sellerProducts.map((p) => [p.id, { is_available: p.is_available, is_preorder: p.is_preorder }]))
       document.querySelectorAll<HTMLInputElement>('.produk-list input[data-field]').forEach((toggle) => {
@@ -545,8 +574,14 @@ export default function Page() {
           flags[field] = toggle.checked
           const label = document.querySelector<HTMLElement>(`[data-mode-label="${id}"]`)
           if (label) label.textContent = `● ${productModeLabel(flags)}`
-          const { error } = await supabase.from('products').update({ [field]: toggle.checked }).eq('id', id)
-          if (error) {
+          try {
+            const res = await fetch('/api/seller/product-toggle', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ productId: id, field, value: toggle.checked }),
+            })
+            if (!res.ok) throw new Error('toggle failed')
+          } catch {
             flags[field] = previous
             toggle.checked = previous
             if (label) label.textContent = `● ${productModeLabel(flags)}`

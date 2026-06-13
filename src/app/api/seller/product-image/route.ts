@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { createClient as createServerClient } from '@/lib/supabase/server'
 
-const MAX_IMAGE_BYTES = 1024 * 1024 // 1 MB
+const MAX_IMAGE_BYTES = 10 * 1024 * 1024 // 10 MB — client compresses to WebP before upload
 const ALLOWED_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp', 'image/heic', 'image/heif'])
 
 async function detectImageType(file: File): Promise<string | null> {
