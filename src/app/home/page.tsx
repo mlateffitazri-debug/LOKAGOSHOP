@@ -661,7 +661,7 @@ export default function HomePage() {
     <>
       <style dangerouslySetInnerHTML={{ __html: styles }} />
       <div className="page" onClick={handleClick}>
-        <div dangerouslySetInnerHTML={{ __html: pageInnerMarkup }} />
+        <div style={{ height: '100%' }} dangerouslySetInnerHTML={{ __html: pageInnerMarkup }} />
         {isSidebarOpen ? (
           <div className="sidebar-backdrop" onClick={() => setIsSidebarOpen(false)} aria-hidden="true" />
         ) : null}
