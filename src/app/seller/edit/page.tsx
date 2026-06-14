@@ -94,6 +94,7 @@ const markup = `<div class="page">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#F0A500" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;margin-top:1px;"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
         <div class="approval-text">Gambar baru perlu diluluskan admin sebelum dipaparkan. Gambar semasa akan kekal sehingga diluluskan.</div>
       </div>
+      <div style="font-size:12px;color:#888;margin-top:8px;line-height:1.6;">Cadangan gambar kedai: square 1:1, minimum 800×800px. Gambar resolusi rendah mungkin kelihatan pecah di Home.</div>
     </div>
   </div>
 
@@ -361,11 +362,26 @@ export default function Page() {
         return
       }
 
+      // Check image dimensions for quality warning (non-blocking)
+      const dimReader = new FileReader()
+      dimReader.onload = (e) => {
+        const dataUrl = e.target?.result as string
+        if (!dataUrl) return
+        const img = new window.Image()
+        img.onload = () => {
+          if (img.naturalWidth > 0 && (img.naturalWidth < 600 || img.naturalHeight < 600)) {
+            showPhotoStatus('⚠️ Gambar ini mungkin kelihatan pecah. Untuk hasil terbaik, gunakan gambar sekurang-kurangnya 800×800px.')
+          }
+        }
+        img.src = dataUrl
+      }
+      dimReader.readAsDataURL(file)
+
       showPhotoStatus('Memampatkan gambar...')
 
       let compressed: File
       try {
-        compressed = await compressImage(file, 'avatar')
+        compressed = await compressImage(file, 'shop_profile')
       } catch {
         showPhotoStatus('Format gambar tidak disokong. Sila tukar ke JPG.')
         if (fileInput) fileInput.value = ''
