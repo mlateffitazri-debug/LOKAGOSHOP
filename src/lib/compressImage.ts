@@ -2,7 +2,7 @@ import imageCompression from 'browser-image-compression'
 
 const PRESETS = {
   banner:       { maxSizeMB: 0.18, maxWidthOrHeight: 1280, initialQuality: 0.80 },
-  product:      { maxSizeMB: 0.15, maxWidthOrHeight: 1024, initialQuality: 0.80 },
+  product:      { maxSizeMB: 0.50, maxWidthOrHeight: 1200, initialQuality: 0.86 },
   avatar:       { maxSizeMB: 0.08, maxWidthOrHeight: 400,  initialQuality: 0.80 },
   // Higher quality for seller shop profile — displayed as full-width card on Home
   shop_profile: { maxSizeMB: 0.40, maxWidthOrHeight: 1200, initialQuality: 0.85 },
