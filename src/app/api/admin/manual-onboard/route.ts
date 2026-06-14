@@ -1,12 +1,44 @@
 import { NextResponse } from 'next/server'
 import { requireAdmin } from '@/lib/admin/access'
 import { createAdminClient } from '@/lib/supabase/admin'
+import type { SupabaseClient } from '@supabase/supabase-js'
 
 function normalizePhone(value: string) {
   const digits = value.replace(/\D/g, '')
   if (digits.startsWith('60')) return digits
   if (digits.startsWith('0')) return `6${digits}`
   return digits
+}
+
+async function findSellerByField(
+  supabase: SupabaseClient,
+  field: string,
+  value: string,
+): Promise<{ id: string } | null> {
+  const { data, error } = await supabase
+    .from('sellers')
+    .select('id')
+    .eq(field, value)
+    .is('deleted_at', null)
+    .maybeSingle()
+
+  if (!error) return data as { id: string } | null
+
+  // Column deleted_at doesn't exist yet — retry without it
+  const missingCol =
+    error.message.includes('deleted_at') ||
+    (error as { code?: string }).code === '42703'
+  if (missingCol) {
+    const { data: data2, error: error2 } = await supabase
+      .from('sellers')
+      .select('id')
+      .eq(field, value)
+      .maybeSingle()
+    if (error2) throw new Error(error2.message)
+    return data2 as { id: string } | null
+  }
+
+  throw new Error(error.message)
 }
 
 export async function POST(request: Request) {
@@ -33,13 +65,7 @@ export async function POST(request: Request) {
     const phone = normalizePhone(whatsapp_number)
 
     // Reject duplicate phone number
-    const { data: existingByPhone } = await supabase
-      .from('sellers')
-      .select('id')
-      .eq('whatsapp_number', phone)
-      .is('deleted_at', null)
-      .maybeSingle()
-
+    const existingByPhone = await findSellerByField(supabase, 'whatsapp_number', phone)
     if (existingByPhone) {
       return NextResponse.json(
         { error: 'Penjual dengan nombor WhatsApp ini sudah wujud', sellerId: existingByPhone.id },
@@ -52,24 +78,20 @@ export async function POST(request: Request) {
     try {
       const { data: { users } } = await supabase.auth.admin.listUsers({ page: 1, perPage: 1000 })
       const match = users?.find((u) => u.email?.toLowerCase() === email.toLowerCase().trim())
-      if (match) {
-        userId = match.id
-        // Ensure no seller is already linked to this user
-        const { data: existingByUser } = await supabase
-          .from('sellers')
-          .select('id')
-          .eq('user_id', userId)
-          .is('deleted_at', null)
-          .maybeSingle()
-        if (existingByUser) {
-          return NextResponse.json(
-            { error: 'Pengguna ini sudah mempunyai akaun penjual', sellerId: existingByUser.id },
-            { status: 409 },
-          )
-        }
-      }
+      if (match) userId = match.id
     } catch {
       // Auth admin API unavailable — continue without linking
+    }
+
+    // Ensure no seller is already linked to this user (outside auth try-catch so DB errors surface)
+    if (userId) {
+      const existingByUser = await findSellerByField(supabase, 'user_id', userId)
+      if (existingByUser) {
+        return NextResponse.json(
+          { error: 'Pengguna ini sudah mempunyai akaun penjual', sellerId: existingByUser.id },
+          { status: 409 },
+        )
+      }
     }
 
     const payload: Record<string, unknown> = {
