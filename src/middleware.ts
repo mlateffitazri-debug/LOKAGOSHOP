@@ -14,7 +14,9 @@ const protectedPathPrefixes = [
   '/profile',
   '/saved',
   '/seller',
-  '/shop',
+  // /shop is intentionally excluded: shop slug pages must be publicly
+  // reachable by social crawlers for OG metadata. Client-side auth
+  // handles the redirect to /auth for unauthenticated real users.
   '/testimoni',
   '/testimonials',
 ]
@@ -49,19 +51,35 @@ function isMobile(request: NextRequest) {
   return /Mobile|Android|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(ua)
 }
 
+const CRAWLER_UA_RE =
+  /facebookexternalhit|Facebot|WhatsApp|TelegramBot|Twitterbot|LinkedInBot|Slackbot|Discordbot|Googlebot/i
+
+function isCrawler(request: NextRequest) {
+  const ua = request.headers.get('user-agent') ?? ''
+  return CRAWLER_UA_RE.test(ua)
+}
+
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl
 
-  // Mobile-only enforcement — skip for static assets, API, admin, and the warning page itself
+  // Mobile-only enforcement — skip for static assets, API, admin, shop slug pages, and the warning page itself
   const isExcluded =
     pathname.startsWith('/desktop-only') ||
     pathname.startsWith('/adminhensemonly') ||
     pathname.startsWith('/api/') ||
     pathname.startsWith('/_next/') ||
+    pathname.startsWith('/shop/') ||   // public shop slug pages must be crawler-accessible
+    pathname.startsWith('/assets/') || // static poster assets
     /\.(?:js|css|json|ico|woff2?|ttf|eot|map|txt|xml)$/.test(pathname)
 
   // Dev sahaja: benarkan desktop browser untuk preview/testing tempatan
-  if (process.env.NODE_ENV !== 'development' && !isExcluded && !isMobile(request)) {
+  // Production: allow known social crawlers through regardless of UA
+  if (
+    process.env.NODE_ENV !== 'development' &&
+    !isExcluded &&
+    !isMobile(request) &&
+    !isCrawler(request)
+  ) {
     const url = request.nextUrl.clone()
     url.pathname = '/desktop-only'
     return NextResponse.redirect(url)
