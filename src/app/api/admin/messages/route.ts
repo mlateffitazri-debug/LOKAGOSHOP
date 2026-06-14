@@ -43,10 +43,11 @@ export async function POST(request: Request) {
     type?: string
     title?: string
     body?: string
+    broadcast?: boolean
   }
 
-  if (!body.seller_id || !body.type || !body.title || !body.body) {
-    return NextResponse.json({ error: 'Missing required fields: seller_id, type, title, body' }, { status: 400 })
+  if (!body.type || !body.title || !body.body) {
+    return NextResponse.json({ error: 'Missing required fields: type, title, body' }, { status: 400 })
   }
 
   const validTypes = ['warning', 'info', 'flag', 'success']
@@ -55,6 +56,53 @@ export async function POST(request: Request) {
   }
 
   const supabase = createAdminClient()
+
+  // ── Broadcast to all sellers ──────────────────────────────────────────────
+  if (body.broadcast === true) {
+    const { data: allSellers, error: sellersError } = await supabase
+      .from('sellers')
+      .select('id')
+
+    if (sellersError) {
+      return NextResponse.json({ error: sellersError.message }, { status: 500 })
+    }
+
+    const sellers = allSellers ?? []
+    if (sellers.length === 0) {
+      return NextResponse.json({ ok: true, sent: 0, failed: 0, total: 0 })
+    }
+
+    const now = new Date().toISOString()
+    const messages = sellers.map((s) => ({
+      seller_id: s.id,
+      type: body.type!,
+      title: body.title!.trim(),
+      body: body.body!.trim(),
+      is_read: false,
+      sent_at: now,
+    }))
+
+    const BATCH_SIZE = 50
+    let sent = 0
+    let failed = 0
+
+    for (let i = 0; i < messages.length; i += BATCH_SIZE) {
+      const batch = messages.slice(i, i + BATCH_SIZE)
+      const { error } = await supabase.from('admin_messages').insert(batch)
+      if (error) {
+        failed += batch.length
+      } else {
+        sent += batch.length
+      }
+    }
+
+    return NextResponse.json({ ok: true, sent, failed, total: sellers.length })
+  }
+
+  // ── Single seller message ────────────────────────────────────────────────
+  if (!body.seller_id) {
+    return NextResponse.json({ error: 'Missing required fields: seller_id, type, title, body' }, { status: 400 })
+  }
 
   const { error } = await supabase.from('admin_messages').insert({
     seller_id: body.seller_id,

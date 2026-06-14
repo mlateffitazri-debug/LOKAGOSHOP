@@ -268,6 +268,21 @@ body{background:#07070a;font-family:'Plus Jakarta Sans',-apple-system,BlinkMacSy
 @media(max-width:1024px){.stat-strip{grid-template-columns:repeat(2,1fr);}.feat-grid{grid-template-columns:repeat(2,1fr);}.dash-row{grid-template-columns:1fr;}.ps-grid{grid-template-columns:1fr 1fr;}.ps-card.s2{grid-column:span 1;}.ps-card.s3{grid-column:span 2;}.stats-bottom-grid{grid-template-columns:1fr;}}
 @media(max-width:820px){.sidebar{width:58px;}.sb-section,.sb-nav .nav-item span,.sb-foot,.sb-tag{display:none;}.main{margin-left:58px;}.content{padding:16px;}.feat-grid{grid-template-columns:repeat(2,1fr);}.stat-strip-wrap{padding:16px 16px 0;}}
 @media(max-width:580px){.sidebar{display:none;}.main{margin-left:0;}.stat-strip{grid-template-columns:1fr 1fr;}.feat-grid{grid-template-columns:1fr 1fr;}}
+
+/* SELLER DETAIL MODAL */
+.modal-box.large{max-width:900px;}
+.sd-vis-badge{display:inline-block;border-radius:10px;padding:8px 14px;font-size:13px;font-weight:700;margin-bottom:10px;border:1px solid transparent;}
+.sd-warn-row{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px;min-height:4px;}
+.sd-actions-row{display:flex;flex-wrap:wrap;gap:7px;margin-bottom:16px;padding-bottom:16px;border-bottom:1px solid rgba(255,255,255,0.07);}
+.sd-info-grid{display:grid;grid-template-columns:1fr 1fr;gap:0 20px;margin-bottom:18px;padding-bottom:18px;border-bottom:1px solid rgba(255,255,255,0.07);}
+.sd-field{padding:7px 0;border-bottom:1px solid rgba(255,255,255,0.04);}
+.sd-field:last-child{border-bottom:none;}
+.sd-field-lbl{font-size:10px;font-weight:700;color:rgba(240,240,240,0.28);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:3px;}
+.sd-field-val{font-size:13px;color:#f0f0f0;word-break:break-all;line-height:1.4;}
+.sd-field-val.muted{color:rgba(240,240,240,0.3);}
+.sd-prod-counts{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px;}
+.sd-section-title{font-size:13px;font-weight:800;color:#f0f0f0;margin-bottom:10px;}
+@media(max-width:640px){.sd-info-grid{grid-template-columns:1fr;}}
 `
 
 const markup = `
@@ -729,6 +744,35 @@ const markup = `
       </div>
     </div>
 
+    <!-- Seller Broadcast -->
+    <div class="tbl-card" style="max-width:680px;margin-top:16px;">
+      <div style="padding:18px 20px 0;">
+        <div style="font-size:14px;font-weight:800;color:#f0f0f0;margin-bottom:3px;">&#128226; Broadcast Mesej ke Semua Seller</div>
+        <div style="font-size:12px;color:rgba(240,240,240,0.3);margin-bottom:14px;">Mesej akan dihantar ke inbox semua seller melalui sistem admin message sedia ada. Seller akan nampak mesej ini dalam tab Inbox/Notifikasi mereka.</div>
+        <div id="bc-seller-status" style="display:none;border-radius:10px;padding:10px 14px;font-size:13px;font-weight:700;margin-bottom:14px;"></div>
+        <div style="display:flex;gap:12px;margin-bottom:12px;flex-wrap:wrap;">
+          <div style="flex:0 0 140px;">
+            <div style="font-size:11px;font-weight:700;color:rgba(240,240,240,0.4);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:5px;">Jenis *</div>
+            <select id="bc-seller-type" style="width:100%;background:#0b0b0e;border:1px solid rgba(255,255,255,0.12);border-radius:10px;padding:10px 12px;font-size:13px;color:#f0f0f0;font-family:inherit;outline:none;">
+              <option value="info">&#8505; Maklumat</option>
+              <option value="success">&#10003; Pengumuman</option>
+              <option value="warning">&#9888; Amaran</option>
+              <option value="flag">&#9873; Penting</option>
+            </select>
+          </div>
+          <div style="flex:1;min-width:160px;">
+            <div style="font-size:11px;font-weight:700;color:rgba(240,240,240,0.4);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:5px;">Tajuk *</div>
+            <input id="bc-seller-title" type="text" maxlength="80" placeholder="Cth: Kemaskini Platform LokalGo" style="width:100%;background:#0b0b0e;border:1px solid rgba(255,255,255,0.12);border-radius:10px;padding:10px 12px;font-size:13px;color:#f0f0f0;font-family:inherit;outline:none;">
+          </div>
+        </div>
+        <div style="margin-bottom:14px;">
+          <div style="font-size:11px;font-weight:700;color:rgba(240,240,240,0.4);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:5px;">Kandungan *</div>
+          <textarea id="bc-seller-body" rows="4" maxlength="500" placeholder="Tulis mesej broadcast di sini..." style="width:100%;background:#0b0b0e;border:1px solid rgba(255,255,255,0.12);border-radius:10px;padding:10px 12px;font-size:13px;color:#f0f0f0;font-family:inherit;outline:none;resize:vertical;line-height:1.6;"></textarea>
+        </div>
+        <button class="btn btn-primary" id="bc-seller-send-btn" onclick="broadcastToAllSellers()" style="width:100%;margin-bottom:16px;">&#128226; Hantar kepada Semua Seller</button>
+      </div>
+    </div>
+
     <!-- ── DATABASE ── -->
     <div class="section" id="tab-database">
       <div class="sec-head">
@@ -847,6 +891,37 @@ const markup = `
     <div class="mo-actions">
       <button class="btn-submit" onclick="submitManualOnboard()">Daftar Seller (Pending)</button>
       <button class="btn-cancel" onclick="closeManualForm()">Batal</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: SELLER DETAIL -->
+<div id="seller-detail-modal" class="modal-overlay">
+  <div class="modal-box large">
+    <div class="mo-head">
+      <span class="mo-title" id="sd-title">Detail Seller</span>
+      <button class="mo-close" onclick="closeSellerDetail()">&#x2715;</button>
+    </div>
+    <!-- Home Visibility Status -->
+    <div id="sd-visibility"></div>
+    <!-- Warning badges -->
+    <div class="sd-warn-row" id="sd-warnings"></div>
+    <!-- Action buttons -->
+    <div class="sd-actions-row" id="sd-actions"></div>
+    <!-- Info grid: left = data fields, right = image + counters -->
+    <div class="sd-info-grid" id="sd-info"></div>
+    <!-- Products section -->
+    <div>
+      <div class="sd-section-title">Produk Seller</div>
+      <div class="sd-prod-counts" id="sd-prod-counts"></div>
+      <div style="overflow-x:auto;" id="sd-products-list">
+        <div style="text-align:center;color:rgba(240,240,240,0.2);padding:24px;font-size:13px;">Memuatkan produk...</div>
+      </div>
+    </div>
+    <!-- Footer: message + close -->
+    <div style="margin-top:16px;padding-top:14px;border-top:1px solid rgba(255,255,255,0.07);display:flex;gap:8px;flex-wrap:wrap;">
+      <button class="btn btn-ghost" id="sd-msg-btn" style="font-size:12px;">&#9993; Mesej Seller Ini</button>
+      <button class="btn btn-ghost" onclick="closeSellerDetail()" style="font-size:12px;">&#x2715; Tutup</button>
     </div>
   </div>
 </div>
