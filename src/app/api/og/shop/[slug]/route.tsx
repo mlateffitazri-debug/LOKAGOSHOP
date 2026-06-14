@@ -16,33 +16,54 @@ function nameFontSize(name: string): number {
   return 42
 }
 
-async function fetchSeller(slug: string) {
+type SellerRow = { id: string; shop_name: string; slug?: string | null }
+
+async function fetchSeller(slug: string): Promise<SellerRow | null> {
+  // Use service role key to bypass RLS — this route is server-only
   const supabase = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY ?? process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
   )
 
-  // Primary: slug lookup — avoids UUID cast error
-  const { data: bySlug } = await supabase
-    .from('sellers')
-    .select('id, shop_name, slug')
-    .eq('slug', slug)
-    .eq('status', 'active')
-    .maybeSingle()
+  console.log('[OG SHOP SLUG]', slug)
 
-  if (bySlug) return bySlug as { id: string; shop_name: string; slug?: string | null }
-
-  // Fallback: only attempt UUID lookup when input is actually a UUID
-  if (UUID_RE.test(slug)) {
-    const { data: byId } = await supabase
+  // Primary: look up by slug (no status filter — service key bypasses RLS)
+  try {
+    const { data, error } = await supabase
       .from('sellers')
       .select('id, shop_name, slug')
-      .eq('id', slug)
-      .eq('status', 'active')
+      .eq('slug', slug)
       .maybeSingle()
-    if (byId) return byId as { id: string; shop_name: string; slug?: string | null }
+
+    if (error) {
+      console.error('[OG SHOP FETCH ERROR] slug lookup:', error)
+    } else if (data) {
+      return data as SellerRow
+    }
+  } catch (err) {
+    console.error('[OG SHOP FETCH ERROR] slug lookup threw:', err)
   }
 
+  // Fallback: UUID lookup only when param looks like a UUID
+  if (UUID_RE.test(slug)) {
+    try {
+      const { data, error } = await supabase
+        .from('sellers')
+        .select('id, shop_name, slug')
+        .eq('id', slug)
+        .maybeSingle()
+
+      if (error) {
+        console.error('[OG SHOP FETCH ERROR] id lookup:', error)
+      } else if (data) {
+        return data as SellerRow
+      }
+    } catch (err) {
+      console.error('[OG SHOP FETCH ERROR] id lookup threw:', err)
+    }
+  }
+
+  console.error('[OG SHOP FETCH ERROR] seller not found for slug:', slug)
   return null
 }
 
@@ -54,7 +75,7 @@ export async function GET(
 
   const seller = await fetchSeller(slug)
   if (!seller) {
-    return new Response('Shop not found', { status: 404 })
+    return new Response(`Shop not found: ${slug}`, { status: 404 })
   }
 
   const shopName = seller.shop_name
