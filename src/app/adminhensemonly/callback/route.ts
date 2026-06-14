@@ -35,10 +35,10 @@ export async function GET(request: NextRequest) {
         get(name: string) {
           return cookieStore.get(name)?.value
         },
-        set(name: string, value: string, options) {
-          cookieStore.set(name, value, options as Parameters<typeof cookieStore.set>[2])
+        set(name: string, value: string, options: Parameters<typeof cookieStore.set>[2]) {
+          cookieStore.set(name, value, options)
         },
-        remove(name: string, options) {
+        remove(name: string, options: Parameters<typeof cookieStore.set>[2]) {
           cookieStore.set(name, '', { ...options, maxAge: 0 } as Parameters<typeof cookieStore.set>[2])
         },
       },
