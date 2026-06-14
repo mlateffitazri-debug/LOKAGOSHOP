@@ -6,40 +6,9 @@ import { useEffect, useRef, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { PRODUCT_CATEGORIES } from '@/types/database'
 import type { ProductCategory } from '@/types/database'
+import { compressImage } from '@/lib/compressImage'
 
 const MAX_IMAGES = 4
-
-async function compressImage(file: File): Promise<File> {
-  // HEIC/HEIF cannot be decoded by canvas — skip compression, pass raw
-  if (file.type === 'image/heic' || file.type === 'image/heif') return file
-
-  return new Promise((resolve) => {
-    const img = new Image()
-    const url = URL.createObjectURL(file)
-    img.onload = () => {
-      URL.revokeObjectURL(url)
-      const MAX_DIM = 1920
-      let { width, height } = img
-      if (width > MAX_DIM || height > MAX_DIM) {
-        if (width >= height) { height = Math.round(height * MAX_DIM / width); width = MAX_DIM }
-        else { width = Math.round(width * MAX_DIM / height); height = MAX_DIM }
-      }
-      const canvas = document.createElement('canvas')
-      canvas.width = width
-      canvas.height = height
-      const ctx = canvas.getContext('2d')
-      if (!ctx) { resolve(file); return }
-      ctx.drawImage(img, 0, 0, width, height)
-      canvas.toBlob((blob) => {
-        if (!blob) { resolve(file); return }
-        const name = file.name.replace(/\.[^.]+$/, '.webp')
-        resolve(new File([blob], name, { type: 'image/webp', lastModified: Date.now() }))
-      }, 'image/webp', 0.85)
-    }
-    img.onerror = () => { URL.revokeObjectURL(url); resolve(file) }
-    img.src = url
-  })
-}
 
 export default function TambahProdukPage() {
   const [sellerId, setSellerId] = useState<string | null>(null)
@@ -54,6 +23,7 @@ export default function TambahProdukPage() {
   const [unit, setUnit] = useState('')
   const [imagePreviews, setImagePreviews] = useState<string[]>([])
   const [imageFiles, setImageFiles] = useState<File[]>([])
+  const [imageWarnings, setImageWarnings] = useState<(string | null)[]>([])
   const [error, setError] = useState<string | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
@@ -84,15 +54,44 @@ export default function TambahProdukPage() {
 
     setCompressing(true)
     try {
-      const compressed = await Promise.all(toAdd.map(compressImage))
-      setImageFiles((prev) => [...prev, ...compressed])
-      compressed.forEach((file) => {
+      const compressed = await Promise.all(toAdd.map(async (file) => {
+        // HEIC/HEIF: pass through without compression — browser-image-compression
+        // cannot reliably decode HEIC on non-Safari environments
+        if (file.type === 'image/heic' || file.type === 'image/heif') return file
+        return compressImage(file, 'product')
+      }))
+
+      const dataUrls = await Promise.all(compressed.map((file) => new Promise<string>((resolve, reject) => {
         const reader = new FileReader()
-        reader.onload = (ev) => {
-          setImagePreviews((prev) => [...prev, ev.target?.result as string])
-        }
+        reader.onload = (ev) => resolve(ev.target?.result as string)
+        reader.onerror = reject
         reader.readAsDataURL(file)
-      })
+      })))
+
+      const warnings = await Promise.all(toAdd.map((originalFile, idx) => new Promise<string | null>((resolve) => {
+        // Skip dimension check for HEIC — browser may not decode dimensions correctly
+        if (originalFile.type === 'image/heic' || originalFile.type === 'image/heif') { resolve(null); return }
+        const img = new window.Image()
+        img.onload = () => {
+          const w = img.naturalWidth
+          const h = img.naturalHeight
+          if (!w || !h) { resolve(null); return }
+          const ratio = w / h
+          if (w < 600 || h < 600) {
+            resolve('Gambar ini mungkin kelihatan pecah. Gunakan gambar sekurang-kurangnya 800×800px.')
+          } else if (ratio < 0.75 || ratio > 1.33) {
+            resolve('Gambar ini tidak square. Untuk hasil terbaik, crop gambar kepada nisbah 1:1 sebelum upload.')
+          } else {
+            resolve(null)
+          }
+        }
+        img.onerror = () => resolve(null)
+        img.src = dataUrls[idx]
+      })))
+
+      setImageFiles((prev) => [...prev, ...compressed])
+      setImagePreviews((prev) => [...prev, ...dataUrls])
+      setImageWarnings((prev) => [...prev, ...warnings])
     } finally {
       setCompressing(false)
     }
@@ -101,6 +100,7 @@ export default function TambahProdukPage() {
   function removeImage(index: number) {
     setImageFiles((prev) => prev.filter((_, i) => i !== index))
     setImagePreviews((prev) => prev.filter((_, i) => i !== index))
+    setImageWarnings((prev) => prev.filter((_, i) => i !== index))
   }
 
   function moveImage(index: number, dir: -1 | 1) {
@@ -112,6 +112,11 @@ export default function TambahProdukPage() {
       return arr
     })
     setImagePreviews((prev) => {
+      const arr = [...prev];
+      [arr[index], arr[newIdx]] = [arr[newIdx], arr[index]]
+      return arr
+    })
+    setImageWarnings((prev) => {
       const arr = [...prev];
       [arr[index], arr[newIdx]] = [arr[newIdx], arr[index]]
       return arr
@@ -211,9 +216,9 @@ export default function TambahProdukPage() {
 
             <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
               {imagePreviews.map((src, i) => (
-                <div key={i} style={{ position: 'relative', width: 80, height: 80, borderRadius: 10, overflow: 'visible', border: '1px solid #E5E5EA', flexShrink: 0 }}>
+                <div key={i} style={{ position: 'relative', width: 96, height: 96, borderRadius: 10, overflow: 'visible', border: '1px solid #E5E5EA', flexShrink: 0 }}>
                   {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img src={src} alt="" style={{ width: 80, height: 80, objectFit: 'cover', borderRadius: 10, display: 'block' }} />
+                  <img src={src} alt="" style={{ width: 96, height: 96, objectFit: 'cover', objectPosition: 'center', borderRadius: 10, display: 'block' }} />
                   {/* position badge */}
                   <div style={{ position: 'absolute', bottom: 3, left: 3, background: 'rgba(0,0,0,0.55)', borderRadius: 4, padding: '1px 5px', fontSize: 9, color: '#fff', fontWeight: 700 }}>{i + 1}</div>
                   {/* remove */}
@@ -232,7 +237,7 @@ export default function TambahProdukPage() {
                 </div>
               ))}
               {imagePreviews.length < MAX_IMAGES && (
-                <button type="button" onClick={() => fileInputRef.current?.click()} disabled={compressing} style={{ width: 80, height: 80, borderRadius: 10, border: '2px dashed #D0D0D8', background: '#F8F8FA', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', cursor: compressing ? 'wait' : 'pointer', gap: 4 }}>
+                <button type="button" onClick={() => fileInputRef.current?.click()} disabled={compressing} style={{ width: 96, height: 96, borderRadius: 10, border: '2px dashed #D0D0D8', background: '#F8F8FA', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', cursor: compressing ? 'wait' : 'pointer', gap: 4 }}>
                   {compressing
                     ? <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#7B1533" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
                     : <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#7B1533" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
@@ -242,7 +247,16 @@ export default function TambahProdukPage() {
               )}
             </div>
             <input ref={fileInputRef} type="file" accept="image/*" multiple onChange={handleImageChange} style={{ display: 'none' }} />
-            <div style={{ fontSize: 11, color: '#AAA', marginTop: 10 }}>Gambar dari kamera akan dimampatkan secara automatik. Format: JPG, PNG, WEBP, HEIC. Sehingga 4 gambar.</div>
+            {imageWarnings.some(Boolean) && (
+              <div style={{ marginTop: 10, display: 'flex', flexDirection: 'column', gap: 4 }}>
+                {imageWarnings.map((warning, i) => warning ? (
+                  <div key={i} style={{ fontSize: 11, color: '#C62828', lineHeight: 1.5 }}>
+                    ⚠️ <strong>Gambar {i + 1}:</strong> {warning}
+                  </div>
+                ) : null)}
+              </div>
+            )}
+            <div style={{ fontSize: 11, color: '#AAA', marginTop: 10 }}>Gunakan gambar produk square 1:1 untuk hasil terbaik. Cadangan minimum 800×800px. Elakkan screenshot panjang atau gambar terlalu kecil.</div>
           </div>
 
           {/* Name + Category */}
