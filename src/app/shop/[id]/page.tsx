@@ -1,40 +1,66 @@
 import type { Metadata } from 'next'
 import { notFound } from 'next/navigation'
-import { createClient } from '@/lib/supabase/server'
+import { createClient } from '@supabase/supabase-js'
 import { ShopSlugRedirect } from '@/app/shop/_ShopSlugRedirect'
 
-const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'https://www.lokalgo.app'
+const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'https://lokalgo.app'
 
-async function fetchSellerBySlug(slug: string) {
-  const supabase = createClient()
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
-  // Try slug + id combined lookup (graceful fallback if slug column missing)
+type SellerRow = { id: string; shop_name: string; slug?: string | null }
+
+async function fetchSellerBySlug(slug: string): Promise<SellerRow | null> {
+  // Service role key bypasses RLS — required for server-side metadata generation
+  const supabase = createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY ?? process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+  )
+
+  // Primary: slug lookup
   try {
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from('sellers')
       .select('id, shop_name, slug')
-      .or(`slug.eq.${slug},id.eq.${slug}`)
-      .eq('status', 'active')
+      .eq('slug', slug)
       .maybeSingle()
-    if (data) return data as { id: string; shop_name: string; slug?: string | null }
-  } catch {
-    // slug column not yet migrated — fall through to id-only lookup
+
+    if (error) console.error('[SHOP METADATA FETCH ERROR] slug lookup:', error)
+    if (data) return data as SellerRow
+  } catch (err) {
+    console.error('[SHOP METADATA FETCH ERROR] slug lookup threw:', err)
   }
 
-  const { data } = await supabase
-    .from('sellers')
-    .select('id, shop_name')
-    .eq('id', slug)
-    .eq('status', 'active')
-    .maybeSingle()
-  return data as { id: string; shop_name: string; slug?: string | null } | null
+  // Fallback: UUID lookup only when param is actually a UUID
+  if (UUID_RE.test(slug)) {
+    try {
+      const { data, error } = await supabase
+        .from('sellers')
+        .select('id, shop_name, slug')
+        .eq('id', slug)
+        .maybeSingle()
+
+      if (error) console.error('[SHOP METADATA FETCH ERROR] id lookup:', error)
+      if (data) return data as SellerRow
+    } catch (err) {
+      console.error('[SHOP METADATA FETCH ERROR] id lookup threw:', err)
+    }
+  }
+
+  return null
 }
 
 export async function generateMetadata(
   { params }: { params: { id: string } },
 ): Promise<Metadata> {
-  const seller = await fetchSellerBySlug(params.id)
-  if (!seller) return { title: 'Kedai | LokalGo' }
+  const slug = params.id
+  const seller = await fetchSellerBySlug(slug)
+
+  if (!seller) {
+    return {
+      metadataBase: new URL(SITE_URL),
+      title: 'Kedai | LokalGo',
+    }
+  }
 
   const shopName = seller.shop_name
   const shopSlug = seller.slug ?? seller.id
@@ -42,6 +68,7 @@ export async function generateMetadata(
   const ogImage  = `${SITE_URL}/api/og/shop/${shopSlug}`
 
   return {
+    metadataBase: new URL(SITE_URL),
     title: `${shopName} di LokalGo`,
     description: `Cari ${shopName} di LokalGo.`,
     openGraph: {
