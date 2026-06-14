@@ -82,6 +82,7 @@ body{background:#0a0a0a;font-family:'Plus Jakarta Sans',-apple-system,sans-serif
 .cod-txt{font-size:10px;color:rgba(255,255,255,0.6);}
 .status-open{background:var(--brand-lime,#C8E44A);color:var(--brand-maroon,#7B1D2E);font-size:11px;font-weight:700;padding:5px 14px;border-radius:6px;align-self:flex-end;text-transform:uppercase;}
 .status-closed{background:#E0E0E0;color:#666;font-size:11px;font-weight:700;padding:5px 12px;border-radius:6px;align-self:flex-end;text-transform:uppercase;}
+.status-preorder{background:#FFF3E0;color:#B45D00;font-size:11px;font-weight:700;padding:5px 10px;border-radius:6px;align-self:flex-end;}
 .img-bg-fallback{background:linear-gradient(135deg,#7B1D2E,#4A0F1A);display:flex;align-items:center;justify-content:center;}
 .shop-initial{font-size:32px;font-weight:700;color:#fff;}
 .sidebar-backdrop{position:absolute;inset:0;background:rgba(0,0,0,0.4);z-index:40;}
@@ -180,6 +181,16 @@ function badgeLabel(badge: Seller['badge']) {
   return 'New Seller'
 }
 
+type SellerDisplayMode = 'open_normal' | 'preorder_only' | 'hidden'
+type HomeLocationMode = 'resolving' | 'gps' | 'kawasan' | 'none'
+
+function getDisplayMode(seller: Seller, hasNormal: boolean, hasPreorder: boolean): SellerDisplayMode {
+  if (!hasNormal && !hasPreorder) return 'hidden'
+  if (seller.is_open && hasNormal) return 'open_normal'
+  if (hasPreorder) return 'preorder_only'
+  return 'hidden'
+}
+
 function renderCatSection(selectedCategory: string | null, lang: Lang) {
   const resetLabel = lang === 'en' ? 'All' : 'Semua'
   const resetChip = selectedCategory
@@ -209,6 +220,7 @@ function renderSellerCard(
   lang: Lang,
   savedShopIds: Set<string>,
   sellerCategories: Map<string, string[]>,
+  displayMode: Exclude<SellerDisplayMode, 'hidden'>,
 ) {
   const safeImgUrl = safeImageUrl(seller.profile_image_url)
   const imageStyle = safeImgUrl
@@ -250,10 +262,16 @@ function renderSellerCard(
         <div>
           <div class="cod-row"><svg width="14" height="11" viewBox="0 0 36 24" fill="none" stroke="rgba(255,255,255,0.55)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="18" r="4"/><circle cx="28" cy="18" r="4"/><path d="M12 18h12"/><path d="M8 14V8l6-4h6l4 6h-4l-2-4h-3l-4 4H8z"/><path d="M20 10l2 4"/></svg><span class="cod-txt">${copy('cod_available', lang)}</span></div>
         </div>
-        <span class="${seller.is_open ? 'status-open' : 'status-closed'}">${seller.is_open ? copy('buka', lang) : copy('tutup', lang)}</span>
+        <span class="${displayMode === 'open_normal' ? 'status-open' : 'status-preorder'}">${displayMode === 'open_normal' ? copy('buka', lang) : 'Pre-Order sahaja'}</span>
       </div>
     </div>
   </div>`
+}
+
+const EMPTY_STORE_ICON = '<svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#CCC" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m2 7 4.41-4.41A2 2 0 0 1 7.83 2h8.34a2 2 0 0 1 1.42.59L22 7"/><path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"/><path d="M15 22v-4a2 2 0 0 0-2-2h-2a2 2 0 0 0-2 2v4"/><path d="M2 7h20"/><path d="M22 7v3a2 2 0 0 1-2 2a2.7 2.7 0 0 1-1.59-.63.7.7 0 0 0-.82 0A2.7 2.7 0 0 1 16 12a2.7 2.7 0 0 1-1.59-.63.7.7 0 0 0-.82 0A2.7 2.7 0 0 1 12 12a2.7 2.7 0 0 1-1.59-.63.7.7 0 0 0-.82 0A2.7 2.7 0 0 1 8 12a2.7 2.7 0 0 1-1.59-.63.7.7 0 0 0-.82 0A2.7 2.7 0 0 1 4 12a2 2 0 0 1-2-2V7"/></svg>'
+
+function emptyStateHtml(line1: string, line2?: string) {
+  return `<div class="empty-state">${EMPTY_STORE_ICON}<span class="empty-state-txt">${escapeHtml(line1)}${line2 ? `<br>${escapeHtml(line2)}` : ''}</span></div>`
 }
 
 function renderShopList(
@@ -263,6 +281,10 @@ function renderShopList(
   error: string | null,
   savedShopIds: Set<string>,
   sellerCategories: Map<string, string[]>,
+  sellerHasNormal: Set<string>,
+  sellerHasPreorder: Set<string>,
+  locationMode: HomeLocationMode,
+  buyerKawasan: string | null,
 ) {
   if (isLoading) {
     return '<div class="shop-card"><div class="shop-footer"><span class="shop-name">Memuatkan kedai...</span></div></div>'
@@ -272,15 +294,22 @@ function renderShopList(
   }
 
   if (sellers.length === 0) {
-    return `<div class="empty-state">
-      <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#CCC" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m2 7 4.41-4.41A2 2 0 0 1 7.83 2h8.34a2 2 0 0 1 1.42.59L22 7"/><path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"/><path d="M15 22v-4a2 2 0 0 0-2-2h-2a2 2 0 0 0-2 2v4"/><path d="M2 7h20"/><path d="M22 7v3a2 2 0 0 1-2 2a2.7 2.7 0 0 1-1.59-.63.7.7 0 0 0-.82 0A2.7 2.7 0 0 1 16 12a2.7 2.7 0 0 1-1.59-.63.7.7 0 0 0-.82 0A2.7 2.7 0 0 1 12 12a2.7 2.7 0 0 1-1.59-.63.7.7 0 0 0-.82 0A2.7 2.7 0 0 1 8 12a2.7 2.7 0 0 1-1.59-.63.7.7 0 0 0-.82 0A2.7 2.7 0 0 1 4 12a2 2 0 0 1-2-2V7"/></svg>
-      <span class="empty-state-txt">Tiada kedai dibuka sekarang.<br>Sila kembali semula nanti.</span>
-    </div>`
+    if (locationMode === 'resolving') {
+      return emptyStateHtml('Mencari kedai berdekatan...', 'Sila tunggu sebentar.')
+    }
+    if (locationMode === 'none' || (locationMode === 'kawasan' && !buyerKawasan)) {
+      return emptyStateHtml('Aktifkan lokasi untuk melihat kedai berdekatan.', 'Benarkan akses lokasi dalam tetapan peranti anda.')
+    }
+    if (locationMode === 'kawasan') {
+      return emptyStateHtml('Tiada kedai berdekatan kawasan anda buat masa ini.', 'Cuba semak semula kemudian.')
+    }
+    return emptyStateHtml('Tiada kedai berdekatan buat masa ini.', 'Cuba semak semula kemudian.')
   }
 
-  return sellers
-    .map((seller, index) => renderSellerCard(seller, index, lang, savedShopIds, sellerCategories))
-    .join('')
+  return sellers.map((seller, index) => {
+    const displayMode = getDisplayMode(seller, sellerHasNormal.has(seller.id), sellerHasPreorder.has(seller.id)) as Exclude<SellerDisplayMode, 'hidden'>
+    return renderSellerCard(seller, index, lang, savedShopIds, sellerCategories, displayMode)
+  }).join('')
 }
 
 function renderHomeMarkup(
@@ -291,15 +320,19 @@ function renderHomeMarkup(
   profile: HomeProfile | null,
   savedShopIds: Set<string>,
   sellerCategories: Map<string, string[]>,
+  sellerHasNormal: Set<string>,
+  sellerHasPreorder: Set<string>,
   selectedCategory: string | null,
   locationLabel: string | null,
+  locationMode: HomeLocationMode,
+  buyerKawasan: string | null,
 ) {
   const avatarHtml = profile?.avatarUrl
     ? `<img src="${escapeHtml(profile.avatarUrl)}" alt="${escapeHtml(profile.name)}">`
     : `<span class="home-avatar-initial">${escapeHtml(firstInitial(profile?.name ?? 'LokalGo'))}</span>`
 
   const langBtnTxt = lang === 'ms' ? 'English' : 'BM'
-  const shopListHtml = renderShopList(lang, sellers, isLoading, error, savedShopIds, sellerCategories)
+  const shopListHtml = renderShopList(lang, sellers, isLoading, error, savedShopIds, sellerCategories, sellerHasNormal, sellerHasPreorder, locationMode, buyerKawasan)
 
   return `
 <div class="home-shell">
@@ -389,9 +422,11 @@ export default function HomePage() {
   const { lang, toggle } = useLang()
   const [allSellers, setAllSellers] = useState<Seller[]>([])
   const [userLocation, setUserLocation] = useState<{ lat: number; lng: number } | null>(null)
-  const [locationMode, setLocationMode] = useState<'gps' | 'kawasan' | 'all'>('all')
+  const [locationMode, setLocationMode] = useState<HomeLocationMode>('resolving')
   const [buyerKawasan, setBuyerKawasan] = useState<string | null>(null)
   const [sellerCategories, setSellerCategories] = useState<Map<string, string[]>>(new Map())
+  const [sellerHasNormal, setSellerHasNormal] = useState<Set<string>>(new Set())
+  const [sellerHasPreorder, setSellerHasPreorder] = useState<Set<string>>(new Set())
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null)
   const [profile, setProfile] = useState<HomeProfile | null>(null)
   const [isSidebarOpen, setIsSidebarOpen] = useState(false)
@@ -404,31 +439,36 @@ export default function HomePage() {
   const [approvalSeller, setApprovalSeller] = useState<{ id: string; shopName: string } | null>(null)
 
   const sellers = useMemo(() => {
-    if (allSellers.length === 0) return allSellers
+    if (locationMode === 'resolving' || locationMode === 'none') return []
+
+    let locationFiltered: Seller[]
+
     if (locationMode === 'gps' && userLocation) {
-      const nearby: Seller[] = []
-      const noPin: Seller[] = []
-      for (const s of allSellers) {
+      locationFiltered = allSellers.filter((s) => {
         const lat = readCoord(s.latitude)
         const lng = readCoord(s.longitude)
-        if (lat == null || lng == null) { noPin.push(s); continue }
-        if (haversineKm(userLocation.lat, userLocation.lng, lat, lng) <= 50) nearby.push(s)
-      }
-      return [...nearby, ...noPin]
+        // sellers without coordinates are excluded in GPS mode — no bypass
+        if (lat == null || lng == null) return false
+        return haversineKm(userLocation.lat, userLocation.lng, lat, lng) <= 50
+      })
+    } else if (locationMode === 'kawasan') {
+      const kw = (buyerKawasan ?? '').toLowerCase().trim()
+      if (!kw || kw === 'kawasan belum ditetapkan') return []
+      locationFiltered = allSellers.filter((s) => {
+        const sk = (s.kawasan ?? '').toLowerCase()
+        const st = (s.taman_name ?? '').toLowerCase()
+        return (sk && (sk.includes(kw) || kw.includes(sk))) || (st && (st.includes(kw) || kw.includes(st)))
+      })
+      // no silent fallback — if no kawasan match, return empty for proper empty state
+    } else {
+      // gps mode but userLocation not yet set (brief race between state updates)
+      return []
     }
-    if (locationMode === 'kawasan' && buyerKawasan) {
-      const kw = buyerKawasan.toLowerCase().trim()
-      if (kw && kw !== 'kawasan belum ditetapkan') {
-        const matched = allSellers.filter((s) => {
-          const sk = (s.kawasan ?? '').toLowerCase()
-          const st = (s.taman_name ?? '').toLowerCase()
-          return (sk && (sk.includes(kw) || kw.includes(sk))) || (st && (st.includes(kw) || kw.includes(st)))
-        })
-        if (matched.length > 0) return matched
-      }
-    }
-    return allSellers
-  }, [allSellers, locationMode, userLocation, buyerKawasan])
+
+    return locationFiltered.filter((s) =>
+      getDisplayMode(s, sellerHasNormal.has(s.id), sellerHasPreorder.has(s.id)) !== 'hidden',
+    )
+  }, [allSellers, locationMode, userLocation, buyerKawasan, sellerHasNormal, sellerHasPreorder])
 
   const locationLabel = useMemo(() => {
     if (locationMode === 'gps' && userLocation) return '📍 Sekitar 50km dari anda'
@@ -439,8 +479,8 @@ export default function HomePage() {
   }, [locationMode, userLocation, buyerKawasan])
 
   const pageInnerMarkup = useMemo(
-    () => renderHomeMarkup(lang, sellers, isLoading, error, profile, savedShopIds, sellerCategories, selectedCategory, locationLabel),
-    [error, isLoading, lang, profile, sellers, savedShopIds, sellerCategories, selectedCategory, locationLabel],
+    () => renderHomeMarkup(lang, sellers, isLoading, error, profile, savedShopIds, sellerCategories, sellerHasNormal, sellerHasPreorder, selectedCategory, locationLabel, locationMode, buyerKawasan),
+    [error, isLoading, lang, profile, sellers, savedShopIds, sellerCategories, sellerHasNormal, sellerHasPreorder, selectedCategory, locationLabel, locationMode, buyerKawasan],
   )
 
   useEffect(() => {
@@ -507,7 +547,7 @@ export default function HomePage() {
           .limit(100),
         supabase
           .from('products')
-          .select('seller_id,category')
+          .select('seller_id,category,is_available,is_preorder')
           .eq('status', 'approved')
           .or('is_available.eq.true,is_preorder.eq.true'),
       ])
@@ -521,15 +561,23 @@ export default function HomePage() {
         const loadedSellers = (sellersRes.data ?? []) as Seller[]
         setAllSellers(loadedSellers)
 
-        // Build map: sellerId → unique sorted categories
+        // Build maps: seller categories, normal product set, preorder product set
         const catMap = new Map<string, string[]>()
-        for (const p of (productsRes.data ?? []) as Pick<Product, 'seller_id' | 'category'>[]) {
-          if (!p.seller_id || !p.category) continue
-          const existing = catMap.get(p.seller_id) ?? []
-          if (!existing.includes(p.category)) existing.push(p.category)
-          catMap.set(p.seller_id, existing)
+        const normalSet = new Set<string>()
+        const preorderSet = new Set<string>()
+        for (const p of (productsRes.data ?? []) as Pick<Product, 'seller_id' | 'category' | 'is_available' | 'is_preorder'>[]) {
+          if (!p.seller_id) continue
+          if (p.category) {
+            const existing = catMap.get(p.seller_id) ?? []
+            if (!existing.includes(p.category)) existing.push(p.category)
+            catMap.set(p.seller_id, existing)
+          }
+          if (p.is_available) normalSet.add(p.seller_id)
+          if (p.is_preorder) preorderSet.add(p.seller_id)
         }
         setSellerCategories(catMap)
+        setSellerHasNormal(normalSet)
+        setSellerHasPreorder(preorderSet)
       }
 
       setIsLoading(false)
@@ -541,7 +589,7 @@ export default function HomePage() {
 
   useEffect(() => {
     if (typeof navigator === 'undefined' || !navigator.geolocation) {
-      setLocationMode('all')
+      setLocationMode('none')
       return
     }
     let lastLat = 0
