@@ -13,6 +13,12 @@ type ModerationAction =
   | 'badge_baharu'
   | 'badge_aktif'
   | 'badge_verified'
+  | 'open_shop'
+  | 'close_shop'
+  | 'verify'
+  | 'set_available'
+  | 'set_preorder'
+  | 'hide_product'
 
 type ModerationBody = {
   type?: ModerationType
@@ -202,6 +208,24 @@ export async function PATCH(request: Request) {
         if (r.error) return NextResponse.json({ error: r.error.message }, { status: 500 })
         return NextResponse.json({ ok: true })
       }
+
+      if (body.action === 'open_shop') {
+        const r = await supabase.from('sellers').update({ is_open: true }).eq('id', body.id)
+        if (r.error) return NextResponse.json({ error: r.error.message }, { status: 500 })
+        return NextResponse.json({ ok: true })
+      }
+
+      if (body.action === 'close_shop') {
+        const r = await supabase.from('sellers').update({ is_open: false }).eq('id', body.id)
+        if (r.error) return NextResponse.json({ error: r.error.message }, { status: 500 })
+        return NextResponse.json({ ok: true })
+      }
+
+      if (body.action === 'verify') {
+        const r = await supabase.from('sellers').update({ badge: 'verified_seller' }).eq('id', body.id)
+        if (r.error) return NextResponse.json({ error: r.error.message }, { status: 500 })
+        return NextResponse.json({ ok: true })
+      }
     }
 
     // ── BUYER actions ───────────────────────────────────────────────────────
@@ -244,7 +268,23 @@ export async function PATCH(request: Request) {
 
     // ── PRODUCT actions ─────────────────────────────────────────────────────
     if (body.type === 'product') {
-      const r = await supabase.from('products').update({ status: body.action === 'approve' ? 'approved' : 'rejected' }).eq('id', body.id)
+      let update: Record<string, unknown> = {}
+
+      if (body.action === 'approve') {
+        update = { status: 'approved' }
+      } else if (body.action === 'reject') {
+        update = { status: 'rejected' }
+      } else if (body.action === 'set_available') {
+        update = { status: 'approved', is_available: true, is_preorder: false }
+      } else if (body.action === 'set_preorder') {
+        update = { status: 'approved', is_available: false, is_preorder: true }
+      } else if (body.action === 'hide_product') {
+        update = { is_available: false }
+      } else {
+        return NextResponse.json({ error: 'Unknown product action' }, { status: 400 })
+      }
+
+      const r = await supabase.from('products').update(update).eq('id', body.id)
       if (r.error) return NextResponse.json({ error: r.error.message }, { status: 500 })
       return NextResponse.json({ ok: true })
     }

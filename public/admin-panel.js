@@ -6,6 +6,8 @@ var _sellersFilter = 'all';
 var _sellersSearch = '';
 var _buyersFilter = 'all';
 var _testiFilter = 'all';
+var _sdSellerId = null;
+var _sdProducts = [];
 
 /* ── Tab switching ─────────────────────────────────────────────────────────── */
 
@@ -228,20 +230,22 @@ function renderSellers() {
       : '<span style="color:rgba(240,240,240,0.28);font-size:12px;">Tutup</span>';
 
     // Action buttons
+    var sid = esc(s.id);
     var approveBtn = status === 'pending'
-      ? '<button class="act-btn ab-g" onclick="adminAction(\'seller\',\'' + esc(s.id) + '\',\'approve\')">Lulus</button>' : '';
+      ? '<button class="act-btn ab-g" onclick="adminConfirm(\'Luluskan seller ini?\',\'seller\',\'' + sid + '\',\'approve\')">Lulus</button>' : '';
     var rejectBtn = status === 'pending'
-      ? '<button class="act-btn ab-r" onclick="adminAction(\'seller\',\'' + esc(s.id) + '\',\'reject\')">Tolak</button>' : '';
+      ? '<button class="act-btn ab-r" onclick="adminConfirm(\'Tolak seller ini?\',\'seller\',\'' + sid + '\',\'reject\')">Tolak</button>' : '';
     var suspendBtn = status === 'active'
-      ? '<button class="act-btn ab-o" onclick="adminAction(\'seller\',\'' + esc(s.id) + '\',\'suspend\')">Ban</button>'
+      ? '<button class="act-btn ab-o" onclick="adminConfirm(\'Suspend seller ini?\',\'seller\',\'' + sid + '\',\'suspend\')">Ban</button>'
       : status === 'suspended'
-        ? '<button class="act-btn ab-b" onclick="adminAction(\'seller\',\'' + esc(s.id) + '\',\'unsuspend\')">Aktif</button>'
+        ? '<button class="act-btn ab-b" onclick="adminAction(\'seller\',\'' + sid + '\',\'unsuspend\')">Aktif</button>'
         : '';
     var verifyBtn = !isVerified
-      ? '<button class="act-btn ab-g" title="Berikan Verified" onclick="adminAction(\'seller\',\'' + esc(s.id) + '\',\'badge_verified\')">&#10003; Verify</button>'
-      : '<button class="act-btn ab-o" title="Buang Verified" onclick="adminAction(\'seller\',\'' + esc(s.id) + '\',\'badge_aktif\')">Unverify</button>';
-    var editBtn = '<button class="act-btn ab-e" onclick="openEditSeller(\'' + esc(s.id) + '\')">&#9998; Edit</button>';
-    var delBtn = '<button class="act-btn ab-r" onclick="adminDelete(\'seller\',\'' + esc(s.id) + '\',\'' + esc(s.shop_name || s.name || 'seller') + '\')">Padam</button>';
+      ? '<button class="act-btn ab-g" title="Berikan Verified" onclick="adminConfirm(\'Berikan verified badge?\',\'seller\',\'' + sid + '\',\'verify\')">&#10003; Verify</button>'
+      : '<button class="act-btn ab-o" title="Buang Verified" onclick="adminAction(\'seller\',\'' + sid + '\',\'badge_aktif\')">Unverify</button>';
+    var detailBtn = '<button class="act-btn ab-b" onclick="openSellerDetail(\'' + sid + '\')">&#128269; Detail</button>';
+    var editBtn = '<button class="act-btn ab-e" onclick="openEditSeller(\'' + sid + '\')">&#9998; Edit</button>';
+    var delBtn = '<button class="act-btn ab-r" onclick="adminDelete(\'seller\',\'' + sid + '\',\'' + esc(s.shop_name || s.name || 'seller') + '\')">Padam</button>';
 
     var shopName = esc((s.shop_name || s.name || '—').toString());
     var kawasan = esc((s.kawasan || '—').toString());
@@ -255,7 +259,7 @@ function renderSellers() {
       + '<td class="td-c" style="font-size:13px;font-weight:700;color:' + (qrCount > 0 ? '#acd036' : 'rgba(240,240,240,0.3)') + ';">' + qrCount + '</td>'
       + '<td class="td-c">' + isOpen + '</td>'
       + '<td class="td-cell">' + fmtDate(s.created_at) + '</td>'
-      + '<td class="td-r">' + approveBtn + rejectBtn + suspendBtn + verifyBtn + editBtn + delBtn + '</td>'
+      + '<td class="td-r">' + approveBtn + rejectBtn + suspendBtn + verifyBtn + detailBtn + editBtn + delBtn + '</td>'
       + '</tr>';
   }).join('');
 
@@ -708,6 +712,15 @@ function loadAdminData() {
       renderSaved();
       renderStats();
       renderProducts();
+
+      // Re-render seller detail modal if still open
+      if (_sdSellerId) {
+        var sdModal = document.getElementById('seller-detail-modal');
+        if (sdModal && sdModal.classList.contains('open')) {
+          var updatedSeller = (_data.sellers || []).find(function(s) { return s.id === _sdSellerId; });
+          if (updatedSeller) renderSellerDetailContent(updatedSeller, _sdProducts);
+        }
+      }
     })
     .catch(function(e) { showAdminError(e.message || 'Ralat rangkaian'); });
 }
@@ -751,8 +764,10 @@ function renderProducts() {
       + '<td class="td-cell" style="font-weight:700;color:#acd036;">' + price + '</td>'
       + '<td class="td-cell">' + fmtDate(p.created_at) + '</td>'
       + '<td class="td-r">'
-      + '<button class="act-btn ab-g" onclick="adminAction(\'product\',\'' + esc(p.id) + '\',\'approve\')">Lulus</button>'
-      + '<button class="act-btn ab-r" onclick="adminAction(\'product\',\'' + esc(p.id) + '\',\'reject\')">Tolak</button>'
+      + '<button class="act-btn ab-g" onclick="adminConfirm(\'Luluskan produk ini?\',\'product\',\'' + esc(p.id) + '\',\'approve\')">Lulus</button>'
+      + '<button class="act-btn ab-g" title="Lulus &amp; Available" onclick="adminConfirm(\'Set Available?\',\'product\',\'' + esc(p.id) + '\',\'set_available\')">Avail</button>'
+      + '<button class="act-btn ab-b" title="Lulus &amp; Preorder" onclick="adminConfirm(\'Set Preorder?\',\'product\',\'' + esc(p.id) + '\',\'set_preorder\')">PO</button>'
+      + '<button class="act-btn ab-r" onclick="adminConfirm(\'Tolak produk ini?\',\'product\',\'' + esc(p.id) + '\',\'reject\')">Tolak</button>'
       + '</td></tr>';
   }).join('');
   setHtml('products-tbody', html);
@@ -934,6 +949,511 @@ function saveBroadcast() {
     .catch(function(e) {
       if (statusEl) {
         statusEl.textContent = 'Gagal: ' + e.message;
+        statusEl.style.display = 'block';
+        statusEl.style.background = 'rgba(240,96,96,0.1)';
+        statusEl.style.color = '#f06060';
+      }
+    });
+}
+
+/* ── Confirm helper ────────────────────────────────────────────────────────── */
+
+function adminConfirm(msg, type, id, action) {
+  if (!confirm(msg)) return;
+  adminAction(type, id, action);
+}
+
+/* ── Seller Detail Modal ───────────────────────────────────────────────────── */
+
+function openSellerDetail(id) {
+  if (!_data) { alert('Data belum dimuatkan.'); return; }
+  var seller = (_data.sellers || []).find(function(s) { return s.id === id; });
+  if (!seller) { alert('Seller tidak dijumpai.'); return; }
+
+  _sdSellerId = id;
+  _sdProducts = [];
+
+  document.getElementById('seller-detail-modal').classList.add('open');
+
+  // Render seller info immediately, products loading
+  renderSellerDetailContent(seller, []);
+  setHtml('sd-products-list',
+    '<div style="text-align:center;color:rgba(240,240,240,0.2);padding:24px;font-size:13px;">Memuatkan produk...</div>');
+
+  fetch('/api/admin/seller-products?seller_id=' + encodeURIComponent(id))
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+      if (data.error) {
+        setHtml('sd-products-list',
+          '<div style="color:#f06060;padding:12px;font-size:13px;">Gagal muat produk: ' + esc(data.error) + '</div>');
+        return;
+      }
+      _sdProducts = data.products || [];
+      var latestSeller = (_data && _data.sellers || []).find(function(s) { return s.id === _sdSellerId; }) || seller;
+      renderSellerDetailContent(latestSeller, _sdProducts);
+    })
+    .catch(function(e) {
+      setHtml('sd-products-list',
+        '<div style="color:#f06060;padding:12px;font-size:13px;">Gagal muat produk: ' + esc(e.message) + '</div>');
+    });
+}
+
+function closeSellerDetail() {
+  document.getElementById('seller-detail-modal').classList.remove('open');
+  _sdSellerId = null;
+  _sdProducts = [];
+}
+
+/* ── Seller Detail: Compute Visibility ────────────────────────────────────── */
+
+function computeVisibility(seller, products) {
+  var status = seller.status || 'pending';
+  var lat = seller.latitude;
+  var lng = seller.longitude;
+  var isOpen = !!seller.is_open;
+
+  var hasLat = lat !== null && lat !== undefined && String(lat).trim() !== '' && parseFloat(String(lat)) !== 0;
+  var hasLng = lng !== null && lng !== undefined && String(lng).trim() !== '' && parseFloat(String(lng)) !== 0;
+
+  var approvedProducts = (products || []).filter(function(p) { return p.status === 'approved'; });
+  var availableProducts = approvedProducts.filter(function(p) { return p.is_available === true; });
+  var preorderProducts = approvedProducts.filter(function(p) { return p.is_preorder === true; });
+
+  if (status !== 'active') {
+    return {
+      code: 'HIDDEN_NOT_ACTIVE',
+      label: 'HIDDEN — Bukan Active',
+      color: '#f06060',
+      bg: 'rgba(240,96,96,0.08)',
+      reason: 'Status seller: ' + status + ' (bukan active)',
+      action: 'Lulus seller untuk tukar status kepada "active"'
+    };
+  }
+
+  if (!hasLat || !hasLng) {
+    return {
+      code: 'HIDDEN_NO_COORDINATE',
+      label: 'HIDDEN — Tiada Koordinat GPS',
+      color: '#f0c040',
+      bg: 'rgba(240,192,64,0.08)',
+      reason: 'Latitude atau longitude kosong / tiada / sifar',
+      action: 'Seller perlu set semula GPS kedai dalam onboarding'
+    };
+  }
+
+  if (approvedProducts.length === 0) {
+    return {
+      code: 'HIDDEN_NO_APPROVED_PRODUCT',
+      label: 'HIDDEN — Tiada Produk Diluluskan',
+      color: '#f0c040',
+      bg: 'rgba(240,192,64,0.08)',
+      reason: 'Tiada produk dengan status "approved"',
+      action: 'Lulus sekurang-kurangnya 1 produk seller ini'
+    };
+  }
+
+  if (isOpen && availableProducts.length > 0) {
+    return {
+      code: 'SHOW_BUKA',
+      label: 'SHOW — Buka & Available',
+      color: '#acd036',
+      bg: 'rgba(172,208,54,0.08)',
+      reason: 'Seller aktif, ada GPS, kedai buka, ' + availableProducts.length + ' produk available',
+      action: null
+    };
+  }
+
+  if (preorderProducts.length > 0) {
+    return {
+      code: 'SHOW_PREORDER_SAHAJA',
+      label: 'SHOW — Preorder Sahaja',
+      color: '#7eb8f7',
+      bg: 'rgba(126,184,247,0.08)',
+      reason: 'Seller aktif, ada GPS, ' + preorderProducts.length + ' produk preorder',
+      action: null
+    };
+  }
+
+  return {
+    code: 'HIDDEN_CLOSED_NO_PRODUCT',
+    label: 'HIDDEN — Tutup / Tiada Produk',
+    color: '#f06060',
+    bg: 'rgba(240,96,96,0.08)',
+    reason: isOpen
+      ? 'Kedai buka tapi tiada produk available atau preorder yang diluluskan'
+      : 'Kedai tutup dan tiada produk preorder yang diluluskan',
+    action: isOpen
+      ? 'Set sekurang-kurangnya 1 produk sebagai available atau preorder'
+      : 'Buka kedai, atau set produk sebagai preorder'
+  };
+}
+
+/* ── Seller Detail: Compute Warnings ─────────────────────────────────────── */
+
+function computeWarnings(seller, products) {
+  var warnings = [];
+
+  if (!seller.whatsapp_number || String(seller.whatsapp_number).trim() === '') {
+    warnings.push({ label: '&#9888; Tiada WhatsApp', r: true });
+  }
+
+  var lat = seller.latitude;
+  var lng = seller.longitude;
+  var hasCoord = lat !== null && lat !== undefined && String(lat).trim() !== '' && parseFloat(String(lat)) !== 0
+    && lng !== null && lng !== undefined && String(lng).trim() !== '' && parseFloat(String(lng)) !== 0;
+  if (!hasCoord) {
+    warnings.push({ label: '&#9888; Tiada Koordinat GPS', r: true });
+  }
+
+  if (!seller.postcode || seller.postcode === '00000') {
+    warnings.push({ label: '&#9888; Postcode 00000', r: false });
+  }
+
+  var approvedProducts = (products || []).filter(function(p) { return p.status === 'approved'; });
+  if (approvedProducts.length === 0) {
+    warnings.push({ label: '&#9888; Tiada Produk Lulus', r: true });
+  }
+
+  if (!seller.is_open) {
+    warnings.push({ label: '&#9888; Kedai Tutup', r: false });
+  }
+
+  if (approvedProducts.length > 0) {
+    var hasAvailOrPO = approvedProducts.some(function(p) { return p.is_available || p.is_preorder; });
+    if (!hasAvailOrPO) {
+      warnings.push({ label: '&#9888; Tiada Produk Available/Preorder', r: true });
+    }
+  }
+
+  return warnings;
+}
+
+/* ── Seller Detail: Render Content ───────────────────────────────────────── */
+
+function sdField(lbl, valHtml, muted) {
+  return '<div class="sd-field">'
+    + '<div class="sd-field-lbl">' + lbl + '</div>'
+    + '<div class="sd-field-val' + (muted ? ' muted' : '') + '">' + valHtml + '</div>'
+    + '</div>';
+}
+
+function sdStatusPill(status) {
+  if (status === 'active') return '<span class="pill p-active">Aktif</span>';
+  if (status === 'pending') return '<span class="pill p-pending">Pending</span>';
+  if (status === 'suspended') return '<span class="pill p-suspended">Suspended</span>';
+  return '<span class="pill p-deleted">' + esc(status) + '</span>';
+}
+
+function sdBadgePill(badge) {
+  if (badge === 'verified_seller') return '<span class="pill p-verified">&#10003; Verified</span>';
+  if (badge === 'seller_aktif') return '<span class="pill p-aktif">Aktif</span>';
+  return '<span class="pill p-baharu">Baharu</span>';
+}
+
+function renderSellerDetailContent(seller, products) {
+  // Title
+  setText('sd-title', seller.shop_name || seller.name || 'Seller Detail');
+
+  // Visibility
+  var vis = computeVisibility(seller, products);
+  setHtml('sd-visibility',
+    '<div style="display:inline-flex;flex-direction:column;gap:3px;border-radius:10px;padding:9px 14px;background:' + vis.bg + ';border:1px solid ' + vis.color + '33;margin-bottom:12px;">'
+    + '<div style="font-size:12px;font-weight:800;color:' + vis.color + ';">' + vis.label + '</div>'
+    + '<div style="font-size:11px;color:rgba(240,240,240,0.4);">' + esc(vis.reason) + '</div>'
+    + (vis.action ? '<div style="font-size:11px;color:' + vis.color + ';margin-top:2px;">&#8594; ' + esc(vis.action) + '</div>' : '')
+    + '</div>'
+  );
+
+  // Warnings
+  var warnings = computeWarnings(seller, products);
+  setHtml('sd-warnings', warnings.length ? warnings.map(function(w) {
+    var bg = w.r ? 'rgba(240,96,96,0.1)' : 'rgba(240,192,64,0.1)';
+    var color = w.r ? '#f06060' : '#f0c040';
+    var border = w.r ? 'rgba(240,96,96,0.22)' : 'rgba(240,192,64,0.22)';
+    return '<span style="font-size:11px;font-weight:700;padding:3px 10px;border-radius:20px;background:' + bg + ';color:' + color + ';border:1px solid ' + border + ';">' + w.label + '</span>';
+  }).join('') : '');
+
+  // Actions
+  var status = seller.status || 'pending';
+  var badge = seller.badge || 'seller_baharu';
+  var isVerified = badge === 'verified_seller';
+  var isOpen = !!seller.is_open;
+  var sid = esc(seller.id);
+  var shopLabel = esc(seller.shop_name || seller.name || 'seller');
+
+  var actHtml = '';
+  if (status === 'pending') {
+    actHtml += '<button class="act-btn ab-g" onclick="adminConfirm(\'Luluskan seller ini?\',\'seller\',\'' + sid + '\',\'approve\')">&#10003; Lulus</button>';
+    actHtml += '<button class="act-btn ab-r" onclick="adminConfirm(\'Tolak permohonan seller ini?\',\'seller\',\'' + sid + '\',\'reject\')">Tolak</button>';
+  } else if (status === 'active') {
+    actHtml += '<button class="act-btn ab-r" onclick="adminConfirm(\'Reject seller ini?\',\'seller\',\'' + sid + '\',\'reject\')">Reject</button>';
+    actHtml += '<button class="act-btn ab-o" onclick="adminConfirm(\'Suspend seller ini?\',\'seller\',\'' + sid + '\',\'suspend\')">Suspend</button>';
+  } else if (status === 'suspended') {
+    actHtml += '<button class="act-btn ab-b" onclick="adminAction(\'seller\',\'' + sid + '\',\'unsuspend\')">Aktifkan Semula</button>';
+  } else if (status === 'rejected') {
+    actHtml += '<button class="act-btn ab-g" onclick="adminConfirm(\'Lulus semula seller ini?\',\'seller\',\'' + sid + '\',\'approve\')">&#10003; Lulus Semula</button>';
+  }
+
+  if (!isVerified) {
+    actHtml += '<button class="act-btn ab-g" onclick="adminConfirm(\'Berikan verified badge kepada seller ini?\',\'seller\',\'' + sid + '\',\'verify\')">&#10003; Verify</button>';
+  } else {
+    actHtml += '<button class="act-btn ab-o" onclick="adminAction(\'seller\',\'' + sid + '\',\'badge_aktif\')">Unverify</button>';
+  }
+
+  if (isOpen) {
+    actHtml += '<button class="act-btn ab-r" onclick="adminConfirm(\'Tutup kedai seller ini?\',\'seller\',\'' + sid + '\',\'close_shop\')">Tutup Kedai</button>';
+  } else {
+    actHtml += '<button class="act-btn ab-g" onclick="adminConfirm(\'Buka kedai seller ini sekarang?\',\'seller\',\'' + sid + '\',\'open_shop\')">Buka Kedai</button>';
+  }
+
+  actHtml += '<button class="act-btn ab-e" onclick="closeSellerDetail();openEditSeller(\'' + sid + '\')">&#9998; Edit</button>';
+  actHtml += '<button class="act-btn ab-r" onclick="adminDelete(\'seller\',\'' + sid + '\',\'' + shopLabel + '\')">Padam</button>';
+  setHtml('sd-actions', actHtml);
+
+  // Profile image
+  var imgUrl = seller.profile_image_url;
+  var imgHtml = imgUrl
+    ? '<img src="' + esc(imgUrl) + '" style="width:80px;height:80px;border-radius:12px;object-fit:cover;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);">'
+    : '<div style="width:80px;height:80px;border-radius:12px;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.1);display:flex;align-items:center;justify-content:center;font-size:28px;">&#128722;</div>';
+  var imgPosPart = (seller.profile_image_position_x != null)
+    ? '<div style="font-size:10px;color:rgba(240,240,240,0.28);margin-top:4px;">pos x:' + seller.profile_image_position_x + ' y:' + seller.profile_image_position_y + '</div>'
+    : '';
+
+  // Left column: text data
+  var leftCol = ''
+    + sdField('Seller ID', '<span style="font-size:11px;font-family:monospace;color:rgba(240,240,240,0.45);">' + esc(seller.id) + '</span>')
+    + sdField('Email', seller.email ? esc(seller.email) : '<span class="muted">—</span>', !seller.email)
+    + sdField('WhatsApp', seller.whatsapp_number ? esc(seller.whatsapp_number) : '<span class="muted">Tiada</span>', !seller.whatsapp_number)
+    + sdField('Taman', seller.taman_name ? esc(seller.taman_name) : '<span class="muted">—</span>', !seller.taman_name)
+    + sdField('Kawasan', seller.kawasan ? esc(seller.kawasan) : '<span class="muted">—</span>', !seller.kawasan)
+    + sdField('Postcode', seller.postcode ? esc(seller.postcode) : '<span class="muted">—</span>', !seller.postcode || seller.postcode === '00000')
+    + sdField('Latitude', seller.latitude != null ? esc(String(seller.latitude)) : '<span class="muted">Tiada</span>', seller.latitude == null)
+    + sdField('Longitude', seller.longitude != null ? esc(String(seller.longitude)) : '<span class="muted">Tiada</span>', seller.longitude == null)
+    + sdField('Daftar', fmtDate(seller.created_at))
+    + sdField('Lulus Pada', seller.approved_at ? fmtDate(seller.approved_at) : '<span class="muted">Belum lulus</span>', !seller.approved_at)
+    + (seller.custom_note ? sdField('Nota Admin', esc(seller.custom_note)) : '');
+
+  // Right column: image + counters
+  var rightCol = '<div class="sd-field">'
+    + '<div class="sd-field-lbl">Gambar Profil</div>'
+    + '<div style="margin-top:6px;">' + imgHtml + imgPosPart + '</div>'
+    + '</div>'
+    + sdField('Status', sdStatusPill(status))
+    + sdField('Badge', sdBadgePill(badge))
+    + sdField('Kedai', isOpen
+        ? '<span style="color:#acd036;font-weight:700;">Buka</span>'
+        : '<span style="color:rgba(240,240,240,0.3);">Tutup</span>')
+    + sdField('View Count', esc(String(seller.view_count || 0)))
+    + sdField('WA Klik', esc(String(seller.wa_click_count || 0)))
+    + sdField('Testimonial', esc(String(seller.testimonial_count || 0)));
+
+  setHtml('sd-info', '<div>' + leftCol + '</div><div>' + rightCol + '</div>');
+
+  // Product counts
+  var total = products.length;
+  var numApproved = products.filter(function(p) { return p.status === 'approved'; }).length;
+  var numPending = products.filter(function(p) { return p.status === 'pending'; }).length;
+  var numRejected = products.filter(function(p) { return p.status === 'rejected'; }).length;
+  var numAvail = products.filter(function(p) { return p.is_available === true; }).length;
+  var numPO = products.filter(function(p) { return p.is_preorder === true; }).length;
+
+  function cntBadge(lbl, n, cls) {
+    return '<span class="cnt ' + (cls || '') + '">' + n + ' ' + lbl + '</span>';
+  }
+  setHtml('sd-prod-counts',
+    cntBadge('Jumlah', total, '')
+    + cntBadge('Lulus', numApproved, 'g')
+    + cntBadge('Pending', numPending, 'o')
+    + cntBadge('Ditolak', numRejected, 'r')
+    + cntBadge('Available', numAvail, 'g')
+    + cntBadge('Preorder', numPO, 'b')
+  );
+
+  // Product table
+  if (!products.length) {
+    setHtml('sd-products-list',
+      '<div style="text-align:center;color:rgba(240,240,240,0.2);padding:30px;font-size:13px;">Tiada produk</div>');
+    return;
+  }
+
+  var prodHtml = '<table style="width:100%;border-collapse:collapse;font-size:12px;min-width:640px;">'
+    + '<thead><tr>'
+    + '<th style="background:rgba(0,0,0,0.25);padding:8px 10px;text-align:left;font-size:9px;color:rgba(240,240,240,0.28);font-weight:700;text-transform:uppercase;letter-spacing:0.5px;border-bottom:1px solid rgba(255,255,255,0.07);">Gambar</th>'
+    + '<th style="background:rgba(0,0,0,0.25);padding:8px 10px;text-align:left;font-size:9px;color:rgba(240,240,240,0.28);font-weight:700;text-transform:uppercase;letter-spacing:0.5px;border-bottom:1px solid rgba(255,255,255,0.07);">Nama / Kategori</th>'
+    + '<th style="background:rgba(0,0,0,0.25);padding:8px 10px;text-align:left;font-size:9px;color:rgba(240,240,240,0.28);font-weight:700;text-transform:uppercase;letter-spacing:0.5px;border-bottom:1px solid rgba(255,255,255,0.07);">Harga</th>'
+    + '<th style="background:rgba(0,0,0,0.25);padding:8px 10px;text-align:left;font-size:9px;color:rgba(240,240,240,0.28);font-weight:700;text-transform:uppercase;letter-spacing:0.5px;border-bottom:1px solid rgba(255,255,255,0.07);">Status</th>'
+    + '<th style="background:rgba(0,0,0,0.25);padding:8px 10px;text-align:left;font-size:9px;color:rgba(240,240,240,0.28);font-weight:700;text-transform:uppercase;letter-spacing:0.5px;border-bottom:1px solid rgba(255,255,255,0.07);">Tarikh</th>'
+    + '<th style="background:rgba(0,0,0,0.25);padding:8px 10px;text-align:right;font-size:9px;color:rgba(240,240,240,0.28);font-weight:700;text-transform:uppercase;letter-spacing:0.5px;border-bottom:1px solid rgba(255,255,255,0.07);">Tindakan</th>'
+    + '</tr></thead><tbody>';
+
+  products.forEach(function(p) {
+    var pImgHtml = (p.images && p.images[0])
+      ? '<img src="' + esc(p.images[0]) + '" style="width:40px;height:40px;object-fit:cover;border-radius:7px;border:1px solid rgba(255,255,255,0.08);">'
+      : '<div style="width:40px;height:40px;background:#1a1a1e;border-radius:7px;display:flex;align-items:center;justify-content:center;font-size:16px;">&#127873;</div>';
+
+    var pName = esc((p.name || p.category || '—').toString().slice(0, 30));
+    var pCat = esc((p.category || '').toString());
+    var pPrice = p.price_from != null ? 'RM ' + Number(p.price_from).toFixed(2) : '—';
+
+    var pStatusBadge = p.status === 'approved'
+      ? '<span class="pill p-active" style="font-size:10px;">Lulus</span>'
+      : p.status === 'pending'
+        ? '<span class="pill p-pending" style="font-size:10px;">Pending</span>'
+        : '<span class="pill p-suspended" style="font-size:10px;">Ditolak</span>';
+
+    var pAvailBadge = p.is_available
+      ? '<span style="font-size:10px;color:#acd036;font-weight:700;"> Available</span>'
+      : p.is_preorder
+        ? '<span style="font-size:10px;color:#7eb8f7;font-weight:700;"> Preorder</span>'
+        : '';
+
+    var pid = esc(p.id);
+    var pActions = ''
+      + '<button class="act-btn ab-g" onclick="productConfirm(\'Luluskan produk ini?\',\'' + pid + '\',\'approve\')">Lulus</button>'
+      + '<button class="act-btn ab-g" title="Lulus &amp; Available" onclick="productConfirm(\'Set Available?\',\'' + pid + '\',\'set_available\')">Avail</button>'
+      + '<button class="act-btn ab-b" title="Lulus &amp; Preorder" onclick="productConfirm(\'Set Preorder?\',\'' + pid + '\',\'set_preorder\')">PO</button>'
+      + '<button class="act-btn ab-o" title="Sembunyikan" onclick="productConfirm(\'Sembunyikan produk ini?\',\'' + pid + '\',\'hide_product\')">Hide</button>'
+      + '<button class="act-btn ab-r" onclick="productConfirm(\'Tolak produk ini?\',\'' + pid + '\',\'reject\')">Tolak</button>';
+
+    var cellStyle = 'padding:10px 10px;border-bottom:1px solid rgba(255,255,255,0.04);vertical-align:middle;';
+    prodHtml += '<tr>'
+      + '<td style="' + cellStyle + '">' + pImgHtml + '</td>'
+      + '<td style="' + cellStyle + '">'
+      + '<div style="font-weight:700;font-size:13px;color:#f0f0f0;">' + pName + '</div>'
+      + '<div style="font-size:11px;color:rgba(240,240,240,0.32);">' + pCat + '</div>'
+      + '</td>'
+      + '<td style="' + cellStyle + 'color:#acd036;font-weight:700;">' + esc(pPrice) + '</td>'
+      + '<td style="' + cellStyle + '">' + pStatusBadge + pAvailBadge + '</td>'
+      + '<td style="' + cellStyle + 'color:rgba(240,240,240,0.35);font-size:11px;">' + fmtDate(p.created_at) + '</td>'
+      + '<td style="' + cellStyle + 'text-align:right;">' + pActions + '</td>'
+      + '</tr>';
+  });
+
+  prodHtml += '</tbody></table>';
+  setHtml('sd-products-list', prodHtml);
+
+  // Direct message button
+  var msgBtn = document.getElementById('sd-msg-btn');
+  if (msgBtn) {
+    msgBtn.setAttribute('onclick', 'openDirectMessageFromDetail(\'' + sid + '\')');
+  }
+}
+
+/* ── Product Actions from Seller Detail ───────────────────────────────────── */
+
+function productConfirm(msg, productId, action) {
+  if (!confirm(msg)) return;
+  productActionInDetail(productId, action);
+}
+
+function productActionInDetail(productId, action) {
+  fetch('/api/admin/moderation', {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ type: 'product', id: productId, action: action })
+  })
+    .then(function(r) { return r.json(); })
+    .then(function(payload) {
+      if (payload.error) { alert('Ralat: ' + payload.error); return; }
+      // Re-fetch products for current seller and re-render detail
+      if (_sdSellerId) {
+        var seller = (_data && _data.sellers || []).find(function(s) { return s.id === _sdSellerId; });
+        fetch('/api/admin/seller-products?seller_id=' + encodeURIComponent(_sdSellerId))
+          .then(function(r) { return r.json(); })
+          .then(function(data) {
+            _sdProducts = data.products || [];
+            if (seller) renderSellerDetailContent(seller, _sdProducts);
+          })
+          .catch(function() {});
+      }
+      // Refresh main admin data in background
+      loadAdminData();
+    })
+    .catch(function(e) { alert('Ralat rangkaian: ' + e.message); });
+}
+
+/* ── Open Direct Message from Seller Detail ──────────────────────────────── */
+
+function openDirectMessageFromDetail(sellerId) {
+  closeSellerDetail();
+  var msgNav = document.querySelector('[onclick*="tab-messages"]');
+  switchTab('tab-messages', msgNav);
+
+  var form = document.getElementById('compose-form');
+  if (form) form.style.display = 'block';
+
+  if (_data && _data.sellers) {
+    var sel = document.getElementById('msg-seller');
+    if (sel) {
+      // Populate if empty
+      if (sel.options.length <= 1) {
+        (_data.sellers || []).filter(function(s) { return s.status === 'active'; }).forEach(function(s) {
+          var opt = document.createElement('option');
+          opt.value = s.id;
+          opt.textContent = (s.shop_name || s.name || s.id) + ' — ' + (s.kawasan || '');
+          sel.appendChild(opt);
+        });
+      }
+      sel.value = sellerId;
+    }
+  }
+}
+
+/* ── Seller Broadcast ──────────────────────────────────────────────────────── */
+
+function broadcastToAllSellers() {
+  var type = ((document.getElementById('bc-seller-type') || {}).value || '').trim();
+  var title = ((document.getElementById('bc-seller-title') || {}).value || '').trim();
+  var body = ((document.getElementById('bc-seller-body') || {}).value || '').trim();
+  var statusEl = document.getElementById('bc-seller-status');
+
+  if (!type || !title || !body) {
+    if (statusEl) {
+      statusEl.textContent = 'Sila lengkapkan jenis, tajuk dan kandungan.';
+      statusEl.style.display = 'block';
+      statusEl.style.background = 'rgba(240,96,96,0.1)';
+      statusEl.style.color = '#f06060';
+    }
+    return;
+  }
+
+  var totalSellers = (_data && _data.sellers ? _data.sellers.length : 0);
+  if (!confirm('Hantar mesej ini kepada semua seller?\n\nJumlah seller: ' + totalSellers + '\nTajuk: ' + title)) return;
+
+  var btn = document.getElementById('bc-seller-send-btn');
+  if (btn) { btn.textContent = 'Menghantar...'; btn.disabled = true; }
+
+  fetch('/api/admin/messages', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ broadcast: true, type: type, title: title, body: body })
+  })
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+      if (btn) { btn.textContent = '&#128226; Hantar kepada Semua Seller'; btn.disabled = false; }
+      if (data.error) {
+        if (statusEl) {
+          statusEl.textContent = 'Ralat: ' + data.error;
+          statusEl.style.display = 'block';
+          statusEl.style.background = 'rgba(240,96,96,0.1)';
+          statusEl.style.color = '#f06060';
+        }
+        return;
+      }
+      if (statusEl) {
+        var msg = '&#10003; Berjaya dihantar kepada ' + data.sent + ' seller';
+        if (data.failed > 0) msg += ' | Gagal: ' + data.failed;
+        statusEl.innerHTML = msg;
+        statusEl.style.display = 'block';
+        statusEl.style.background = data.failed > 0 ? 'rgba(240,192,64,0.1)' : 'rgba(172,208,54,0.1)';
+        statusEl.style.color = data.failed > 0 ? '#f0c040' : '#acd036';
+        setTimeout(function() { if (statusEl) statusEl.style.display = 'none'; }, 6000);
+      }
+    })
+    .catch(function(e) {
+      if (btn) { btn.textContent = '&#128226; Hantar kepada Semua Seller'; btn.disabled = false; }
+      if (statusEl) {
+        statusEl.textContent = 'Ralat rangkaian: ' + e.message;
         statusEl.style.display = 'block';
         statusEl.style.background = 'rgba(240,96,96,0.1)';
         statusEl.style.color = '#f06060';
