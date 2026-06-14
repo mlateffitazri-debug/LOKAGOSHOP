@@ -1,7 +1,8 @@
 'use client'
 
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { HtmlPrototypePage } from '@/components/shared/HtmlPrototypePage'
+import { SellerSuccessShareModal } from '@/components/SellerSuccessShareModal'
 
 const styles = `
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;-webkit-font-smoothing:antialiased;}
@@ -98,16 +99,35 @@ async function shareSuccess() {
 `]
 
 export default function Page() {
+  const [shopName, setShopName] = useState('Kedai Saya')
+  const [showModal, setShowModal] = useState(false)
+
   useEffect(() => {
+    try {
+      const saved = localStorage.getItem('lokalgo_seller_onboarding')
+      if (saved) {
+        const d = JSON.parse(saved) as { shop_name?: string }
+        if (d.shop_name) setShopName(d.shop_name)
+      }
+    } catch { /* ignore parse errors */ }
+
+    setShowModal(true)
     localStorage.removeItem('lokalgo_after_login')
     localStorage.removeItem('lokalgo_seller_onboarding_success')
   }, [])
 
   return (
-    <HtmlPrototypePage
-      styles={styles}
-      markup={markup}
-      scripts={scripts}
-    />
+    <>
+      <HtmlPrototypePage
+        styles={styles}
+        markup={markup}
+        scripts={scripts}
+      />
+      <SellerSuccessShareModal
+        open={showModal}
+        shopName={shopName}
+        onClose={() => setShowModal(false)}
+      />
+    </>
   )
 }
