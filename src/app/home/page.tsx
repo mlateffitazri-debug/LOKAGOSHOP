@@ -223,8 +223,10 @@ function renderSellerCard(
   displayMode: Exclude<SellerDisplayMode, 'hidden'>,
 ) {
   const safeImgUrl = safeImageUrl(seller.profile_image_url)
+  const posX = seller.profile_image_position_x ?? 50
+  const posY = seller.profile_image_position_y ?? 50
   const imageStyle = safeImgUrl
-    ? ` style="background-image:url('${escapeHtml(safeImgUrl)}')"`
+    ? ` style="background-image:url('${escapeHtml(safeImgUrl)}');background-position:${posX}% ${posY}%"`
     : ''
   const imageClass = safeImgUrl ? 'img-bg' : 'img-bg img-bg-fallback'
   const initialHtml = safeImgUrl

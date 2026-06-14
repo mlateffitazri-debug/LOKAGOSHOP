@@ -25,6 +25,8 @@ export interface Seller {
   postcode: string
   taman_name: string
   profile_image_url: string | null
+  profile_image_position_x?: number | null
+  profile_image_position_y?: number | null
   pickup_instruction: string | null
   // Pin GPS kedai dari onboarding step 1 — boleh jadi string (lajur text) atau number
   latitude?: number | string | null

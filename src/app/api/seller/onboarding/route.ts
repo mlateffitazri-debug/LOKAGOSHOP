@@ -10,6 +10,8 @@ type SellerOnboardingBody = {
   kawasan?: string
   email?: string
   profile_image_url?: string | null
+  profile_image_position_x?: number | null
+  profile_image_position_y?: number | null
   latitude?: number | null
   longitude?: number | null
 }
@@ -68,6 +70,8 @@ export async function POST(request: Request) {
     postcode: body.postcode?.trim() || '00000',
     kawasan: body.kawasan?.trim() || body.taman_name.trim(),
     profile_image_url: body.profile_image_url || null,
+    profile_image_position_x: typeof body.profile_image_position_x === 'number' ? body.profile_image_position_x : 50,
+    profile_image_position_y: typeof body.profile_image_position_y === 'number' ? body.profile_image_position_y : 50,
     latitude: typeof body.latitude === 'number' && !Number.isNaN(body.latitude) ? body.latitude : null,
     longitude: typeof body.longitude === 'number' && !Number.isNaN(body.longitude) ? body.longitude : null,
     status: 'pending',
