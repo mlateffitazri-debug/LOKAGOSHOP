@@ -42,6 +42,7 @@ export interface Seller {
   approved_at: string | null
   custom_note: string | null
   custom_note_updated_at: string | null
+  slug?: string | null
 }
 
 export interface Product {

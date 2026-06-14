@@ -482,9 +482,12 @@ export default function Page() {
       if (shareBtn) {
         shareBtn.style.cursor = 'pointer'
         shareBtn.onclick = async () => {
-          const url = `${window.location.origin}/shop?seller=${seller.id}`
+          const shopSlug = (seller as Seller & { slug?: string | null }).slug
+          const url = shopSlug
+            ? `${window.location.origin}/shop/${shopSlug}`
+            : `${window.location.origin}/shop?seller=${seller.id}`
           if (navigator.share) {
-            try { await navigator.share({ title: seller.shop_name, text: 'Tengok kedai ini di LokalGo™!', url }) } catch { /* dismissed */ }
+            try { await navigator.share({ title: seller.shop_name, text: `Cari ${seller.shop_name} di LokalGo`, url }) } catch { /* dismissed */ }
           } else {
             try { await navigator.clipboard.writeText(url); showShopToast('Pautan disalin!') } catch { showShopToast('Gagal salin pautan') }
           }
