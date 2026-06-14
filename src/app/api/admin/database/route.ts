@@ -5,6 +5,19 @@ import { safeError } from '@/lib/safe-error'
 
 const ALLOWED_TABLES = ['sellers', 'buyers', 'testimonials', 'saved_shops', 'products', 'suspended_sellers', 'admin_messages', 'platform_settings'] as const
 
+type AllowedTable = (typeof ALLOWED_TABLES)[number]
+
+const TABLE_META: Record<AllowedTable, { idColumn: string; orderColumn: string }> = {
+  sellers:           { idColumn: 'id',  orderColumn: 'created_at' },
+  buyers:            { idColumn: 'id',  orderColumn: 'created_at' },
+  testimonials:      { idColumn: 'id',  orderColumn: 'created_at' },
+  saved_shops:       { idColumn: 'id',  orderColumn: 'created_at' },
+  products:          { idColumn: 'id',  orderColumn: 'created_at' },
+  suspended_sellers: { idColumn: 'id',  orderColumn: 'suspend_date' },
+  admin_messages:    { idColumn: 'id',  orderColumn: 'sent_at' },
+  platform_settings: { idColumn: 'key', orderColumn: 'updated_at' },
+}
+
 export async function GET(request: Request) {
   try {
     const admin = await requireAdmin()
@@ -21,18 +34,19 @@ export async function GET(request: Request) {
       return NextResponse.json({ error: 'Invalid or missing table name', allowed: ALLOWED_TABLES }, { status: 400 })
     }
 
+    const meta = TABLE_META[table as AllowedTable]
     const supabase = createAdminClient()
     const { data, error, count } = await supabase
       .from(table)
       .select('*', { count: 'exact' })
       .range(offset, offset + limit - 1)
-      .order('created_at', { ascending: false })
+      .order(meta.orderColumn, { ascending: false })
 
     if (error) {
       return NextResponse.json({ error: safeError(error) }, { status: 500 })
     }
 
-    return NextResponse.json({ rows: data ?? [], count: count ?? 0, table, limit, offset })
+    return NextResponse.json({ rows: data ?? [], count: count ?? 0, table, limit, offset, idColumn: meta.idColumn })
   } catch (err) {
     return NextResponse.json({ error: safeError(err, 'Failed to query table') }, { status: 500 })
   }
@@ -50,11 +64,12 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Invalid or missing table name' }, { status: 400 })
     }
 
+    const meta = TABLE_META[table as AllowedTable]
     const supabase = createAdminClient()
 
     if (action === 'delete_row') {
       if (!id) return NextResponse.json({ error: 'Missing id' }, { status: 400 })
-      const { error } = await supabase.from(table).delete().eq('id', id)
+      const { error } = await supabase.from(table).delete().eq(meta.idColumn, id)
       if (error) return NextResponse.json({ error: safeError(error) }, { status: 500 })
       return NextResponse.json({ ok: true })
     }
@@ -66,7 +81,7 @@ export async function POST(request: Request) {
           { status: 400 },
         )
       }
-      const { error } = await supabase.from(table).delete().not('id', 'is', null)
+      const { error } = await supabase.from(table).delete().not(meta.idColumn, 'is', null)
       if (error) return NextResponse.json({ error: safeError(error) }, { status: 500 })
       return NextResponse.json({ ok: true })
     }

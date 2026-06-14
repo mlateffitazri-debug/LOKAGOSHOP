@@ -554,6 +554,7 @@ function loadDbTable(table) {
     .then(function(data) {
       if (data.error) { setHtml('db-info', '<span style="color:#f06060;">Ralat: ' + esc(data.error) + '</span>'); return; }
       var rows = data.rows || [];
+      var keyColumn = data.idColumn || 'id';
       setHtml('db-info', table + ' — ' + data.count + ' jumlah rekod (paparan: ' + rows.length + ')');
       if (!rows.length) {
         setHtml('db-content', '<div style="text-align:center;color:rgba(240,240,240,0.2);padding:44px 16px;font-size:14px;">Jadual kosong</div>');
@@ -576,7 +577,11 @@ function loadDbTable(table) {
           else display = esc(String(val).slice(0, 45));
           html += '<td class="td-cell" title="' + esc(String(row[col] || '')) + '">' + display + '</td>';
         });
-        html += '<td><button class="act-btn ab-r" data-id="' + esc(row.id) + '" onclick="deleteDbRow(this.dataset.id)">Del</button></td></tr>';
+        var rowKey = row[keyColumn];
+        var delBtn = rowKey != null
+          ? '<button class="act-btn ab-r" data-id="' + esc(String(rowKey)) + '" onclick="deleteDbRow(this.dataset.id)">Del</button>'
+          : '<button class="act-btn ab-r" disabled style="opacity:0.3;" title="Tiada kunci baris">Del</button>';
+        html += '<td>' + delBtn + '</td></tr>';
       });
       html += '</tbody></table></div>';
       setHtml('db-content', html);

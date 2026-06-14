@@ -21,8 +21,23 @@ Isi nilai dalam `.env.local`:
 ## 3. Setup Supabase
 
 1. Pergi Supabase Dashboard > SQL Editor
-2. Copy paste kandungan `supabase_schema.sql`
+2. Copy paste kandungan `supabase_final_deploy.sql` (atau `supabase_schema.sql` untuk schema asas sahaja)
 3. Run semua
+4. Kemudian jalankan semua fail dalam folder `supabase/migrations/` mengikut tertib nama fail (tarikh ascending):
+   - `20260613_platform_settings.sql`
+   - `20260613_rpc_counters.sql`
+   - `20260613_fix_is_open_null.sql`
+   - `20260614_seller_image_position.sql`
+   - `20260614_soft_delete.sql`
+
+### Storage Buckets
+
+Buat bucket berikut dalam Supabase Dashboard > Storage:
+
+| Bucket | Public | Kegunaan |
+|--------|--------|----------|
+| `product-images` | Ya | Gambar produk seller |
+| `profile-images` | Ya | Gambar profil seller |
 
 ## 4. Setup Google OAuth dalam Supabase
 
