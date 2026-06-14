@@ -6,16 +6,14 @@ import { createClient } from '@supabase/supabase-js'
 export const runtime = 'nodejs'
 export const revalidate = 3600
 
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+
 function nameFontSize(name: string): number {
   const len = name.length
-  if (len <= 18) return 76
-  if (len <= 28) return 64
-  if (len <= 42) return 54
-  return 44
-}
-
-function urlFontSize(display: string): number {
-  return display.length > 40 ? 22 : 30
+  if (len <= 18) return 72
+  if (len <= 28) return 62
+  if (len <= 42) return 52
+  return 42
 }
 
 async function fetchSeller(slug: string) {
@@ -24,26 +22,28 @@ async function fetchSeller(slug: string) {
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
   )
 
-  // Try slug lookup first, then fall back to UUID id lookup
-  try {
-    const { data } = await supabase
-      .from('sellers')
-      .select('id, shop_name, slug')
-      .or(`slug.eq.${slug},id.eq.${slug}`)
-      .eq('status', 'active')
-      .maybeSingle()
-    if (data) return data
-  } catch {
-    // slug column may not exist yet — try id-only
-  }
-
-  const { data } = await supabase
+  // Primary: slug lookup — avoids UUID cast error
+  const { data: bySlug } = await supabase
     .from('sellers')
-    .select('id, shop_name')
-    .eq('id', slug)
+    .select('id, shop_name, slug')
+    .eq('slug', slug)
     .eq('status', 'active')
     .maybeSingle()
-  return data as { id: string; shop_name: string; slug?: string | null } | null
+
+  if (bySlug) return bySlug as { id: string; shop_name: string; slug?: string | null }
+
+  // Fallback: only attempt UUID lookup when input is actually a UUID
+  if (UUID_RE.test(slug)) {
+    const { data: byId } = await supabase
+      .from('sellers')
+      .select('id, shop_name, slug')
+      .eq('id', slug)
+      .eq('status', 'active')
+      .maybeSingle()
+    if (byId) return byId as { id: string; shop_name: string; slug?: string | null }
+  }
+
+  return null
 }
 
 export async function GET(
@@ -53,17 +53,17 @@ export async function GET(
   const { slug } = params
 
   const seller = await fetchSeller(slug)
-  const shopName = seller?.shop_name ?? 'LokalGo'
-  const shopSlug = seller?.slug ?? slug
+  if (!seller) {
+    return new Response('Shop not found', { status: 404 })
+  }
+
+  const shopName = seller.shop_name
+  const nameSize = nameFontSize(shopName)
 
   const bgBuffer = fs.readFileSync(
     path.join(process.cwd(), 'public/assets/SocialSharePoster.png'),
   )
   const bgSrc = `data:image/png;base64,${bgBuffer.toString('base64')}`
-
-  const nameSize = nameFontSize(shopName)
-  const displayUrl = `lokalgo.app/shop/${shopSlug}`
-  const urlSize = urlFontSize(displayUrl)
 
   return new ImageResponse(
     (
@@ -75,14 +75,14 @@ export async function GET(
           style={{ position: 'absolute', top: 0, left: 0, width: 1200, height: 630 }}
         />
 
-        {/* Shop name overlay — left:430 top:225 width:660 height:155 */}
+        {/* SHOP_NAME overlay — left:430 top:250 width:650 height:120 */}
         <div
           style={{
             position: 'absolute',
             left: 430,
-            top: 225,
-            width: 660,
-            height: 155,
+            top: 250,
+            width: 650,
+            height: 120,
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
@@ -102,31 +102,6 @@ export async function GET(
             }}
           >
             {shopName.toUpperCase()}
-          </span>
-        </div>
-
-        {/* Shop URL overlay — left:455 top:420 width:610 height:42 */}
-        <div
-          style={{
-            position: 'absolute',
-            left: 455,
-            top: 420,
-            width: 610,
-            height: 42,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-          }}
-        >
-          <span
-            style={{
-              fontSize: urlSize,
-              fontWeight: 800,
-              color: '#FFFFFF',
-              lineHeight: 1,
-            }}
-          >
-            {displayUrl}
           </span>
         </div>
       </div>
