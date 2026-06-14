@@ -86,7 +86,8 @@ body{background:#0a0a0a;min-height:100vh;font-family:'Plus Jakarta Sans',-apple-
 .submit-btn::after{content:'';position:absolute;top:0;left:0;right:0;height:50%;background:linear-gradient(180deg,rgba(255,255,255,0.12) 0%,transparent 100%);border-radius:14px 14px 0 0;pointer-events:none;}
 .submit-btn:active{transform:scale(0.985);}
 .submit-note{font-size:11px;color:var(--c-hint);text-align:center;margin-top:10px;line-height:1.6;padding:0 8px;}
-.back-btn{width:32px;height:32px;border-radius:50%;background:rgba(255,255,255,0.15);border:none;display:flex;align-items:center;justify-content:center;cursor:pointer;flex-shrink:0;}`
+.back-btn{width:32px;height:32px;border-radius:50%;background:rgba(255,255,255,0.15);border:none;display:flex;align-items:center;justify-content:center;cursor:pointer;flex-shrink:0;}
+.img-guide-text{font-size:12px;color:var(--c-hint);text-align:center;margin-bottom:12px;line-height:1.6;padding:0 4px;}`
 
 const markup = `<div class="page">
 <div class="scroll">
@@ -115,6 +116,7 @@ const markup = `<div class="page">
   <!-- Upload Gambar -->
   <div>
     <div class="field-label">Gambar Profil Kedai</div>
+    <div class="img-guide-text">Gunakan gambar square 1:1 untuk hasil terbaik. Cadangan minimum 800×800px. Elakkan screenshot kecil atau gambar terlalu rendah resolusi.</div>
     <input type="file" id="imgInput" accept="image/*,.heic,.heif" style="display:none;">
     <div class="upload-box" id="uploadBox" onclick="document.getElementById('imgInput').click()">
       <div class="upload-icon">
@@ -253,11 +255,19 @@ export default function Page() {
         return
       }
 
-      // Show local preview immediately before upload completes
+      // Show preview immediately; check dimensions for quality warning (non-blocking)
       const reader = new FileReader()
       reader.onload = (e) => {
         const dataUrl = e.target?.result as string
-        if (dataUrl) (window as OnboardingWindow).__showImagePreview?.(dataUrl)
+        if (!dataUrl) return
+        ;(window as OnboardingWindow).__showImagePreview?.(dataUrl)
+        const img = new window.Image()
+        img.onload = () => {
+          if (img.naturalWidth > 0 && (img.naturalWidth < 600 || img.naturalHeight < 600)) {
+            showImgStatus('⚠️ Gambar ini mungkin kelihatan pecah. Untuk hasil terbaik, gunakan gambar sekurang-kurangnya 800×800px.')
+          }
+        }
+        img.src = dataUrl
       }
       reader.readAsDataURL(file)
 
@@ -265,7 +275,7 @@ export default function Page() {
 
       let compressed: File
       try {
-        compressed = await compressImage(file, 'avatar')
+        compressed = await compressImage(file, 'shop_profile')
       } catch {
         showImgStatus('Format gambar tidak disokong. Sila tukar ke JPG.')
         return
