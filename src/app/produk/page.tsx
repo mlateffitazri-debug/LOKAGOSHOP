@@ -598,6 +598,24 @@ export default function Page() {
       ;(window as Window & { buildAndSendWA?: () => void }).buildAndSendWA = () => void 0
       ;(window as Window & { selectDelivery?: () => void }).selectDelivery = () => void 0
       ;(window as Window & { showAddressPicker?: () => void }).showAddressPicker = () => void 0
+
+      const confirmReplaceCart = (): Promise<boolean> => new Promise((resolve) => {
+        const overlay = document.createElement('div')
+        overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.55);z-index:130;display:flex;align-items:flex-end;justify-content:center;'
+        overlay.innerHTML = `
+          <div style="background:#fff;width:100%;max-width:430px;border-radius:20px 20px 0 0;padding:24px 20px 28px;font-family:'Plus Jakarta Sans',sans-serif;">
+            <div style="font-size:15px;font-weight:800;color:#111;margin-bottom:8px;">Ganti Troli?</div>
+            <div style="font-size:13px;color:#555;line-height:1.6;margin-bottom:24px;">Troli anda ada item dari kedai lain. Ganti dengan item dari kedai ini?</div>
+            <button id="cartConfirmYes" style="width:100%;border:0;background:#7B1533;color:#fff;border-radius:14px;padding:14px;font-size:14px;font-weight:700;font-family:inherit;cursor:pointer;margin-bottom:10px;">Ya, ganti</button>
+            <button id="cartConfirmNo" style="width:100%;border:0;background:#f5f5f5;color:#555;border-radius:14px;padding:14px;font-size:14px;font-weight:600;font-family:inherit;cursor:pointer;">Batal</button>
+          </div>`
+        document.body.appendChild(overlay)
+        const cleanup = (result: boolean) => { overlay.remove(); resolve(result) }
+        overlay.querySelector('#cartConfirmYes')?.addEventListener('click', () => cleanup(true))
+        overlay.querySelector('#cartConfirmNo')?.addEventListener('click', () => cleanup(false))
+        overlay.addEventListener('click', (e) => { if (e.target === overlay) cleanup(false) })
+      })
+
       runtime.addToOrder = async () => {
         const { data: { user: cartUser } } = await createClient().auth.getUser()
         if (!cartUser) {
@@ -628,7 +646,7 @@ export default function Page() {
         let items = readCart()
         const hasDifferentSeller = items.some((item) => item.sellerId !== ctx.sellerId)
         if (hasDifferentSeller) {
-          const replace = window.confirm('Cart hanya boleh campur produk dari kedai yang sama. Ganti cart dengan kedai ini?')
+          const replace = await confirmReplaceCart()
           if (!replace) return
           items = []
         }
