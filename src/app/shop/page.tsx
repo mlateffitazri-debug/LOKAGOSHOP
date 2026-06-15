@@ -346,13 +346,8 @@ export default function Page() {
 
       const supabase = createClient()
 
-      // Auth guard — redirect to /auth if not logged in
       const { data: { user: shopUser } } = await supabase.auth.getUser()
       if (cancelled) return
-      if (!shopUser) {
-        window.location.href = '/auth'
-        return
-      }
 
       const { data: seller, error: sellerError } = await supabase
         .from('sellers')
@@ -376,7 +371,7 @@ export default function Page() {
         await supabase.rpc('increment_seller_view_count', { p_seller_id: seller.id })
       }
 
-      const [{ data: products }, { data: testimonials }, { data: buyerData }] = await Promise.all([
+      const [{ data: products }, { data: testimonials }, buyerResult] = await Promise.all([
         supabase
           .from('products')
           .select('*')
@@ -390,12 +385,11 @@ export default function Page() {
           .eq('seller_id', seller.id)
           .eq('is_approved', true)
           .order('created_at', { ascending: false }),
-        supabase
-          .from('buyers')
-          .select('id')
-          .eq('user_id', shopUser.id)
-          .maybeSingle(),
+        shopUser
+          ? supabase.from('buyers').select('id').eq('user_id', shopUser.id).maybeSingle()
+          : Promise.resolve({ data: null, error: null }),
       ])
+      const buyerData = buyerResult.data
 
       if (cancelled) return
 

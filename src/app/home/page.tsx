@@ -495,46 +495,47 @@ export default function HomePage() {
 
       const { data: { user } } = await supabase.auth.getUser()
       if (cancelled) return
-      if (!user) { window.location.href = '/auth'; return }
 
-      const metadata = user.user_metadata ?? {}
-      const metadataName = typeof metadata.full_name === 'string' ? metadata.full_name : undefined
-      const metadataFallbackName = typeof metadata.name === 'string' ? metadata.name : undefined
-      const metadataAvatar = typeof metadata.avatar_url === 'string'
-        ? metadata.avatar_url
-        : typeof metadata.picture === 'string' ? metadata.picture : null
+      if (user) {
+        const metadata = user.user_metadata ?? {}
+        const metadataName = typeof metadata.full_name === 'string' ? metadata.full_name : undefined
+        const metadataFallbackName = typeof metadata.name === 'string' ? metadata.name : undefined
+        const metadataAvatar = typeof metadata.avatar_url === 'string'
+          ? metadata.avatar_url
+          : typeof metadata.picture === 'string' ? metadata.picture : null
 
-      const { data: sellerRecord } = await supabase
-        .from('sellers').select('id, shop_name, approved_at').eq('user_id', user.id).maybeSingle()
-      if (!cancelled) {
-        setIsSeller(!!sellerRecord)
-        if (sellerRecord?.approved_at) {
-          const key = `lk_appr_${sellerRecord.id}`
-          if (!localStorage.getItem(key)) {
-            setApprovalSeller({ id: sellerRecord.id, shopName: (sellerRecord as { id: string; shop_name: string | null; approved_at: string | null }).shop_name || 'Kedai anda' })
+        const { data: sellerRecord } = await supabase
+          .from('sellers').select('id, shop_name, approved_at').eq('user_id', user.id).maybeSingle()
+        if (!cancelled) {
+          setIsSeller(!!sellerRecord)
+          if (sellerRecord?.approved_at) {
+            const key = `lk_appr_${sellerRecord.id}`
+            if (!localStorage.getItem(key)) {
+              setApprovalSeller({ id: sellerRecord.id, shopName: (sellerRecord as { id: string; shop_name: string | null; approved_at: string | null }).shop_name || 'Kedai anda' })
+            }
           }
         }
-      }
 
-      const { data: buyerData } = await supabase
-        .from('buyers').select('*').eq('user_id', user.id).maybeSingle()
-      if (cancelled) return
+        const { data: buyerData } = await supabase
+          .from('buyers').select('*').eq('user_id', user.id).maybeSingle()
+        if (cancelled) return
 
-      const buyer = buyerData as Buyer | null
-      setProfile({
-        buyerId: buyer?.id ?? null,
-        name: metadataName || metadataFallbackName || user.email || 'LokalGo',
-        email: user.email || buyer?.email || '',
-        kawasan: buyer?.kawasan || 'Kawasan belum ditetapkan',
-        avatarUrl: metadataAvatar,
-      })
-      setBuyerKawasan(buyer?.kawasan ?? null)
+        const buyer = buyerData as Buyer | null
+        setProfile({
+          buyerId: buyer?.id ?? null,
+          name: metadataName || metadataFallbackName || user.email || 'LokalGo',
+          email: user.email || buyer?.email || '',
+          kawasan: buyer?.kawasan || 'Kawasan belum ditetapkan',
+          avatarUrl: metadataAvatar,
+        })
+        setBuyerKawasan(buyer?.kawasan ?? null)
 
-      if (buyer?.id) {
-        const { data: savedData } = await supabase
-          .from('saved_shops').select('shop_id').eq('buyer_id', buyer.id)
-        if (!cancelled && savedData) {
-          setSavedShopIds(new Set(savedData.map((r: { shop_id: string }) => r.shop_id)))
+        if (buyer?.id) {
+          const { data: savedData } = await supabase
+            .from('saved_shops').select('shop_id').eq('buyer_id', buyer.id)
+          if (!cancelled && savedData) {
+            setSavedShopIds(new Set(savedData.map((r: { shop_id: string }) => r.shop_id)))
+          }
         }
       }
 
