@@ -143,8 +143,11 @@ export async function GET(
     .map((p) => p.images[0])
   const productImgs = await prefetchImages(productUrls)
 
-  const buildResponse = (thumbDataUrls: string[]) =>
-    new ImageResponse(
+  // Force eager rendering: consume the ImageResponse stream inside our handler
+  // so any Satori error is caught by our try/catch instead of crashing Next.js's
+  // response pipe (which produces an unrecoverable HTML 500).
+  const buildResponse = async (thumbDataUrls: string[]) => {
+    const imgRes = new ImageResponse(
       (
         <div style={{ display: 'flex', width: 1200, height: 630, position: 'relative' }}>
           {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -223,13 +226,23 @@ export async function GET(
       ),
       { width: 1200, height: 630 },
     )
+    // Consume the stream now — throws here if Satori fails, not during pipe
+    const buf = await imgRes.arrayBuffer()
+    return new Response(buf, {
+      status: 200,
+      headers: {
+        'Content-Type': 'image/png',
+        'Cache-Control': 'public, max-age=3600, s-maxage=3600',
+      },
+    })
+  }
 
   try {
-    return buildResponse(productImgs)
+    return await buildResponse(productImgs)
   } catch (err) {
     console.error('[OG SHOP] Render with thumbnails failed, falling back:', err)
     try {
-      return buildResponse([])
+      return await buildResponse([])
     } catch (err2) {
       console.error('[OG SHOP] Fallback render also failed:', err2)
       return new Response('Error generating image', { status: 500 })
