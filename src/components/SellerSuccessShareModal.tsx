@@ -15,7 +15,7 @@ const MODAL_STYLES = `
 .ssm-card-wrap{margin-bottom:16px;border-radius:16px;overflow:hidden;box-shadow:0 8px 40px rgba(0,0,0,0.45);}
 .ssm-card{position:relative;width:100%;line-height:0;display:block;}
 .ssm-bg{width:100%;height:auto;display:block;}
-.ssm-name-overlay{position:absolute;left:7%;top:50%;width:43%;height:16%;display:flex;align-items:center;justify-content:center;text-align:center;padding:0 6px;overflow:hidden;}
+.ssm-name-overlay{position:absolute;left:44%;top:38%;width:52%;height:28%;display:flex;align-items:center;justify-content:center;text-align:center;padding:0 10px;overflow:hidden;}
 .ssm-shop-name{font-size:clamp(18px,4.5vw,52px);font-weight:900;text-transform:uppercase;color:#ADD036;line-height:1.05;word-break:break-word;overflow-wrap:break-word;max-width:100%;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;}
 .ssm-status{font-size:13px;font-weight:600;color:#ADD036;text-align:center;padding:6px 0 10px;}
 .ssm-btns{display:flex;flex-direction:column;gap:10px;margin-bottom:14px;}
