@@ -17,11 +17,14 @@ html,body{height:100%;overflow:hidden;}
   user-select:none;
 }
 .splash-inner{display:flex;flex-direction:column;align-items:center;gap:0;}
-.splash-logo{
-  width:220px;height:auto;
+.splash-wordmark{
+  font-family:'Plus Jakarta Sans',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
+  font-size:52px;font-weight:900;letter-spacing:-1.5px;
+  color:#ffffff;
+  line-height:1;
   animation:splashFadeUp 0.65s cubic-bezier(0.22,1,0.36,1) both;
-  display:block;
 }
+.splash-wordmark span{color:#ADD036;}
 .splash-tagline{
   font-family:'Plus Jakarta Sans',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
   font-size:15px;font-weight:500;letter-spacing:0.3px;
@@ -74,12 +77,7 @@ export function SplashScreen() {
       <style dangerouslySetInnerHTML={{ __html: CSS }} />
       <div className="splash" onClick={go} role="presentation" aria-label="LokalGo — Membuka aplikasi">
         <div className="splash-inner">
-          <img
-            src="/icons/Lokalgo-Logo-New.PNG"
-            alt="LokalGo"
-            className="splash-logo"
-            draggable={false}
-          />
+          <div className="splash-wordmark">lokal<span>go</span></div>
           <div className="splash-tagline">Dari jiran, untuk jiran</div>
           <div className="splash-dots">
             <div className="splash-dot" />
