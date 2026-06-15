@@ -99,6 +99,23 @@ function isHttpUrl(url: string): boolean {
   }
 }
 
+// Pre-fetch product images and convert to base64 data URIs so Satori never
+// makes external requests during render (which fail silently inside the stream).
+async function prefetchImages(urls: string[]): Promise<string[]> {
+  const results = await Promise.allSettled(
+    urls.map(async (url) => {
+      const res = await fetch(url, { signal: AbortSignal.timeout(8000) })
+      if (!res.ok) throw new Error(`HTTP ${res.status}`)
+      const ab = await res.arrayBuffer()
+      const ct = res.headers.get('content-type') || 'image/jpeg'
+      return `data:${ct};base64,${Buffer.from(ab).toString('base64')}`
+    }),
+  )
+  return results
+    .filter((r): r is PromiseFulfilledResult<string> => r.status === 'fulfilled')
+    .map((r) => r.value)
+}
+
 export async function GET(
   _req: Request,
   { params }: { params: { slug: string } },
@@ -118,10 +135,15 @@ export async function GET(
   )
   const bgSrc = `data:image/png;base64,${bgBuffer.toString('base64')}`
 
+  // Pre-fetch product images as base64 so Satori never makes external requests.
+  // If any image URL is unreachable it is silently dropped; if all fail we get [].
   const rawProducts = await fetchProducts(seller.id)
-  const products = rawProducts.filter((p) => isHttpUrl(p.images[0]))
+  const productUrls = rawProducts
+    .filter((p) => isHttpUrl(p.images[0]))
+    .map((p) => p.images[0])
+  const productImgs = await prefetchImages(productUrls)
 
-  const buildResponse = (thumbs: ProductRow[]) =>
+  const buildResponse = (thumbDataUrls: string[]) =>
     new ImageResponse(
       (
         <div style={{ display: 'flex', width: 1200, height: 630, position: 'relative' }}>
@@ -162,8 +184,8 @@ export async function GET(
             </span>
           </div>
 
-          {/* PRODUCT THUMBNAILS — up to 3, below shop name */}
-          {thumbs.length > 0 && (
+          {/* PRODUCT THUMBNAILS — up to 3, below shop name (base64 data URIs) */}
+          {thumbDataUrls.length > 0 && (
             <div
               style={{
                 position: 'absolute',
@@ -174,13 +196,13 @@ export async function GET(
                 alignItems: 'center',
               }}
             >
-              {thumbs.map((p, i) => (
+              {thumbDataUrls.map((src, i) => (
                 <div
                   key={i}
                   style={{
                     width: 196,
                     height: 110,
-                    marginRight: i < thumbs.length - 1 ? 12 : 0,
+                    marginRight: i < thumbDataUrls.length - 1 ? 12 : 0,
                     borderRadius: 10,
                     overflow: 'hidden',
                     flexShrink: 0,
@@ -189,7 +211,7 @@ export async function GET(
                 >
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img
-                    src={p.images[0]}
+                    src={src}
                     alt=""
                     style={{ width: 196, height: 110, objectFit: 'cover' }}
                   />
@@ -203,7 +225,7 @@ export async function GET(
     )
 
   try {
-    return buildResponse(products)
+    return buildResponse(productImgs)
   } catch (err) {
     console.error('[OG SHOP] Render with thumbnails failed, falling back:', err)
     try {
