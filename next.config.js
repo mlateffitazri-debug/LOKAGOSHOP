@@ -61,6 +61,8 @@ const securityHeaders = [
 ]
 
 const nextConfig = {
+  // Prevent webpack from bundling native modules — they must be require()'d at runtime
+  serverExternalPackages: ['sharp'],
   images: {
     remotePatterns: [
       {
