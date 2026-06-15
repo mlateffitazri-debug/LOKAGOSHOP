@@ -1,7 +1,8 @@
 'use client'
 
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { HtmlPrototypePage } from '@/components/shared/HtmlPrototypePage'
+import { LoginPromptModal } from '@/components/LoginPromptModal'
 import { createClient } from '@/lib/supabase/client'
 import type { Product, Seller } from '@/types/database'
 
@@ -315,7 +316,7 @@ type ProductWindow = Window & {
   __lokalgoCartCheckout?: (method: 'pickup' | 'cod') => void
   __lokalgoCloseCart?: () => void
   __showReviewPrompt?: () => void
-  addToOrder?: () => void
+  addToOrder?: () => void | Promise<void>
   removeItem?: (index: number) => void
   updateCartUI?: () => void
   sendWhatsApp?: () => void
@@ -332,7 +333,10 @@ const uxStyles = `
 `
 
 export default function Page() {
+  const [showLoginModal, setShowLoginModal] = useState(false)
+
   useEffect(() => {
+    ;(window as Window & { __showLoginModal?: () => void }).__showLoginModal = () => setShowLoginModal(true)
     let cancelled = false
 
     async function loadProduct() {
@@ -594,7 +598,12 @@ export default function Page() {
       ;(window as Window & { buildAndSendWA?: () => void }).buildAndSendWA = () => void 0
       ;(window as Window & { selectDelivery?: () => void }).selectDelivery = () => void 0
       ;(window as Window & { showAddressPicker?: () => void }).showAddressPicker = () => void 0
-      runtime.addToOrder = () => {
+      runtime.addToOrder = async () => {
+        const { data: { user: cartUser } } = await createClient().auth.getUser()
+        if (!cartUser) {
+          ;(window as Window & { __showLoginModal?: () => void }).__showLoginModal?.()
+          return
+        }
         const ctx = runtime.__lokalgoProductContext
         if (!ctx) return
         if (!ctx.sellerWhatsapp) {
@@ -749,12 +758,15 @@ export default function Page() {
   }, [])
 
   return (
-    <HtmlPrototypePage
-      styles={`${styles}${uxStyles}`}
-      markup={markup}
-      scripts={scripts}
-      externalScripts={externalScripts}
-      externalStylesheets={externalStylesheets}
-    />
+    <>
+      <HtmlPrototypePage
+        styles={`${styles}${uxStyles}`}
+        markup={markup}
+        scripts={scripts}
+        externalScripts={externalScripts}
+        externalStylesheets={externalStylesheets}
+      />
+      <LoginPromptModal open={showLoginModal} onClose={() => setShowLoginModal(false)} />
+    </>
   )
 }
