@@ -1,7 +1,7 @@
 'use client'
 
 import { MouseEvent, useEffect, useMemo, useState } from 'react'
-import { MapPin, Heart, MessageSquare, Coffee, Info, Globe, LogOut, BookOpen, Store } from 'lucide-react'
+import { MapPin, Heart, MessageSquare, Coffee, Info, Globe, LogOut, LogIn, BookOpen, Store } from 'lucide-react'
 import { translations, useLang, type Lang } from '@/lib/i18n'
 import { createClient } from '@/lib/supabase/client'
 import type { Buyer, Seller, Product } from '@/types/database'
@@ -804,10 +804,23 @@ export default function HomePage() {
           </div>
 
           <div className="sidebar-footer">
-            <button type="button" onClick={handleSignOut} className="logout-btn">
-              <LogOut size={18} />
-              {lang === 'en' ? 'Sign Out' : 'Log Keluar'}
-            </button>
+            {profile ? (
+              <button type="button" onClick={handleSignOut} className="logout-btn">
+                <LogOut size={18} />
+                {lang === 'en' ? 'Sign Out' : 'Log Keluar'}
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={() => {
+                  window.location.href = `/auth?next=${encodeURIComponent(window.location.pathname + window.location.search)}`
+                }}
+                className="logout-btn"
+              >
+                <LogIn size={18} />
+                {lang === 'en' ? 'Sign In' : 'Log Masuk'}
+              </button>
+            )}
           </div>
         </aside>
       </div>
