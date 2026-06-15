@@ -1,6 +1,7 @@
 import { ImageResponse } from 'next/og'
 import fs from 'fs'
 import path from 'path'
+import sharp from 'sharp'
 import { createClient } from '@supabase/supabase-js'
 
 export const runtime = 'nodejs'
@@ -99,16 +100,20 @@ function isHttpUrl(url: string): boolean {
   }
 }
 
-// Pre-fetch product images and convert to base64 data URIs so Satori never
-// makes external requests during render (which fail silently inside the stream).
+// Fetch each product image, resize and convert to JPEG via sharp (handles
+// WebP/PNG/JPEG uniformly), then return as base64 data URIs for Satori.
+// Failed images are silently dropped so one bad URL never kills the whole card.
 async function prefetchImages(urls: string[]): Promise<string[]> {
   const results = await Promise.allSettled(
     urls.map(async (url) => {
       const res = await fetch(url, { signal: AbortSignal.timeout(8000) })
       if (!res.ok) throw new Error(`HTTP ${res.status}`)
       const ab = await res.arrayBuffer()
-      const ct = res.headers.get('content-type') || 'image/jpeg'
-      return `data:${ct};base64,${Buffer.from(ab).toString('base64')}`
+      const jpegBuf = await sharp(Buffer.from(ab))
+        .resize(392, 220, { fit: 'cover', position: 'centre' })
+        .jpeg({ quality: 82 })
+        .toBuffer()
+      return `data:image/jpeg;base64,${jpegBuf.toString('base64')}`
     }),
   )
   return results
