@@ -1,6 +1,7 @@
 'use client'
 
 import { MouseEvent, useEffect, useMemo, useState } from 'react'
+import { SplashScreen } from '@/components/SplashScreen'
 import { MapPin, Heart, MessageSquare, Coffee, Info, Globe, LogOut, LogIn, BookOpen, Store } from 'lucide-react'
 import { translations, useLang, type Lang } from '@/lib/i18n'
 import { createClient } from '@/lib/supabase/client'
@@ -421,6 +422,29 @@ function SidebarLink({ href, icon, label }: { href: string; icon: React.ReactNod
 }
 
 export default function HomePage() {
+  const [splashDone, setSplashDone] = useState(false)
+
+  useEffect(() => {
+    if (sessionStorage.getItem('lokalgo_splash_home_seen')) {
+      setSplashDone(true)
+    }
+  }, [])
+
+  if (!splashDone) {
+    return (
+      <SplashScreen
+        onDone={() => {
+          sessionStorage.setItem('lokalgo_splash_home_seen', '1')
+          setSplashDone(true)
+        }}
+      />
+    )
+  }
+
+  return <HomePageContent />
+}
+
+function HomePageContent() {
   const { lang, toggle } = useLang()
   const [allSellers, setAllSellers] = useState<Seller[]>([])
   const [userLocation, setUserLocation] = useState<{ lat: number; lng: number } | null>(null)
