@@ -11,10 +11,10 @@ const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/
 
 function nameFontSize(name: string): number {
   const len = name.length
-  if (len <= 18) return 72
-  if (len <= 28) return 62
-  if (len <= 42) return 52
-  return 42
+  if (len <= 15) return 68
+  if (len <= 22) return 58
+  if (len <= 32) return 48
+  return 38
 }
 
 type SellerRow = { id: string; shop_name: string; slug?: string | null }
@@ -29,27 +29,20 @@ function getSupabase() {
 
 async function fetchSeller(slug: string): Promise<SellerRow | null> {
   const supabase = getSupabase()
-
   console.log('[OG SHOP SLUG]', slug)
 
-  // Primary: look up by slug (no status filter — service key bypasses RLS)
   try {
     const { data, error } = await supabase
       .from('sellers')
       .select('id, shop_name, slug')
       .eq('slug', slug)
       .maybeSingle()
-
-    if (error) {
-      console.error('[OG SHOP FETCH ERROR] slug lookup:', error)
-    } else if (data) {
-      return data as SellerRow
-    }
+    if (error) console.error('[OG SHOP FETCH ERROR] slug lookup:', error)
+    else if (data) return data as SellerRow
   } catch (err) {
     console.error('[OG SHOP FETCH ERROR] slug lookup threw:', err)
   }
 
-  // Fallback: UUID lookup only when param looks like a UUID
   if (UUID_RE.test(slug)) {
     try {
       const { data, error } = await supabase
@@ -57,12 +50,8 @@ async function fetchSeller(slug: string): Promise<SellerRow | null> {
         .select('id, shop_name, slug')
         .eq('id', slug)
         .maybeSingle()
-
-      if (error) {
-        console.error('[OG SHOP FETCH ERROR] id lookup:', error)
-      } else if (data) {
-        return data as SellerRow
-      }
+      if (error) console.error('[OG SHOP FETCH ERROR] id lookup:', error)
+      else if (data) return data as SellerRow
     } catch (err) {
       console.error('[OG SHOP FETCH ERROR] id lookup threw:', err)
     }
@@ -82,7 +71,6 @@ async function fetchProducts(sellerId: string): Promise<ProductRow[]> {
       .eq('status', 'approved')
       .limit(10)
       .order('created_at', { ascending: false })
-
     return ((data ?? []) as ProductRow[])
       .filter((p) => Array.isArray(p.images) && p.images.length > 0)
       .slice(0, 3)
@@ -100,9 +88,6 @@ function isHttpUrl(url: string): boolean {
   }
 }
 
-// Fetch each product image, resize and convert to JPEG via sharp (handles
-// WebP/PNG/JPEG uniformly), then return as base64 data URIs for Satori.
-// Failed images are silently dropped so one bad URL never kills the whole card.
 async function prefetchImages(urls: string[]): Promise<string[]> {
   const results = await Promise.allSettled(
     urls.map(async (url) => {
@@ -110,7 +95,7 @@ async function prefetchImages(urls: string[]): Promise<string[]> {
       if (!res.ok) throw new Error(`HTTP ${res.status}`)
       const ab = await res.arrayBuffer()
       const jpegBuf = await sharp(Buffer.from(ab))
-        .resize(392, 220, { fit: 'cover', position: 'centre' })
+        .resize(460, 180, { fit: 'cover', position: 'centre' })
         .jpeg({ quality: 82 })
         .toBuffer()
       return `data:image/jpeg;base64,${jpegBuf.toString('base64')}`
@@ -128,33 +113,38 @@ export async function GET(
   const { slug } = params
 
   const seller = await fetchSeller(slug)
-  if (!seller) {
-    return new Response(`Shop not found: ${slug}`, { status: 404 })
-  }
+  if (!seller) return new Response(`Shop not found: ${slug}`, { status: 404 })
 
   const shopName = seller.shop_name
   const nameSize = nameFontSize(shopName)
 
-  const bgBuffer = fs.readFileSync(
-    path.join(process.cwd(), 'public/assets/SocialSharePoster.png'),
-  )
+  // card.png is the full OG background — logo, phone mockup, and www text are
+  // already baked in. Only shop name, product images, and CTA are overlaid.
+  const bgBuffer = fs.readFileSync(path.join(process.cwd(), 'public/assets/card.png'))
   const bgSrc = `data:image/png;base64,${bgBuffer.toString('base64')}`
 
-  // Pre-fetch product images as base64 so Satori never makes external requests.
-  // If any image URL is unreachable it is silently dropped; if all fail we get [].
   const rawProducts = await fetchProducts(seller.id)
   const productUrls = rawProducts
     .filter((p) => isHttpUrl(p.images[0]))
     .map((p) => p.images[0])
   const productImgs = await prefetchImages(productUrls)
 
-  // Force eager rendering: consume the ImageResponse stream inside our handler
-  // so any Satori error is caught by our try/catch instead of crashing Next.js's
-  // response pipe (which produces an unrecoverable HTML 500).
   const buildResponse = async (thumbDataUrls: string[]) => {
+    const hasImages = thumbDataUrls.length > 0
+    const imgCount = thumbDataUrls.length
+
+    const imgW = imgCount === 1 ? 430 : imgCount === 2 ? 260 : 205
+    const imgH = imgCount === 1 ? 170 : imgCount === 2 ? 150 : 140
+    const imgGap = imgCount === 1 ? 0 : imgCount === 2 ? 18 : 16
+
+    // When no products: vertically centre the name+CTA block in the content zone
+    const nameTop = hasImages ? 95 : 226
+    const ctaTop = hasImages ? 420 : 365
+
     const imgRes = new ImageResponse(
       (
         <div style={{ display: 'flex', width: 1200, height: 630, position: 'relative' }}>
+          {/* card.png — full bleed background; all branding baked in */}
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
             src={bgSrc}
@@ -162,19 +152,18 @@ export async function GET(
             style={{ position: 'absolute', top: 0, left: 0, width: 1200, height: 630 }}
           />
 
-          {/* SHOP_NAME overlay — left:430 top:250 width:650 height:120 */}
+          {/* ① Shop name — safe zone x:430–1150, starts at y:95 */}
           <div
             style={{
               position: 'absolute',
               left: 430,
-              top: 250,
-              width: 650,
-              height: 120,
+              top: nameTop,
+              width: 720,
+              height: 115,
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              textAlign: 'center',
-              padding: '0 8px',
+              padding: '0 12px',
             }}
           >
             <span
@@ -182,8 +171,8 @@ export async function GET(
                 fontSize: nameSize,
                 fontWeight: 900,
                 color: '#B9E51B',
-                lineHeight: 1.05,
-                letterSpacing: '-1px',
+                lineHeight: 1.1,
+                letterSpacing: '-0.5px',
                 textAlign: 'center',
                 wordBreak: 'break-word',
               }}
@@ -192,47 +181,82 @@ export async function GET(
             </span>
           </div>
 
-          {/* PRODUCT THUMBNAILS — maroon panel covers baked-in URL text; thumbnails centered by count */}
-          {thumbDataUrls.length > 0 && (
+          {/* ② Product images — flex row centered, 3/2/1 count variants */}
+          {hasImages && (
             <div
               style={{
                 position: 'absolute',
-                left: 432,
-                top: 374,
-                width: 642,
-                height: 128,
-                borderRadius: 18,
-                backgroundColor: '#7B1533',
+                left: 430,
+                top: 235,
+                width: 720,
+                display: 'flex',
+                flexDirection: 'row',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: imgGap,
+              }}
+            >
+              {thumbDataUrls.map((src, i) => (
+                <div
+                  key={i}
+                  style={{
+                    width: imgW,
+                    height: imgH,
+                    borderRadius: 12,
+                    overflow: 'hidden',
+                    flexShrink: 0,
+                    display: 'flex',
+                  }}
+                >
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={src}
+                    alt=""
+                    style={{ width: imgW, height: imgH, objectFit: 'cover' }}
+                  />
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* ③ CTA "Lihat Menu" — pill button, #B9E51B on #7B1533 text */}
+          <div
+            style={{
+              position: 'absolute',
+              left: 430,
+              top: ctaTop,
+              width: 720,
+              display: 'flex',
+              justifyContent: 'center',
+            }}
+          >
+            <div
+              style={{
+                width: 240,
+                height: 58,
+                borderRadius: 29,
+                backgroundColor: '#B9E51B',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
               }}
             >
-              <div style={{ display: 'flex', flexDirection: 'row', alignItems: 'center', gap: 14 }}>
-                {thumbDataUrls.map((src, i) => (
-                  <div
-                    key={i}
-                    style={{
-                      width: 188,
-                      height: 92,
-                      borderRadius: 12,
-                      overflow: 'hidden',
-                      flexShrink: 0,
-                      display: 'flex',
-                    }}
-                  >
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img src={src} alt="" style={{ width: 188, height: 92, objectFit: 'cover' }} />
-                  </div>
-                ))}
-              </div>
+              <span
+                style={{
+                  fontSize: 24,
+                  fontWeight: 800,
+                  color: '#7B1533',
+                  letterSpacing: '0.5px',
+                }}
+              >
+                Lihat Menu
+              </span>
             </div>
-          )}
+          </div>
         </div>
       ),
       { width: 1200, height: 630 },
     )
-    // Consume the stream now — throws here if Satori fails, not during pipe
     const buf = await imgRes.arrayBuffer()
     return new Response(buf, {
       status: 200,
