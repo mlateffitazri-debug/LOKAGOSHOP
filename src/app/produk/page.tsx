@@ -184,33 +184,45 @@ function renderCartFlow(runtime: ProductWindow, buyer: BuyerProfile | null, trac
       return
     }
 
-    const isAllPreorder = checkoutItems.every((i) => i.isPreorder)
     const total = cartSubtotal(checkoutItems)
-    const now = new Date()
-    const dateStr = new Intl.DateTimeFormat('ms-MY', { day: 'numeric', month: 'long', year: 'numeric' }).format(now)
-    const timeStr = new Intl.DateTimeFormat('ms-MY', { hour: '2-digit', minute: '2-digit', hour12: true }).format(now)
+    const normalItems = checkoutItems.filter((i) => !i.isPreorder)
+    const preorderItems = checkoutItems.filter((i) => i.isPreorder)
 
-    const lines: string[] = ['Assalamualaikum!', '', isAllPreorder ? 'Saya nak buat pre-order:' : 'Saya nak tempah:']
-    for (const i of checkoutItems) {
-      const pricePart = i.price > 0 ? ` = RM ${money(i.price)} x ${i.qty}` : ''
-      lines.push(`${i.qty} x ${i.name}${pricePart}`)
-      if (i.isPreorder && i.pickupDate) {
-        const pickup = new Date(`${i.pickupDate}T00:00:00`).toLocaleDateString('ms-MY', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })
-        lines.push(`  Tarikh pickup: ${pickup}`)
+    const lines: string[] = []
+    lines.push(seller.sellerName ? `Assalamualaikum ${seller.sellerName},` : 'Assalamualaikum,')
+    lines.push('Saya nak tempah melalui LokalGo.')
+    if (buyer?.name) lines.push(`Nama: ${buyer.name}`)
+    lines.push('TEMPAHAN:')
+
+    if (normalItems.length > 0) {
+      lines.push('Jual Terus:')
+      for (const i of normalItems) {
+        const priceStr = i.price > 0 ? `RM${money(i.price)}/unit = RM${money(i.price * i.qty)}` : 'Harga ikut pesanan'
+        lines.push(`• ${i.qty} x ${i.name} — ${priceStr}`)
       }
     }
-    lines.push('', '---', '', `Jumlah RM ${money(total)}`, '', '---', '')
-    if (method === 'cod' && address) {
-      lines.push('Dan tempahan ini dihantar di alamat:', address, '')
+
+    if (preorderItems.length > 0) {
+      lines.push('Pre-Order:')
+      for (const i of preorderItems) {
+        const priceStr = i.price > 0 ? `RM${money(i.price)}/unit = RM${money(i.price * i.qty)}` : 'Harga ikut pesanan'
+        lines.push(`• ${i.qty} x ${i.name} — ${priceStr}`)
+        if (i.pickupDate) {
+          const pickup = new Date(`${i.pickupDate}T00:00:00`).toLocaleDateString('ms-MY', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })
+          lines.push(`Pickup: ${pickup}`)
+        }
+      }
     }
-    if (isAllPreorder) {
-      lines.push('Boleh saya tahu tarikh ready, cara bayaran dan anggaran delivery?')
-    } else if (method === 'cod') {
-      lines.push('Boleh berikan saya harga tambahan untuk delivery?')
+
+    lines.push(`Jumlah: RM${money(total)}`)
+    if (method === 'cod') {
+      lines.push('Kaedah: COD – Penghantaran')
+      if (address) lines.push(`Alamat: ${address}`)
     } else {
-      lines.push('Kaedah: Self Pickup (Ambil sendiri di lokasi anda)')
+      lines.push('Kaedah: Self Pickup')
     }
-    lines.push('', '---', '', 'Pesanan dari: https://lokalgo.app', `Masa: ${timeStr}`, `Tarikh: ${dateStr}`)
+    lines.push('Boleh tolong sahkan tempahan ini?')
+    lines.push('Pesanan dari LokalGo: https://lokalgo.app')
     const msg = lines.join('\n')
 
     trackWhatsAppClick()
@@ -524,26 +536,21 @@ export default function Page() {
             return
           }
           const qtyVal = Math.max(1, parseInt((document.getElementById('qtyInput') as HTMLInputElement | null)?.value || '1', 10))
-          const pricePart = exactPrice > 0 ? ` = RM ${money(exactPrice)} x ${qtyVal}` : ''
           const pickupLabel = formatBmDate(calDate.value)
-          const now = new Date()
-          const dateStr = new Intl.DateTimeFormat('ms-MY', { day: 'numeric', month: 'long', year: 'numeric' }).format(now)
-          const timeStr = new Intl.DateTimeFormat('ms-MY', { hour: '2-digit', minute: '2-digit', hour12: true }).format(now)
-          const addr = buyerProfile?.address_rumah?.trim() || null
-          const lines: string[] = [
-            'Assalamualaikum!', '',
-            'Saya nak buat pre-order:',
-            `${qtyVal} x ${displayName}${pricePart}`,
-            `  Tarikh pickup: ${pickupLabel}`,
-            '', '---', '',
-            ...(exactPrice > 0 ? [`Jumlah RM ${money(exactPrice * qtyVal)}`, '', '---', ''] : []),
-            ...(addr ? ['Dan tempahan ini dihantar di alamat:', addr, ''] : []),
-            'Boleh saya tahu tarikh ready, cara bayaran dan anggaran delivery?',
-            '', '---', '',
-            'Pesanan dari: https://lokalgo.app',
-            `Masa: ${timeStr}`,
-            `Tarikh: ${dateStr}`,
-          ]
+          const sellerNameStr = currentSeller?.shop_name || ''
+          const priceStr = exactPrice > 0 ? `RM${money(exactPrice)}/unit = RM${money(exactPrice * qtyVal)}` : 'Harga ikut pesanan'
+          const lines: string[] = []
+          lines.push(sellerNameStr ? `Assalamualaikum ${sellerNameStr},` : 'Assalamualaikum,')
+          lines.push('Saya nak tempah melalui LokalGo.')
+          if (buyerProfile?.name) lines.push(`Nama: ${buyerProfile.name}`)
+          lines.push('TEMPAHAN:')
+          lines.push('Pre-Order:')
+          lines.push(`• ${qtyVal} x ${displayName} — ${priceStr}`)
+          lines.push(`Pickup: ${pickupLabel}`)
+          if (exactPrice > 0) lines.push(`Jumlah: RM${money(exactPrice * qtyVal)}`)
+          lines.push('Kaedah: Confirm dengan seller')
+          lines.push('Boleh tolong sahkan tempahan ini?')
+          lines.push('Pesanan dari LokalGo: https://lokalgo.app')
           trackWhatsAppClick()
           overlay.remove()
           window.open(`https://wa.me/${calPhone}?text=${encodeURIComponent(lines.join('\n'))}`, '_blank')
