@@ -192,39 +192,40 @@ export async function GET(
             </span>
           </div>
 
-          {/* PRODUCT THUMBNAILS — up to 3, below shop name (base64 data URIs) */}
+          {/* PRODUCT THUMBNAILS — maroon panel covers baked-in URL text; thumbnails centered by count */}
           {thumbDataUrls.length > 0 && (
             <div
               style={{
                 position: 'absolute',
-                left: 440,
-                top: 382,
+                left: 432,
+                top: 374,
+                width: 642,
+                height: 128,
+                borderRadius: 18,
+                backgroundColor: '#7B1533',
                 display: 'flex',
-                flexDirection: 'row',
                 alignItems: 'center',
+                justifyContent: 'center',
               }}
             >
-              {thumbDataUrls.map((src, i) => (
-                <div
-                  key={i}
-                  style={{
-                    width: 196,
-                    height: 110,
-                    marginRight: i < thumbDataUrls.length - 1 ? 12 : 0,
-                    borderRadius: 10,
-                    overflow: 'hidden',
-                    flexShrink: 0,
-                    display: 'flex',
-                  }}
-                >
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img
-                    src={src}
-                    alt=""
-                    style={{ width: 196, height: 110, objectFit: 'cover' }}
-                  />
-                </div>
-              ))}
+              <div style={{ display: 'flex', flexDirection: 'row', alignItems: 'center', gap: 14 }}>
+                {thumbDataUrls.map((src, i) => (
+                  <div
+                    key={i}
+                    style={{
+                      width: 188,
+                      height: 92,
+                      borderRadius: 12,
+                      overflow: 'hidden',
+                      flexShrink: 0,
+                      display: 'flex',
+                    }}
+                  >
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src={src} alt="" style={{ width: 188, height: 92, objectFit: 'cover' }} />
+                  </div>
+                ))}
+              </div>
             </div>
           )}
         </div>
