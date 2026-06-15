@@ -160,7 +160,7 @@ export function SellerSuccessShareModal({ open, shopName, onClose }: SellerSucce
             <div ref={cardRef} className="ssm-card">
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
-                src="/assets/success-onboarding.png"
+                src="/assets/SocialSharePoster.png"
                 alt="LokalGo Share Banner"
                 className="ssm-bg"
                 crossOrigin="anonymous"
