@@ -17,13 +17,17 @@ function nameFontSize(name: string): number {
 }
 
 type SellerRow = { id: string; shop_name: string; slug?: string | null }
+type ProductRow = { id: string; name: string | null; images: string[] }
 
-async function fetchSeller(slug: string): Promise<SellerRow | null> {
-  // Use service role key to bypass RLS — this route is server-only
-  const supabase = createClient(
+function getSupabase() {
+  return createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.SUPABASE_SERVICE_ROLE_KEY ?? process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
   )
+}
+
+async function fetchSeller(slug: string): Promise<SellerRow | null> {
+  const supabase = getSupabase()
 
   console.log('[OG SHOP SLUG]', slug)
 
@@ -67,6 +71,34 @@ async function fetchSeller(slug: string): Promise<SellerRow | null> {
   return null
 }
 
+async function fetchProducts(sellerId: string): Promise<ProductRow[]> {
+  try {
+    const supabase = getSupabase()
+    const { data } = await supabase
+      .from('products')
+      .select('id, name, images')
+      .eq('seller_id', sellerId)
+      .eq('status', 'approved')
+      .limit(10)
+      .order('created_at', { ascending: false })
+
+    return ((data ?? []) as ProductRow[])
+      .filter((p) => Array.isArray(p.images) && p.images.length > 0)
+      .slice(0, 3)
+  } catch {
+    return []
+  }
+}
+
+function isHttpUrl(url: string): boolean {
+  try {
+    const u = new URL(url)
+    return u.protocol === 'https:' || u.protocol === 'http:'
+  } catch {
+    return false
+  }
+}
+
 export async function GET(
   _req: Request,
   { params }: { params: { slug: string } },
@@ -86,47 +118,99 @@ export async function GET(
   )
   const bgSrc = `data:image/png;base64,${bgBuffer.toString('base64')}`
 
-  return new ImageResponse(
-    (
-      <div style={{ display: 'flex', width: 1200, height: 630, position: 'relative' }}>
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img
-          src={bgSrc}
-          alt=""
-          style={{ position: 'absolute', top: 0, left: 0, width: 1200, height: 630 }}
-        />
+  const rawProducts = await fetchProducts(seller.id)
+  const products = rawProducts.filter((p) => isHttpUrl(p.images[0]))
 
-        {/* SHOP_NAME overlay — left:430 top:250 width:650 height:120 */}
-        <div
-          style={{
-            position: 'absolute',
-            left: 430,
-            top: 250,
-            width: 650,
-            height: 120,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            textAlign: 'center',
-            padding: '0 8px',
-          }}
-        >
-          <span
+  const buildResponse = (thumbs: ProductRow[]) =>
+    new ImageResponse(
+      (
+        <div style={{ display: 'flex', width: 1200, height: 630, position: 'relative' }}>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={bgSrc}
+            alt=""
+            style={{ position: 'absolute', top: 0, left: 0, width: 1200, height: 630 }}
+          />
+
+          {/* SHOP_NAME overlay — left:430 top:250 width:650 height:120 */}
+          <div
             style={{
-              fontSize: nameSize,
-              fontWeight: 900,
-              color: '#B9E51B',
-              lineHeight: 1.05,
-              letterSpacing: '-1px',
+              position: 'absolute',
+              left: 430,
+              top: 250,
+              width: 650,
+              height: 120,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
               textAlign: 'center',
-              wordBreak: 'break-word',
+              padding: '0 8px',
             }}
           >
-            {shopName.toUpperCase()}
-          </span>
+            <span
+              style={{
+                fontSize: nameSize,
+                fontWeight: 900,
+                color: '#B9E51B',
+                lineHeight: 1.05,
+                letterSpacing: '-1px',
+                textAlign: 'center',
+                wordBreak: 'break-word',
+              }}
+            >
+              {shopName.toUpperCase()}
+            </span>
+          </div>
+
+          {/* PRODUCT THUMBNAILS — up to 3, below shop name */}
+          {thumbs.length > 0 && (
+            <div
+              style={{
+                position: 'absolute',
+                left: 440,
+                top: 382,
+                display: 'flex',
+                flexDirection: 'row',
+                alignItems: 'center',
+              }}
+            >
+              {thumbs.map((p, i) => (
+                <div
+                  key={i}
+                  style={{
+                    width: 196,
+                    height: 110,
+                    marginRight: i < thumbs.length - 1 ? 12 : 0,
+                    borderRadius: 10,
+                    overflow: 'hidden',
+                    flexShrink: 0,
+                    display: 'flex',
+                  }}
+                >
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={p.images[0]}
+                    alt=""
+                    style={{ width: 196, height: 110, objectFit: 'cover' }}
+                  />
+                </div>
+              ))}
+            </div>
+          )}
         </div>
-      </div>
-    ),
-    { width: 1200, height: 630 },
-  )
+      ),
+      { width: 1200, height: 630 },
+    )
+
+  try {
+    return buildResponse(products)
+  } catch (err) {
+    console.error('[OG SHOP] Render with thumbnails failed, falling back:', err)
+    try {
+      return buildResponse([])
+    } catch (err2) {
+      console.error('[OG SHOP] Fallback render also failed:', err2)
+      return new Response('Error generating image', { status: 500 })
+    }
+  }
 }
