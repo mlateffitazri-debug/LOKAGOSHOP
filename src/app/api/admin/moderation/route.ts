@@ -279,7 +279,7 @@ export async function PATCH(request: Request) {
       } else if (body.action === 'set_preorder') {
         update = { status: 'approved', is_available: false, is_preorder: true }
       } else if (body.action === 'hide_product') {
-        update = { is_available: false }
+        update = { is_available: false, is_preorder: false }
       } else {
         return NextResponse.json({ error: 'Unknown product action' }, { status: 400 })
       }
