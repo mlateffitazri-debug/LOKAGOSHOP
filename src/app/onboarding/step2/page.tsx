@@ -392,6 +392,7 @@ export default function Page() {
           taman_name: baseData.taman_name,
           postcode: baseData.postcode || '00000',
           kawasan: baseData.kawasan || baseData.taman_name,
+          business_type: baseData.business_type || 'FOOD',
           latitude: baseData.latitude ? parseFloat(baseData.latitude) : undefined,
           longitude: baseData.longitude ? parseFloat(baseData.longitude) : undefined,
           profile_image_url: profileImageUrl,

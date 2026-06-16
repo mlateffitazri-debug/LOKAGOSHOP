@@ -7,6 +7,12 @@ import { translations, useLang, type Lang } from '@/lib/i18n'
 import { createClient } from '@/lib/supabase/client'
 import type { Buyer, Seller, Product } from '@/types/database'
 import { PRODUCT_CATEGORIES } from '@/types/database'
+import {
+  BUSINESS_TYPE_LABELS,
+  BUSINESS_TYPE_OPTIONS,
+  normalizeBusinessType,
+  type BusinessType,
+} from '@/lib/business-types'
 
 type HomeProfile = {
   buyerId: string | null
@@ -16,14 +22,22 @@ type HomeProfile = {
   avatarUrl: string | null
 }
 
-// PNG icons per category
+// PNG icons per category — keyed to the current FOOD category list (see CATEGORIES_BY_BUSINESS_TYPE).
+// Categories without a dedicated image fall back to CAT_ICON_FALLBACK below.
 const CAT_ICONS: Record<string, string> = {
   'Pastri & Kek': `<img src="/images/pastry.png" alt="" style="width:64px;height:64px;object-fit:cover;border-radius:14px;">`,
-  'Set Makanan & Lauk': `<img src="/images/lauk.png" alt="" style="width:64px;height:64px;object-fit:cover;border-radius:14px;">`,
-  'Frozen & Simpanan': `<img src="/images/frozen.png" alt="" style="width:64px;height:64px;object-fit:cover;border-radius:14px;">`,
+  'Frozen': `<img src="/images/frozen.png" alt="" style="width:64px;height:64px;object-fit:cover;border-radius:14px;">`,
   'Minuman': `<img src="/images/drink.png" alt="" style="width:64px;height:64px;object-fit:cover;border-radius:14px;">`,
-  'Fresh & Semulajadi': `<img src="/images/fresh.png" alt="" style="width:64px;height:64px;object-fit:cover;border-radius:14px;">`,
   'Snek': `<img src="/images/snek.png" alt="" style="width:64px;height:64px;object-fit:cover;border-radius:14px;">`,
+}
+
+const CAT_ICON_FALLBACK = `<svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#7B1D2E" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.59 13.41 11 3.83A2 2 0 0 0 9.59 3.24L4 3a1 1 0 0 0-1 1l.24 5.59a2 2 0 0 0 .59 1.41l9.58 9.58a2 2 0 0 0 2.82 0l4.36-4.36a2 2 0 0 0 0-2.81z"/><circle cx="7.5" cy="7.5" r="1.5"/></svg>`
+
+const TYPE_ICONS: Record<BusinessType, string> = {
+  FOOD: `<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#7B1D2E" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 3v7a4 4 0 0 0 8 0V3"/><path d="M8 3v18"/><path d="M17 3v18"/><path d="M17 3c2 1.5 3 3.5 3 6 0 2.2-1.2 4-3 4"/></svg>`,
+  SERVICE: `<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#7B1D2E" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v20"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7H14a3.5 3.5 0 0 1 0 7H6"/></svg>`,
+  PRODUCT: `<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#7B1D2E" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m21 8-9-5-9 5 9 5 9-5Z"/><path d="M3 8v8l9 5 9-5V8"/><path d="M12 13v8"/></svg>`,
+  HOMESTAY: `<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#7B1D2E" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m3 10 9-7 9 7"/><path d="M5 10v10h14V10"/><path d="M9 20v-6h6v6"/></svg>`,
 }
 
 const styles = `:root{--c-primary:#7B1533;--c-primary-dark:#6A1029;--c-primary-lt:#8f1a3a;--c-accent:#ADD036;--c-green:#25D366;--c-bg:#F5F5F5;--c-surface:#FFFFFF;--c-border:#E5E5EA;--c-text:#111111;--c-text2:#555555;--c-text3:#888888;--c-hint:#BBBBBB;}
@@ -185,33 +199,43 @@ function badgeLabel(badge: Seller['badge']) {
 type SellerDisplayMode = 'open_normal' | 'preorder_only' | 'hidden'
 type HomeLocationMode = 'resolving' | 'gps' | 'kawasan' | 'none'
 
-function getDisplayMode(seller: Seller, hasNormal: boolean, hasPreorder: boolean): SellerDisplayMode {
+function getDisplayMode(seller: Seller, hasNormal: boolean, hasPreorder: boolean, productsUnavailable: boolean): SellerDisplayMode {
+  // Products query failed — we have no normal/preorder signal to trust.
+  // Fall back to the seller's own open/closed flag instead of hiding everyone.
+  if (productsUnavailable) {
+    return seller.is_open ? 'open_normal' : 'hidden'
+  }
   if (!hasNormal && !hasPreorder) return 'hidden'
   if (seller.is_open && hasNormal) return 'open_normal'
   if (hasPreorder) return 'preorder_only'
   return 'hidden'
 }
 
-function renderCatSection(selectedCategory: string | null, lang: Lang) {
+function renderCatSection(selectedBusinessType: BusinessType | null, selectedCategory: string | null, lang: Lang) {
   const resetLabel = lang === 'en' ? 'All' : 'Semua'
-  const resetChip = selectedCategory
-    ? `<div class="cat-item cat-reset" data-cat="">
-      <div class="cat-box"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#7B1D2E" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></div>
+  const typeItems = [
+    `<div class="cat-item${!selectedBusinessType && !selectedCategory ? ' active' : ''}" data-type="">
+      <div class="cat-box"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#7B1D2E" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6h16"/><path d="M4 12h16"/><path d="M4 18h16"/></svg></div>
       <span class="cat-lbl">${resetLabel}</span>
-    </div>`
-    : ''
+    </div>`,
+    ...BUSINESS_TYPE_OPTIONS.map((type) => `
+    <div class="cat-item${selectedBusinessType === type ? ' active' : ''}" data-type="${type}">
+      <div class="cat-box">${TYPE_ICONS[type]}</div>
+      <span class="cat-lbl">${escapeHtml(BUSINESS_TYPE_LABELS[type])}</span>
+    </div>`),
+  ].join('')
 
   const items = PRODUCT_CATEGORIES.map((cat) => {
     const isActive = selectedCategory === cat
     const displayLabel = copy(`cat_display_${cat}`, lang)
     return `
     <div class="cat-item${isActive ? ' active' : ''}" data-cat="${escapeHtml(cat)}">
-      <div class="cat-box">${CAT_ICONS[cat] ?? ''}</div>
+      <div class="cat-box">${CAT_ICONS[cat] ?? CAT_ICON_FALLBACK}</div>
       <span class="cat-lbl">${escapeHtml(displayLabel)}</span>
     </div>`
   }).join('')
 
-  return `<div class="cat-section"><div class="cat-scroll">${resetChip}${items}</div></div>`
+  return `<div class="cat-section"><div class="cat-scroll">${typeItems}${items}</div></div>`
 }
 
 
@@ -240,10 +264,11 @@ function renderSellerCard(
     .join('')
 
   const catsAttr = escapeHtml(cats.join(','))
+  const typeAttr = escapeHtml(normalizeBusinessType(seller.business_type))
   const nameAttr = escapeHtml((seller.shop_name ?? '').toLowerCase())
   const locAttr = escapeHtml((seller.taman_name || seller.kawasan || '').toLowerCase())
   return `
-  <div class="shop-card" data-seller-id="${escapeHtml(seller.id)}" data-cats="${catsAttr}" data-name="${nameAttr}" data-loc="${locAttr}">
+  <div class="shop-card" data-seller-id="${escapeHtml(seller.id)}" data-cats="${catsAttr}" data-type="${typeAttr}" data-name="${nameAttr}" data-loc="${locAttr}">
     <div class="img-wrap">
       <div class="${imageClass}"${imageStyle}>${initialHtml}</div>
       <div class="img-overlay"></div>
@@ -286,6 +311,7 @@ function renderShopList(
   sellerCategories: Map<string, string[]>,
   sellerHasNormal: Set<string>,
   sellerHasPreorder: Set<string>,
+  productsLoadFailed: boolean,
   locationMode: HomeLocationMode,
   buyerKawasan: string | null,
 ) {
@@ -310,7 +336,7 @@ function renderShopList(
   }
 
   return sellers.map((seller, index) => {
-    const displayMode = getDisplayMode(seller, sellerHasNormal.has(seller.id), sellerHasPreorder.has(seller.id)) as Exclude<SellerDisplayMode, 'hidden'>
+    const displayMode = getDisplayMode(seller, sellerHasNormal.has(seller.id), sellerHasPreorder.has(seller.id), productsLoadFailed) as Exclude<SellerDisplayMode, 'hidden'>
     return renderSellerCard(seller, index, lang, savedShopIds, sellerCategories, displayMode)
   }).join('')
 }
@@ -325,6 +351,8 @@ function renderHomeMarkup(
   sellerCategories: Map<string, string[]>,
   sellerHasNormal: Set<string>,
   sellerHasPreorder: Set<string>,
+  productsLoadFailed: boolean,
+  selectedBusinessType: BusinessType | null,
   selectedCategory: string | null,
   locationLabel: string | null,
   locationMode: HomeLocationMode,
@@ -335,7 +363,7 @@ function renderHomeMarkup(
     : `<span class="home-avatar-initial">${escapeHtml(firstInitial(profile?.name ?? 'LokalGo'))}</span>`
 
   const langBtnTxt = lang === 'ms' ? 'English' : 'BM'
-  const shopListHtml = renderShopList(lang, sellers, isLoading, error, savedShopIds, sellerCategories, sellerHasNormal, sellerHasPreorder, locationMode, buyerKawasan)
+  const shopListHtml = renderShopList(lang, sellers, isLoading, error, savedShopIds, sellerCategories, sellerHasNormal, sellerHasPreorder, productsLoadFailed, locationMode, buyerKawasan)
 
   return `
 <div class="home-shell">
@@ -363,7 +391,7 @@ function renderHomeMarkup(
 </div>
 
 <!-- CATEGORY FILTER -->
-${renderCatSection(selectedCategory, lang)}
+${renderCatSection(selectedBusinessType, selectedCategory, lang)}
 </header>
 
 <main class="home-scroll" onscroll="document.querySelector('.home-fixed').classList.toggle('scrolled', this.scrollTop > 4)">
@@ -453,6 +481,8 @@ function HomePageContent() {
   const [sellerCategories, setSellerCategories] = useState<Map<string, string[]>>(new Map())
   const [sellerHasNormal, setSellerHasNormal] = useState<Set<string>>(new Set())
   const [sellerHasPreorder, setSellerHasPreorder] = useState<Set<string>>(new Set())
+  const [productsLoadFailed, setProductsLoadFailed] = useState(false)
+  const [selectedBusinessType, setSelectedBusinessType] = useState<BusinessType | null>(null)
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null)
   const [profile, setProfile] = useState<HomeProfile | null>(null)
   const [isSidebarOpen, setIsSidebarOpen] = useState(false)
@@ -491,10 +521,20 @@ function HomePageContent() {
       return []
     }
 
-    return locationFiltered.filter((s) =>
-      getDisplayMode(s, sellerHasNormal.has(s.id), sellerHasPreorder.has(s.id)) !== 'hidden',
+    let visibleSellers = locationFiltered.filter((s) =>
+      getDisplayMode(s, sellerHasNormal.has(s.id), sellerHasPreorder.has(s.id), productsLoadFailed) !== 'hidden',
     )
-  }, [allSellers, locationMode, userLocation, buyerKawasan, sellerHasNormal, sellerHasPreorder])
+
+    if (selectedBusinessType) {
+      visibleSellers = visibleSellers.filter((s) => normalizeBusinessType(s.business_type) === selectedBusinessType)
+    }
+
+    if (selectedCategory) {
+      visibleSellers = visibleSellers.filter((s) => (sellerCategories.get(s.id) ?? []).includes(selectedCategory))
+    }
+
+    return visibleSellers
+  }, [allSellers, locationMode, userLocation, buyerKawasan, sellerHasNormal, sellerHasPreorder, productsLoadFailed, selectedBusinessType, selectedCategory, sellerCategories])
 
   const locationLabel = useMemo(() => {
     if (locationMode === 'gps' && userLocation) return '📍 Sekitar 50km dari anda'
@@ -505,8 +545,8 @@ function HomePageContent() {
   }, [locationMode, userLocation, buyerKawasan])
 
   const pageInnerMarkup = useMemo(
-    () => renderHomeMarkup(lang, sellers, isLoading, error, profile, savedShopIds, sellerCategories, sellerHasNormal, sellerHasPreorder, selectedCategory, locationLabel, locationMode, buyerKawasan),
-    [error, isLoading, lang, profile, sellers, savedShopIds, sellerCategories, sellerHasNormal, sellerHasPreorder, selectedCategory, locationLabel, locationMode, buyerKawasan],
+    () => renderHomeMarkup(lang, sellers, isLoading, error, profile, savedShopIds, sellerCategories, sellerHasNormal, sellerHasPreorder, productsLoadFailed, selectedBusinessType, selectedCategory, locationLabel, locationMode, buyerKawasan),
+    [error, isLoading, lang, profile, sellers, savedShopIds, sellerCategories, sellerHasNormal, sellerHasPreorder, productsLoadFailed, selectedBusinessType, selectedCategory, locationLabel, locationMode, buyerKawasan],
   )
 
   useEffect(() => {
@@ -574,12 +614,19 @@ function HomePageContent() {
           .limit(100),
         supabase
           .from('products')
-          .select('seller_id,category,is_available,is_preorder')
+          .select('seller_id,category,listing_type,is_available,is_preorder')
           .eq('status', 'approved')
           .or('is_available.eq.true,is_preorder.eq.true'),
       ])
 
       if (cancelled) return
+
+      if (productsRes.error) {
+        // Don't let a products-query failure silently hide every seller — log it
+        // clearly and let getDisplayMode fall back to seller.is_open instead.
+        console.error('[Home] Failed to load products for seller availability filtering. Falling back to seller open/closed status so shops are not hidden.', productsRes.error)
+      }
+      setProductsLoadFailed(!!productsRes.error)
 
       if (sellersRes.error) {
         setError('Tidak dapat memuatkan senarai kedai')
@@ -592,7 +639,7 @@ function HomePageContent() {
         const catMap = new Map<string, string[]>()
         const normalSet = new Set<string>()
         const preorderSet = new Set<string>()
-        for (const p of (productsRes.data ?? []) as Pick<Product, 'seller_id' | 'category' | 'is_available' | 'is_preorder'>[]) {
+        for (const p of (productsRes.data ?? []) as Pick<Product, 'seller_id' | 'category' | 'listing_type' | 'is_available' | 'is_preorder'>[]) {
           if (!p.seller_id) continue
           if (p.category) {
             const existing = catMap.get(p.seller_id) ?? []
@@ -651,22 +698,31 @@ function HomePageContent() {
     if (target.closest('.home-avatar')) { setIsSidebarOpen(true); return }
 
     // Category filter — DOM show/hide
+    const typeItem = target.closest<HTMLElement>('.cat-item[data-type]')
+    if (typeItem) {
+      const rawType = typeItem.dataset.type || ''
+      if (!rawType) {
+        setSelectedBusinessType(null)
+        setSelectedCategory(null)
+        return
+      }
+
+      const businessType = normalizeBusinessType(rawType)
+      setSelectedBusinessType((prev) => {
+        const next = prev === businessType ? null : businessType
+        if (!next || next !== 'FOOD') setSelectedCategory(null)
+        return next
+      })
+      return
+    }
+
     const catItem = target.closest<HTMLElement>('.cat-item[data-cat]')
     if (catItem) {
       const cat = catItem.dataset.cat || null
-      setSelectedCategory((prev) => {
-        const newCat = prev === cat ? null : cat
-        // DOM show/hide — after React re-render flushes
-        setTimeout(() => {
-          document.querySelectorAll<HTMLElement>('.shop-card[data-cats]').forEach((card) => {
-            if (!newCat) { card.style.display = ''; return }
-            const cats = card.dataset.cats?.split(',') ?? []
-            card.style.display = cats.includes(newCat) ? '' : 'none'
-          })
-        }, 0)
-        return newCat
-      })
+      setSelectedBusinessType('FOOD')
+      setSelectedCategory((prev) => prev === cat ? null : cat)
       return
+        // DOM show/hide — after React re-render flushes
     }
 
     // Share button

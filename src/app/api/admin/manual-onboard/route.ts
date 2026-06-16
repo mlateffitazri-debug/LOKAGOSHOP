@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { requireAdmin } from '@/lib/admin/access'
 import { createAdminClient } from '@/lib/supabase/admin'
 import type { SupabaseClient } from '@supabase/supabase-js'
+import { normalizeBusinessType } from '@/lib/business-types'
 
 function normalizePhone(value: string) {
   const digits = value.replace(/\D/g, '')
@@ -53,9 +54,10 @@ export async function POST(request: Request) {
       whatsapp_number?: string
       kawasan?: string
       postcode?: string
+      business_type?: string
     }
 
-    const { email, shop_name, taman_name, whatsapp_number, kawasan, postcode } = body
+    const { email, shop_name, taman_name, whatsapp_number, kawasan, postcode, business_type } = body
 
     if (!email?.trim() || !shop_name?.trim() || !taman_name?.trim() || !whatsapp_number?.trim()) {
       return NextResponse.json({ error: 'Sila isi email, nama kedai, taman dan nombor WhatsApp' }, { status: 400 })
@@ -101,6 +103,7 @@ export async function POST(request: Request) {
       kawasan: (kawasan?.trim() || taman_name.trim()),
       postcode: (postcode?.trim() || '00000'),
       email: email.trim(),
+      business_type: normalizeBusinessType(business_type),
       status: 'pending',
       is_open: false,
       badge: 'seller_baharu',
@@ -110,7 +113,7 @@ export async function POST(request: Request) {
     let result = await supabase.from('sellers').insert(payload).select('id').single()
 
     // Retry without optional columns if schema is outdated
-    if (result.error?.message.includes('email') || result.error?.message.includes('kawasan')) {
+    if (result.error?.message.includes('email') || result.error?.message.includes('kawasan') || result.error?.message.includes('business_type')) {
       const minimal: Record<string, unknown> = {
         shop_name: payload.shop_name,
         taman_name: payload.taman_name,

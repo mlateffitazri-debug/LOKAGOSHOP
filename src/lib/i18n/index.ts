@@ -49,12 +49,13 @@ export const translations: Record<string, Record<Lang, string>> = {
   notifications: { ms: 'Notifikasi', en: 'Notifications' },
   dashboard: { ms: 'Dashboard', en: 'Dashboard' },
   edit_shop: { ms: 'Edit Kedai', en: 'Edit Shop' },
-  // Category display labels
-  'cat_display_Pastri & Kek': { ms: 'Pastri & Kek', en: 'Pastry & Cake' },
-  'cat_display_Set Makanan & Lauk': { ms: 'Set Makanan & Lauk', en: 'Meal Sets' },
-  'cat_display_Frozen & Simpanan': { ms: 'Frozen & Simpanan', en: 'Frozen Goods' },
+  // Category display labels (FOOD)
+  'cat_display_Nasi': { ms: 'Nasi', en: 'Rice Meals' },
+  'cat_display_Kuih': { ms: 'Kuih', en: 'Kuih' },
+  'cat_display_Dessert': { ms: 'Dessert', en: 'Dessert' },
+  'cat_display_Frozen': { ms: 'Frozen', en: 'Frozen' },
   'cat_display_Minuman': { ms: 'Minuman', en: 'Drinks' },
-  'cat_display_Fresh & Semulajadi': { ms: 'Fresh & Semulajadi', en: 'Fresh & Natural' },
+  'cat_display_Pastri & Kek': { ms: 'Pastri & Kek', en: 'Pastry & Cake' },
   'cat_display_Snek': { ms: 'Snek', en: 'Snacks' },
   // Sidebar labels
   sidebar_address: { ms: 'Alamat Penghantaran', en: 'Delivery Address' },

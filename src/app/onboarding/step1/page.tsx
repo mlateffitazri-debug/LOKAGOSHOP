@@ -38,6 +38,18 @@ const markup = `<div class="page">
     <div class="field-hint">Nama yang akan dipaparkan kepada pembeli.</div>
   </div>
 
+  <!-- Jenis Perniagaan -->
+  <div class="field-group">
+    <div class="field-label">Pilih Jenis Perniagaan</div>
+    <select id="inp-business-type" class="field-input">
+      <option value="FOOD">Food</option>
+      <option value="SERVICE">Service</option>
+      <option value="PRODUCT">Product</option>
+      <option value="HOMESTAY">Homestay</option>
+    </select>
+    <div class="field-hint">Pelan percuma membenarkan satu jenis perniagaan sahaja buat masa ini.</div>
+  </div>
+
   <!-- Lokasi Taman -->
   <div class="field-group">
     <div class="field-label">Masukkan Lokasi Taman Kedai Anda</div>
@@ -102,6 +114,7 @@ const saveScript = `window.__saveSellerStep1 = function() {
   phoneRaw = phoneRaw ? phoneRaw.trim() : '';
   var email = (document.getElementById('inp-email') || {}).value;
   email = email ? email.trim() : '';
+  var businessType = (document.getElementById('inp-business-type') || {}).value || 'FOOD';
 
   if (!shopName || !tamanName || !phoneRaw) {
     alert('Sila lengkapkan nama kedai, lokasi taman dan nombor WhatsApp.');
@@ -122,6 +135,7 @@ const saveScript = `window.__saveSellerStep1 = function() {
     postcode: postcodeMatch ? postcodeMatch[0] : '00000',
     whatsapp_number: phoneRaw,
     email: email,
+    business_type: businessType,
     latitude: pin.lat != null ? String(pin.lat) : null,
     longitude: pin.lng != null ? String(pin.lng) : null
   };

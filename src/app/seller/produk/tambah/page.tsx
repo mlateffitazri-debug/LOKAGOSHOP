@@ -4,20 +4,31 @@ export const dynamic = 'force-dynamic'
 
 import { useEffect, useRef, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
-import { PRODUCT_CATEGORIES } from '@/types/database'
-import type { ProductCategory } from '@/types/database'
 import { compressImage } from '@/lib/compressImage'
+import {
+  DEFAULT_LISTING_LIMIT,
+  BUSINESS_TYPE_LABELS,
+  getCategoriesForBusinessType,
+  isListingLimitReached,
+  normalizeBusinessType,
+  normalizeListingLimit,
+  normalizePlanType,
+} from '@/lib/business-types'
 
 const MAX_IMAGES = 4
 
 export default function TambahProdukPage() {
   const [sellerId, setSellerId] = useState<string | null>(null)
   const [shopStatus, setShopStatus] = useState<string | null>(null)
+  const [sellerBusinessType, setSellerBusinessType] = useState('FOOD')
+  const [planType, setPlanType] = useState('free')
+  const [listingLimit, setListingLimit] = useState(DEFAULT_LISTING_LIMIT)
+  const [listingCount, setListingCount] = useState(0)
   const [loading, setLoading] = useState(true)
   const [compressing, setCompressing] = useState(false)
   const [submitting, setSubmitting] = useState(false)
   const [name, setName] = useState('')
-  const [category, setCategory] = useState<ProductCategory>(PRODUCT_CATEGORIES[0])
+  const [category, setCategory] = useState<string>(getCategoriesForBusinessType('FOOD')[0])
   const [description, setDescription] = useState('')
   const [priceFrom, setPriceFrom] = useState('')
   const [unit, setUnit] = useState('')
@@ -34,12 +45,25 @@ export default function TambahProdukPage() {
       if (!user) { window.location.href = '/auth'; return }
       const { data: seller } = await supabase
         .from('sellers')
-        .select('id, status')
+        .select('id, status, business_type, plan_type, listing_limit')
         .eq('user_id', user.id)
         .maybeSingle()
       if (!seller) { window.location.href = '/home'; return }
+
+      const { count } = await supabase
+        .from('products')
+        .select('id', { count: 'exact', head: true })
+        .eq('seller_id', seller.id)
+        .in('status', ['pending', 'approved'])
+
+      const businessType = normalizeBusinessType(seller.business_type)
       setSellerId(seller.id)
       setShopStatus(seller.status)
+      setSellerBusinessType(businessType)
+      setPlanType(normalizePlanType(seller.plan_type))
+      setListingLimit(normalizeListingLimit(seller.listing_limit))
+      setListingCount(count ?? 0)
+      setCategory(getCategoriesForBusinessType(businessType)[0])
       setLoading(false)
     }
     loadSeller().catch(console.error)
@@ -128,6 +152,11 @@ export default function TambahProdukPage() {
     if (!sellerId) return
     setError(null)
 
+    if (isListingLimitReached({ planType, listingLimit, listingCount })) {
+      setError('Free plan allows up to 5 listings only. Upgrade to LokalGo Pro to add more.')
+      return
+    }
+
     if (!name.trim()) { setError('Nama produk diperlukan.'); return }
     if (!priceFrom || isNaN(Number(priceFrom)) || Number(priceFrom) <= 0) {
       setError('Masukkan harga yang sah.'); return
@@ -151,19 +180,23 @@ export default function TambahProdukPage() {
         uploadedUrls.push(json.url)
       }
 
-      const { error: insertError } = await supabase.from('products').insert({
-        seller_id: sellerId,
-        name: name.trim(),
-        category,
-        description: description.trim() || null,
-        price_from: Number(priceFrom),
-        unit: unit.trim() || null,
-        images: uploadedUrls,
-        is_available: false,
-        is_preorder: false,
-        status: 'pending',
+      const res = await fetch('/api/seller/products', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(session?.access_token ? { 'Authorization': `Bearer ${session.access_token}` } : {}),
+        },
+        body: JSON.stringify({
+          name: name.trim(),
+          category,
+          description: description.trim() || null,
+          price_from: Number(priceFrom),
+          unit: unit.trim() || null,
+          images: uploadedUrls,
+        }),
       })
-      if (insertError) throw insertError
+      const json = await res.json() as { error?: string }
+      if (!res.ok) throw new Error(json.error ?? 'Gagal menghantar listing. Sila cuba lagi.')
 
       window.location.href = '/seller/dashboard'
     } catch (err) {
@@ -187,6 +220,19 @@ export default function TambahProdukPage() {
         <div style={{ fontSize: 40, marginBottom: 16 }}>🔒</div>
         <div style={{ fontSize: 16, fontWeight: 700, color: '#111', marginBottom: 8 }}>Kedai belum diluluskan</div>
         <div style={{ fontSize: 13, color: '#555', lineHeight: 1.6, marginBottom: 24 }}>Anda boleh muat naik produk selepas kedai anda diluluskan oleh admin.</div>
+        <button onClick={() => window.location.href = '/seller/dashboard'} style={{ background: '#7B1533', color: '#fff', border: 'none', borderRadius: 12, padding: '12px 24px', fontSize: 14, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}>
+          Kembali ke Dashboard
+        </button>
+      </div>
+    )
+  }
+
+  if (isListingLimitReached({ planType, listingLimit, listingCount })) {
+    return (
+      <div style={{ position: 'fixed', inset: 0, background: '#F5F5F5', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: 32, textAlign: 'center', fontFamily: "'Plus Jakarta Sans', sans-serif" }}>
+        <div style={{ fontSize: 40, marginBottom: 16 }}>+</div>
+        <div style={{ fontSize: 16, fontWeight: 700, color: '#111', marginBottom: 8 }}>Had listing dicapai</div>
+        <div style={{ fontSize: 13, color: '#555', lineHeight: 1.6, marginBottom: 24 }}>Free plan allows up to 5 listings only. Upgrade to LokalGo Pro to add more.</div>
         <button onClick={() => window.location.href = '/seller/dashboard'} style={{ background: '#7B1533', color: '#fff', border: 'none', borderRadius: 12, padding: '12px 24px', fontSize: 14, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}>
           Kembali ke Dashboard
         </button>
@@ -267,8 +313,8 @@ export default function TambahProdukPage() {
             </div>
             <div>
               <label style={{ fontSize: 12, fontWeight: 700, color: '#555', display: 'block', marginBottom: 5 }}>Kategori *</label>
-              <select value={category} onChange={(e) => setCategory(e.target.value as ProductCategory)} style={{ width: '100%', border: '1.5px solid #E5E5EA', borderRadius: 10, padding: '10px 12px', fontSize: 14, fontFamily: 'inherit', background: '#fff', outline: 'none', boxSizing: 'border-box' }}>
-                {PRODUCT_CATEGORIES.map((c) => (
+              <select value={category} onChange={(e) => setCategory(e.target.value)} style={{ width: '100%', border: '1.5px solid #E5E5EA', borderRadius: 10, padding: '10px 12px', fontSize: 14, fontFamily: 'inherit', background: '#fff', outline: 'none', boxSizing: 'border-box' }}>
+                {getCategoriesForBusinessType(sellerBusinessType).map((c) => (
                   <option key={c} value={c}>{c}</option>
                 ))}
               </select>
@@ -293,7 +339,7 @@ export default function TambahProdukPage() {
 
           {/* Info note */}
           <div style={{ background: '#FFF8E7', border: '1px solid #FFE0A3', borderRadius: 12, padding: '10px 14px', marginBottom: 16, fontSize: 12, color: '#7A5800', lineHeight: 1.6 }}>
-            Produk akan disemak oleh admin sebelum dipaparkan kepada pembeli. Status <strong>Dalam Semakan</strong> akan terpapar di dashboard anda.
+            Produk akan disemak oleh admin sebelum dipaparkan kepada pembeli. Status <strong>Dalam Semakan</strong> akan terpapar di dashboard anda. Jenis listing: <strong>{BUSINESS_TYPE_LABELS[normalizeBusinessType(sellerBusinessType)]}</strong>.
           </div>
 
           {error && (
