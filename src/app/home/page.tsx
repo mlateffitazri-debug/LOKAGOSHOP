@@ -1,15 +1,15 @@
 'use client'
 
-import { MouseEvent, useEffect, useMemo, useState } from 'react'
+import { MouseEvent, useEffect, useMemo, useRef, useState } from 'react'
 import { SplashScreen } from '@/components/SplashScreen'
 import { MapPin, Heart, MessageSquare, Coffee, Info, Globe, LogOut, LogIn, BookOpen, Store } from 'lucide-react'
 import { translations, useLang, type Lang } from '@/lib/i18n'
 import { createClient } from '@/lib/supabase/client'
 import type { Buyer, Seller, Product } from '@/types/database'
-import { PRODUCT_CATEGORIES } from '@/types/database'
 import {
   BUSINESS_TYPE_LABELS,
   BUSINESS_TYPE_OPTIONS,
+  CATEGORIES_BY_BUSINESS_TYPE,
   normalizeBusinessType,
   type BusinessType,
 } from '@/lib/business-types'
@@ -20,24 +20,6 @@ type HomeProfile = {
   email: string
   kawasan: string
   avatarUrl: string | null
-}
-
-// PNG icons per category — keyed to the current FOOD category list (see CATEGORIES_BY_BUSINESS_TYPE).
-// Categories without a dedicated image fall back to CAT_ICON_FALLBACK below.
-const CAT_ICONS: Record<string, string> = {
-  'Pastri & Kek': `<img src="/images/pastry.png" alt="" style="width:64px;height:64px;object-fit:cover;border-radius:14px;">`,
-  'Frozen': `<img src="/images/frozen.png" alt="" style="width:64px;height:64px;object-fit:cover;border-radius:14px;">`,
-  'Minuman': `<img src="/images/drink.png" alt="" style="width:64px;height:64px;object-fit:cover;border-radius:14px;">`,
-  'Snek': `<img src="/images/snek.png" alt="" style="width:64px;height:64px;object-fit:cover;border-radius:14px;">`,
-}
-
-const CAT_ICON_FALLBACK = `<svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#7B1D2E" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.59 13.41 11 3.83A2 2 0 0 0 9.59 3.24L4 3a1 1 0 0 0-1 1l.24 5.59a2 2 0 0 0 .59 1.41l9.58 9.58a2 2 0 0 0 2.82 0l4.36-4.36a2 2 0 0 0 0-2.81z"/><circle cx="7.5" cy="7.5" r="1.5"/></svg>`
-
-const TYPE_ICONS: Record<BusinessType, string> = {
-  FOOD: `<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#7B1D2E" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 3v7a4 4 0 0 0 8 0V3"/><path d="M8 3v18"/><path d="M17 3v18"/><path d="M17 3c2 1.5 3 3.5 3 6 0 2.2-1.2 4-3 4"/></svg>`,
-  SERVICE: `<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#7B1D2E" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v20"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7H14a3.5 3.5 0 0 1 0 7H6"/></svg>`,
-  PRODUCT: `<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#7B1D2E" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m21 8-9-5-9 5 9 5 9-5Z"/><path d="M3 8v8l9 5 9-5V8"/><path d="M12 13v8"/></svg>`,
-  HOMESTAY: `<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#7B1D2E" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m3 10 9-7 9 7"/><path d="M5 10v10h14V10"/><path d="M9 20v-6h6v6"/></svg>`,
 }
 
 const styles = `:root{--c-primary:#7B1533;--c-primary-dark:#6A1029;--c-primary-lt:#8f1a3a;--c-accent:#ADD036;--c-green:#25D366;--c-bg:#F5F5F5;--c-surface:#FFFFFF;--c-border:#E5E5EA;--c-text:#111111;--c-text2:#555555;--c-text3:#888888;--c-hint:#BBBBBB;}
@@ -54,9 +36,9 @@ body{background:#0a0a0a;font-family:'Plus Jakarta Sans',-apple-system,sans-serif
 .home-scroll::-webkit-scrollbar{display:none;}
 .empty-state{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;padding:48px 24px;text-align:center;}
 .empty-state-txt{font-size:13px;color:#888;line-height:1.6;}
-.header{background:var(--c-primary);padding:calc(env(safe-area-inset-top) + 14px) 20px 12px;}
-.header-r1{display:flex;align-items:center;justify-content:space-between;margin-bottom:3px;}
-.header-sub{font-size:11px;color:rgba(255,255,255,0.55);margin-bottom:10px;}
+.header{background:var(--c-primary);padding:calc(env(safe-area-inset-top) + 10px) 20px 10px;}
+.header-r1{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:8px;}
+.header-tagline{font-size:11px;font-weight:400;color:rgba(255,255,255,0.7);line-height:1.3;min-width:0;}
 .header-r2{display:flex;gap:8px;align-items:center;}
 .header-actions{display:flex;align-items:center;gap:10px;}
 .coin-btn{width:40px;height:40px;border-radius:50%;border:none;background:rgba(255,255,255,0.15);display:flex;align-items:center;justify-content:center;cursor:pointer;flex-shrink:0;}
@@ -68,15 +50,24 @@ body{background:#0a0a0a;font-family:'Plus Jakarta Sans',-apple-system,sans-serif
 .search-wrap input{border:none;background:transparent;font-size:13px;color:#555;outline:none;width:100%;font-family:inherit;}
 .search-wrap input::placeholder{color:#aaa;}
 .lang-btn{background:rgba(255,255,255,0.15);border:none;border-radius:8px;padding:8px 10px;color:#fff;font-size:11px;font-weight:600;font-family:inherit;display:flex;align-items:center;gap:4px;cursor:pointer;white-space:nowrap;}
-.cat-section{background:#fff;padding:14px 0 14px 16px;border-bottom:1px solid var(--border,#ECECEC);}
-.cat-scroll{display:flex;gap:12px;overflow-x:auto;scroll-snap-type:x mandatory;padding-right:16px;}.cat-scroll::-webkit-scrollbar{display:none;}
-.cat-item{width:96px;min-height:120px;display:flex;flex-direction:column;align-items:center;justify-content:flex-start;gap:8px;flex-shrink:0;cursor:pointer;padding:14px 4px 10px;background:#fff;border:2px solid transparent;border-radius:16px;box-shadow:0 2px 8px rgba(0,0,0,0.06);scroll-snap-align:start;transition:border-color 0.15s;}
-.cat-item:active{background:#f5f5f5;}
-.cat-box{width:64px;height:64px;background:#f5f5f5;border-radius:14px;display:flex;align-items:center;justify-content:center;overflow:hidden;}
-.cat-box img{width:64px;height:64px;object-fit:cover;}
-.cat-item.active{border-color:var(--brand-maroon,#7B1D2E);}
-.cat-lbl{font-size:12px;color:#555;text-align:center;max-width:88px;line-height:1.3;font-weight:500;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;}
-.cat-item.active .cat-lbl{color:var(--brand-maroon,#7B1D2E);font-weight:700;}
+.filter-section{background:#F5F5F5;}
+.main-cat-row{display:flex;gap:12px;overflow-x:auto;padding:12px 20px 6px;scroll-snap-type:x mandatory;}
+.main-cat-row::-webkit-scrollbar{display:none;}
+.main-cat-item{flex-shrink:0;width:78px;display:flex;flex-direction:column;align-items:center;gap:6px;cursor:pointer;scroll-snap-align:start;background:none;border:none;font-family:inherit;padding:0;}
+.main-cat-icon{width:58px;height:58px;border-radius:16px;display:flex;align-items:center;justify-content:center;overflow:hidden;border:2px solid transparent;transition:border-color 0.15s;}
+.main-cat-icon img{width:100%;height:100%;object-fit:cover;display:block;}
+.main-cat-icon-outline{background:#fff;border-color:#E5E5EA;}
+.main-cat-icon-fallback{background:var(--c-primary);}
+.main-cat-item.active .main-cat-icon{border-color:var(--c-primary);}
+.main-cat-lbl{font-size:13px;font-weight:600;color:#555;white-space:nowrap;}
+.main-cat-item.active .main-cat-lbl{color:var(--c-primary);font-weight:700;}
+.subcat-wrap{max-height:0;opacity:0;overflow:hidden;padding:0 20px;transition:max-height 200ms ease,opacity 200ms ease,padding 200ms ease;}
+.subcat-wrap.open{max-height:48px;opacity:1;padding:2px 20px 12px;}
+.subcat-row{display:flex;gap:8px;overflow-x:auto;scroll-snap-type:x mandatory;animation:subcatFadeIn 200ms ease;}
+.subcat-row::-webkit-scrollbar{display:none;}
+@keyframes subcatFadeIn{from{opacity:0;transform:translateY(-4px);}to{opacity:1;transform:translateY(0);}}
+.subcat-chip{flex-shrink:0;height:34px;display:flex;align-items:center;padding:0 14px;border-radius:999px;background:#fff;border:1px solid var(--c-primary);font-size:12px;font-weight:600;color:var(--c-primary);white-space:nowrap;cursor:pointer;scroll-snap-align:start;font-family:inherit;transition:background 0.15s,color 0.15s,border-color 0.15s;}
+.subcat-chip.active{background:var(--c-accent);border-color:var(--c-accent);color:#3D4D0E;}
 .sec-head{padding:14px 20px 10px;display:flex;justify-content:space-between;align-items:center;}
 .sec-head-title{font-size:14px;font-weight:700;color:var(--c-text);}
 .sec-head-link{font-size:12px;color:var(--c-primary);font-weight:500;text-decoration:none;display:flex;align-items:center;gap:3px;}
@@ -211,31 +202,143 @@ function getDisplayMode(seller: Seller, hasNormal: boolean, hasPreorder: boolean
   return 'hidden'
 }
 
-function renderCatSection(selectedBusinessType: BusinessType | null, selectedCategory: string | null, lang: Lang) {
+// Legacy FOOD category aliases — products approved before the FOOD subcategory
+// list existed used these older category strings. Selecting the new subcategory
+// must still surface sellers tagged with the old equivalent (no data migration).
+const LEGACY_CATEGORY_ALIASES: Record<string, string[]> = {
+  'Nasi': ['Set Makanan & Lauk'],
+  'Frozen': ['Frozen & Simpanan', 'Fresh & Semulajadi'],
+}
+
+function categoryMatchesSelection(cats: string[], selected: string): boolean {
+  if (cats.includes(selected)) return true
+  return (LEGACY_CATEGORY_ALIASES[selected] ?? []).some((alias) => cats.includes(alias))
+}
+
+// Display order only — does not change CATEGORIES_BY_BUSINESS_TYPE (the shared
+// source of truth also used by the seller add-listing dropdown), so that page
+// is unaffected. Any category missing from this list still renders (appended),
+// so nothing from the shared list is ever silently dropped.
+const SUBCATEGORY_DISPLAY_ORDER: Record<BusinessType, readonly string[]> = {
+  FOOD: ['Nasi', 'Minuman', 'Snek', 'Pastri & Kek', 'Kuih', 'Dessert', 'Frozen'],
+  SERVICE: ['Aircond', 'Plumbing', 'Electrical', 'Cleaning', 'Grass Cutting', 'Repair'],
+  PRODUCT: ['Grocery', 'Fresh Fish', 'Vegetables', 'Beauty', 'Homemade Product', 'Household'],
+  HOMESTAY: ['Homestay', 'Apartment', 'House', 'Room', 'Villa'],
+}
+
+function getDisplayOrderedCategories(type: BusinessType): readonly string[] {
+  const canonical = CATEGORIES_BY_BUSINESS_TYPE[type]
+  const order = SUBCATEGORY_DISPLAY_ORDER[type]
+  const ordered = order.filter((c) => canonical.includes(c))
+  const extras = canonical.filter((c) => !order.includes(c))
+  return [...ordered, ...extras]
+}
+
+// Main category icons — provided design assets (public/icons/New Icon). No PNG
+// was supplied for "Semua" (a meta-filter, not a real category) or "Homestay",
+// so both use an inline icon instead of a remote asset.
+const MAIN_CATEGORY_ICON_SRC: Record<BusinessType, string | null> = {
+  FOOD: '/icons/New Icon/food.png',
+  SERVICE: '/icons/New Icon/service.png',
+  PRODUCT: '/icons/New Icon/product.png',
+  HOMESTAY: null,
+}
+
+function SemuaIcon() {
+  return (
+    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#7B1533" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <line x1="4" y1="7" x2="20" y2="7" />
+      <line x1="4" y1="12" x2="20" y2="12" />
+      <line x1="4" y1="17" x2="20" y2="17" />
+    </svg>
+  )
+}
+
+function HomestayIcon() {
+  return (
+    <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="m3 10 9-7 9 7" />
+      <path d="M5 10v10h14V10" />
+      <path d="M9 20v-6h6v6" />
+    </svg>
+  )
+}
+
+// Real React component (not an HTML string) — required for genuine CSS
+// transitions. The rest of this page renders via dangerouslySetInnerHTML,
+// which fully replaces its subtree on every state change, so CSS `transition`
+// can never animate it (the browser sees a fresh node, not a style change).
+// This component is a persistent DOM node across re-renders, so toggling its
+// className lets the open/close animation actually run in both directions.
+function FilterSection({
+  selectedBusinessType,
+  selectedCategory,
+  lang,
+  onSelectType,
+  onSelectCategory,
+}: {
+  selectedBusinessType: BusinessType | null
+  selectedCategory: string | null
+  lang: Lang
+  onSelectType: (type: BusinessType | null) => void
+  onSelectCategory: (cat: string | null) => void
+}) {
   const resetLabel = lang === 'en' ? 'All' : 'Semua'
-  const typeItems = [
-    `<div class="cat-item${!selectedBusinessType && !selectedCategory ? ' active' : ''}" data-type="">
-      <div class="cat-box"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#7B1D2E" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6h16"/><path d="M4 12h16"/><path d="M4 18h16"/></svg></div>
-      <span class="cat-lbl">${resetLabel}</span>
-    </div>`,
-    ...BUSINESS_TYPE_OPTIONS.map((type) => `
-    <div class="cat-item${selectedBusinessType === type ? ' active' : ''}" data-type="${type}">
-      <div class="cat-box">${TYPE_ICONS[type]}</div>
-      <span class="cat-lbl">${escapeHtml(BUSINESS_TYPE_LABELS[type])}</span>
-    </div>`),
-  ].join('')
+  const isOpen = !!selectedBusinessType
 
-  const items = PRODUCT_CATEGORIES.map((cat) => {
-    const isActive = selectedCategory === cat
-    const displayLabel = copy(`cat_display_${cat}`, lang)
-    return `
-    <div class="cat-item${isActive ? ' active' : ''}" data-cat="${escapeHtml(cat)}">
-      <div class="cat-box">${CAT_ICONS[cat] ?? CAT_ICON_FALLBACK}</div>
-      <span class="cat-lbl">${escapeHtml(displayLabel)}</span>
-    </div>`
-  }).join('')
+  // Keep showing the last-selected type's chips while the row collapses, so
+  // the content doesn't pop away mid-animation — only the wrapper's
+  // max-height/opacity animate when returning to Semua.
+  const lastTypeRef = useRef<BusinessType | null>(selectedBusinessType)
+  if (selectedBusinessType) lastTypeRef.current = selectedBusinessType
+  const displayType = selectedBusinessType ?? lastTypeRef.current
 
-  return `<div class="cat-section"><div class="cat-scroll">${typeItems}${items}</div></div>`
+  return (
+    <div className="filter-section">
+      <div className="main-cat-row">
+        <button type="button" className={`main-cat-item${!selectedBusinessType ? ' active' : ''}`} onClick={() => onSelectType(null)}>
+          <span className="main-cat-icon main-cat-icon-outline"><SemuaIcon /></span>
+          <span className="main-cat-lbl">{resetLabel}</span>
+        </button>
+        {BUSINESS_TYPE_OPTIONS.map((type) => {
+          const iconSrc = MAIN_CATEGORY_ICON_SRC[type]
+          return (
+            <button
+              key={type}
+              type="button"
+              className={`main-cat-item${selectedBusinessType === type ? ' active' : ''}`}
+              onClick={() => onSelectType(type)}
+            >
+              <span className={`main-cat-icon${iconSrc ? '' : ' main-cat-icon-fallback'}`}>
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                {iconSrc ? <img src={iconSrc} alt="" /> : <HomestayIcon />}
+              </span>
+              <span className="main-cat-lbl">{BUSINESS_TYPE_LABELS[type]}</span>
+            </button>
+          )
+        })}
+      </div>
+      <div className={`subcat-wrap${isOpen ? ' open' : ''}`}>
+        {displayType ? (
+          <div className="subcat-row" key={displayType}>
+            <button type="button" className={`subcat-chip${!selectedCategory ? ' active' : ''}`} onClick={() => onSelectCategory(null)}>
+              {resetLabel}
+            </button>
+            {getDisplayOrderedCategories(displayType).map((cat) => (
+              <button
+                key={cat}
+                type="button"
+                className={`subcat-chip${selectedCategory === cat ? ' active' : ''}`}
+                onClick={() => onSelectCategory(cat)}
+              >
+                {cat}
+              </button>
+            ))}
+          </div>
+        ) : null}
+      </div>
+    </div>
+  )
 }
 
 
@@ -341,43 +444,26 @@ function renderShopList(
   }).join('')
 }
 
-function renderHomeMarkup(
+function renderHeaderMarkup(
   lang: Lang,
-  sellers: Seller[],
-  isLoading: boolean,
-  error: string | null,
   profile: HomeProfile | null,
-  savedShopIds: Set<string>,
-  sellerCategories: Map<string, string[]>,
-  sellerHasNormal: Set<string>,
-  sellerHasPreorder: Set<string>,
-  productsLoadFailed: boolean,
-  selectedBusinessType: BusinessType | null,
-  selectedCategory: string | null,
   locationLabel: string | null,
-  locationMode: HomeLocationMode,
-  buyerKawasan: string | null,
 ) {
   const avatarHtml = profile?.avatarUrl
     ? `<img src="${escapeHtml(profile.avatarUrl)}" alt="${escapeHtml(profile.name)}">`
     : `<span class="home-avatar-initial">${escapeHtml(firstInitial(profile?.name ?? 'LokalGo'))}</span>`
 
   const langBtnTxt = lang === 'ms' ? 'English' : 'BM'
-  const shopListHtml = renderShopList(lang, sellers, isLoading, error, savedShopIds, sellerCategories, sellerHasNormal, sellerHasPreorder, productsLoadFailed, locationMode, buyerKawasan)
 
   return `
-<div class="home-shell">
-<header class="home-fixed">
-<!-- HEADER -->
 <div class="header">
   <div class="header-r1">
-    <button onclick="window.location.reload()" style="background:none;border:none;padding:0;cursor:pointer;display:flex;align-items:center;" aria-label="Muat semula"><img src="/icons/Logo-LOKALGO.png" alt="LokalGo™" style="height:40px;width:auto;display:block;"></button>
+    <span class="header-tagline"><span data-i18n="tagline">${copy('tagline', lang)}</span>${locationLabel ? ` &nbsp;·&nbsp; <span style="opacity:0.85">${escapeHtml(locationLabel)}</span>` : ''}</span>
     <div class="header-actions">
       <button class="coin-btn" aria-label="Sokong Pembangun"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#C8E44A" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 8h1a4 4 0 1 1 0 8h-1"/><path d="M3 8h14v9a4 4 0 0 1-4 4H7a4 4 0 0 1-4-4Z"/><line x1="6" y1="2" x2="6" y2="4"/><line x1="10" y1="2" x2="10" y2="4"/><line x1="14" y1="2" x2="14" y2="4"/></svg></button>
       <button class="home-avatar" aria-label="Buka menu profil">${avatarHtml}</button>
     </div>
   </div>
-  <div class="header-sub"><span data-i18n="tagline">${copy('tagline', lang)}</span>${locationLabel ? ` &nbsp;·&nbsp; <span style="font-size:10px;color:rgba(255,255,255,0.75)">${escapeHtml(locationLabel)}</span>` : ''}</div>
   <div class="header-r2">
     <div class="search-wrap">
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#aaa" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
@@ -389,11 +475,25 @@ function renderHomeMarkup(
     </button>
   </div>
 </div>
+`
+}
 
-<!-- CATEGORY FILTER -->
-${renderCatSection(selectedBusinessType, selectedCategory, lang)}
-</header>
+function renderMainMarkup(
+  lang: Lang,
+  sellers: Seller[],
+  isLoading: boolean,
+  error: string | null,
+  savedShopIds: Set<string>,
+  sellerCategories: Map<string, string[]>,
+  sellerHasNormal: Set<string>,
+  sellerHasPreorder: Set<string>,
+  productsLoadFailed: boolean,
+  locationMode: HomeLocationMode,
+  buyerKawasan: string | null,
+) {
+  const shopListHtml = renderShopList(lang, sellers, isLoading, error, savedShopIds, sellerCategories, sellerHasNormal, sellerHasPreorder, productsLoadFailed, locationMode, buyerKawasan)
 
+  return `
 <main class="home-scroll" onscroll="document.querySelector('.home-fixed').classList.toggle('scrolled', this.scrollTop > 4)">
 <!-- POPULAR -->
 <div class="sec-head">
@@ -405,7 +505,6 @@ ${renderCatSection(selectedBusinessType, selectedCategory, lang)}
 ${shopListHtml}
 </div>
 </main>
-</div>
 `
 }
 
@@ -530,7 +629,7 @@ function HomePageContent() {
     }
 
     if (selectedCategory) {
-      visibleSellers = visibleSellers.filter((s) => (sellerCategories.get(s.id) ?? []).includes(selectedCategory))
+      visibleSellers = visibleSellers.filter((s) => categoryMatchesSelection(sellerCategories.get(s.id) ?? [], selectedCategory))
     }
 
     return visibleSellers
@@ -544,9 +643,14 @@ function HomePageContent() {
     return null
   }, [locationMode, userLocation, buyerKawasan])
 
-  const pageInnerMarkup = useMemo(
-    () => renderHomeMarkup(lang, sellers, isLoading, error, profile, savedShopIds, sellerCategories, sellerHasNormal, sellerHasPreorder, productsLoadFailed, selectedBusinessType, selectedCategory, locationLabel, locationMode, buyerKawasan),
-    [error, isLoading, lang, profile, sellers, savedShopIds, sellerCategories, sellerHasNormal, sellerHasPreorder, productsLoadFailed, selectedBusinessType, selectedCategory, locationLabel, locationMode, buyerKawasan],
+  const headerMarkup = useMemo(
+    () => renderHeaderMarkup(lang, profile, locationLabel),
+    [lang, profile, locationLabel],
+  )
+
+  const mainMarkup = useMemo(
+    () => renderMainMarkup(lang, sellers, isLoading, error, savedShopIds, sellerCategories, sellerHasNormal, sellerHasPreorder, productsLoadFailed, locationMode, buyerKawasan),
+    [lang, sellers, isLoading, error, savedShopIds, sellerCategories, sellerHasNormal, sellerHasPreorder, productsLoadFailed, locationMode, buyerKawasan],
   )
 
   useEffect(() => {
@@ -690,6 +794,15 @@ function HomePageContent() {
     setTimeout(() => setToast(null), 2500)
   }
 
+  function handleSelectType(type: BusinessType | null) {
+    setSelectedBusinessType(type)
+    setSelectedCategory(null)
+  }
+
+  function handleSelectCategory(cat: string | null) {
+    setSelectedCategory(cat)
+  }
+
   async function handleClick(event: MouseEvent<HTMLDivElement>) {
     const target = event.target as HTMLElement
 
@@ -697,33 +810,9 @@ function HomePageContent() {
     if (target.closest('.coin-btn')) { window.location.href = '/sokong'; return }
     if (target.closest('.home-avatar')) { setIsSidebarOpen(true); return }
 
-    // Category filter — DOM show/hide
-    const typeItem = target.closest<HTMLElement>('.cat-item[data-type]')
-    if (typeItem) {
-      const rawType = typeItem.dataset.type || ''
-      if (!rawType) {
-        setSelectedBusinessType(null)
-        setSelectedCategory(null)
-        return
-      }
-
-      const businessType = normalizeBusinessType(rawType)
-      setSelectedBusinessType((prev) => {
-        const next = prev === businessType ? null : businessType
-        if (!next || next !== 'FOOD') setSelectedCategory(null)
-        return next
-      })
-      return
-    }
-
-    const catItem = target.closest<HTMLElement>('.cat-item[data-cat]')
-    if (catItem) {
-      const cat = catItem.dataset.cat || null
-      setSelectedBusinessType('FOOD')
-      setSelectedCategory((prev) => prev === cat ? null : cat)
-      return
-        // DOM show/hide — after React re-render flushes
-    }
+    // Main category / subcategory filter clicks are handled directly by
+    // FilterSection's own onClick props (it's a real React component, not
+    // part of this delegated dangerouslySetInnerHTML handler).
 
     // Share button
     if (target.closest('.share-btn')) {
@@ -792,7 +881,19 @@ function HomePageContent() {
     <>
       <style dangerouslySetInnerHTML={{ __html: styles }} />
       <div className="page" onClick={handleClick}>
-        <div style={{ height: '100%' }} dangerouslySetInnerHTML={{ __html: pageInnerMarkup }} />
+        <div className="home-shell">
+          <header className="home-fixed">
+            <div dangerouslySetInnerHTML={{ __html: headerMarkup }} />
+            <FilterSection
+              selectedBusinessType={selectedBusinessType}
+              selectedCategory={selectedCategory}
+              lang={lang}
+              onSelectType={handleSelectType}
+              onSelectCategory={handleSelectCategory}
+            />
+          </header>
+          <div dangerouslySetInnerHTML={{ __html: mainMarkup }} />
+        </div>
         {isSidebarOpen ? (
           <div className="sidebar-backdrop" onClick={() => setIsSidebarOpen(false)} aria-hidden="true" />
         ) : null}
