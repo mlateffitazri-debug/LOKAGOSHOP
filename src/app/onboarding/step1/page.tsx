@@ -57,6 +57,13 @@ const markup = `<div class="page">
     <div class="field-hint">Jika anda seorang tepi jalan, masukkan alamat jalan anda</div>
   </div>
 
+  <!-- Poskod -->
+  <div class="field-group">
+    <div class="field-label">Masukkan Poskod Kawasan Anda</div>
+    <input id="inp-postcode" class="field-input" type="text" inputmode="numeric" maxlength="5" placeholder="Contoh: 43000">
+    <div class="field-hint">Poskod sebenar 5 digit diperlukan. 00000 tidak dibenarkan.</div>
+  </div>
+
   <!-- Map Pin -->
   <div class="field-group">
     <div class="field-label">Pin Lokasi Rumah atau Kedai anda</div>
@@ -115,9 +122,16 @@ const saveScript = `window.__saveSellerStep1 = function() {
   var email = (document.getElementById('inp-email') || {}).value;
   email = email ? email.trim() : '';
   var businessType = (document.getElementById('inp-business-type') || {}).value || 'FOOD';
+  var postcode = (document.getElementById('inp-postcode') || {}).value;
+  postcode = postcode ? postcode.trim() : '';
 
   if (!shopName || !tamanName || !phoneRaw) {
     alert('Sila lengkapkan nama kedai, lokasi taman dan nombor WhatsApp.');
+    return;
+  }
+
+  if (!/^\\d{5}$/.test(postcode) || postcode === '00000') {
+    alert('Sila masukkan poskod sebenar. 00000 tidak dibenarkan.');
     return;
   }
 
@@ -126,13 +140,12 @@ const saveScript = `window.__saveSellerStep1 = function() {
     var proceed = confirm('Anda belum pin lokasi kedai pada peta. Pembeli tidak dapat lihat jarak ke kedai anda.\\n\\nTeruskan tanpa lokasi?');
     if (!proceed) return;
   }
-  var postcodeMatch = tamanName.match(/\\b\\d{5}\\b/);
 
   var data = {
     shop_name: shopName,
     taman_name: tamanName,
     kawasan: tamanName,
-    postcode: postcodeMatch ? postcodeMatch[0] : '00000',
+    postcode: postcode,
     whatsapp_number: phoneRaw,
     email: email,
     business_type: businessType,

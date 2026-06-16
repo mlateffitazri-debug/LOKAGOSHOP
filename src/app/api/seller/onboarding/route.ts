@@ -90,6 +90,16 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Failed to check existing seller' }, { status: 500 })
   }
 
+  // Postcode is required only for brand-new sellers. Existing sellers (update path)
+  // are never blocked here — old rows with '00000'/missing postcode are fixed
+  // later via the admin panel, not by this endpoint.
+  if (!existingSeller) {
+    const postcode = body.postcode?.trim() ?? ''
+    if (!/^\d{5}$/.test(postcode) || postcode === '00000') {
+      return NextResponse.json({ error: 'Sila masukkan poskod sebenar. 00000 tidak dibenarkan.' }, { status: 400 })
+    }
+  }
+
   // INSERT new sellers with is_open: false (must explicitly open from dashboard).
   // UPDATE existing sellers WITHOUT touching is_open — seller controls that via toggle.
   const { data, error: saveError } = existingSeller
