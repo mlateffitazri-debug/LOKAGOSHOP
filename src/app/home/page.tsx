@@ -235,13 +235,15 @@ function getDisplayOrderedCategories(type: BusinessType): readonly string[] {
 }
 
 // Main category icons — provided design assets (public/icons/New Icon). No PNG
-// was supplied for "Semua" (a meta-filter, not a real category) or "Homestay",
-// so both use an inline icon instead of a remote asset.
+// was supplied for "Semua" (a meta-filter, not a real category), so it uses an
+// inline icon instead of a remote asset. HomestayIcon below is kept as a
+// fallback for MAIN_CATEGORY_ICON_SRC in case a future business type ships
+// without a matching asset.
 const MAIN_CATEGORY_ICON_SRC: Record<BusinessType, string | null> = {
   FOOD: '/icons/New Icon/food.png',
   SERVICE: '/icons/New Icon/service.png',
   PRODUCT: '/icons/New Icon/product.png',
-  HOMESTAY: null,
+  HOMESTAY: '/icons/New Icon/homestay.png',
 }
 
 function SemuaIcon() {
