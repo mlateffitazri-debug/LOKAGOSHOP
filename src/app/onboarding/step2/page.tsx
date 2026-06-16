@@ -62,16 +62,6 @@ body{background:#0a0a0a;min-height:100vh;font-family:'Plus Jakarta Sans',-apple-
 .desc-input:focus{border-color:var(--c-primary);}
 .desc-input::placeholder{color:var(--c-hint);}
 
-/* CATEGORY GRID */
-.cat-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
-.cat-item{display:flex;align-items:center;gap:10px;background:#fff;border:1.5px solid var(--c-border);border-radius:10px;padding:12px;cursor:pointer;transition:all 0.15s;}
-.cat-item.selected{border-color:var(--c-primary);background:#fff5f7;}
-.cat-checkbox{width:20px;height:20px;border-radius:5px;border:1.5px solid var(--c-border);display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:all 0.15s;}
-.cat-item.selected .cat-checkbox{background:var(--c-primary);border-color:var(--c-primary);}
-.cat-name{font-size:13px;font-weight:600;color:var(--c-text);}
-.cat-item.selected .cat-name{color:var(--c-primary);}
-.cat-full{grid-column:1/-1;}
-
 /* AGREE */
 .agree-wrap{background:#fff;border:1.5px solid var(--c-border);border-radius:12px;padding:14px;display:flex;gap:12px;align-items:flex-start;cursor:pointer;}
 .agree-wrap.checked{border-color:var(--c-primary);background:#fff5f7;}
@@ -143,37 +133,6 @@ const markup = `<div class="page">
     <textarea class="desc-input" placeholder="Ceritakan apa yang anda jual dikedai anda disini!"></textarea>
   </div>
 
-  <!-- Kategori -->
-  <div>
-    <div class="field-label">Kategori Produk</div>
-    <div class="cat-grid">
-      <div class="cat-item" onclick="toggleCat(this)">
-        <div class="cat-checkbox"></div>
-        <span class="cat-name">Pastri &amp; Kek</span>
-      </div>
-      <div class="cat-item" onclick="toggleCat(this)">
-        <div class="cat-checkbox"></div>
-        <span class="cat-name">Set Makanan &amp; Lauk</span>
-      </div>
-      <div class="cat-item" onclick="toggleCat(this)">
-        <div class="cat-checkbox"></div>
-        <span class="cat-name">Frozen &amp; Simpanan</span>
-      </div>
-      <div class="cat-item" onclick="toggleCat(this)">
-        <div class="cat-checkbox"></div>
-        <span class="cat-name">Minuman</span>
-      </div>
-      <div class="cat-item" onclick="toggleCat(this)">
-        <div class="cat-checkbox"></div>
-        <span class="cat-name">Fresh &amp; Semulajadi</span>
-      </div>
-      <div class="cat-item cat-full" onclick="toggleCat(this)">
-        <div class="cat-checkbox"></div>
-        <span class="cat-name">Snek</span>
-      </div>
-    </div>
-  </div>
-
   <!-- Agree -->
   <div class="agree-wrap" id="agreeWrap" onclick="toggleAgree()">
     <div class="agree-box" id="agreeBox"></div>
@@ -208,18 +167,6 @@ function setImgPos(x, y) {
   if (y <= 25) { if (btns[0]) btns[0].classList.add('pos-btn-active'); }
   else if (y >= 75) { if (btns[2]) btns[2].classList.add('pos-btn-active'); }
   else { if (btns[1]) btns[1].classList.add('pos-btn-active'); }
-}
-
-function toggleCat(el) {
-  var selected = document.querySelectorAll('.cat-item.selected').length;
-  if (el.classList.contains('selected')) {
-    el.classList.remove('selected');
-    el.querySelector('.cat-checkbox').innerHTML = '';
-  } else {
-    if (selected >= 5) { alert('Maksimum 5 kategori sahaja.'); return; }
-    el.classList.add('selected');
-    el.querySelector('.cat-checkbox').innerHTML = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>';
-  }
 }
 
 function toggleAgree() {
@@ -275,7 +222,11 @@ export default function Page() {
 
       let compressed: File
       try {
-        compressed = await compressImage(file, 'shop_profile')
+        // HEIC/HEIF: pass through without compression — browser-image-compression
+        // cannot reliably decode HEIC on non-Safari environments
+        compressed = (file.type === 'image/heic' || file.type === 'image/heif')
+          ? file
+          : await compressImage(file, 'shop_profile')
       } catch {
         showImgStatus('Format gambar tidak disokong. Sila tukar ke JPG.')
         return
@@ -350,9 +301,6 @@ export default function Page() {
       const saved = localStorage.getItem('lokalgo_seller_onboarding')
       const baseData = saved ? JSON.parse(saved) as Record<string, string> : {}
       const description = document.querySelector<HTMLTextAreaElement>('.desc-input')?.value.trim() || ''
-      const categories = Array.from(document.querySelectorAll<HTMLElement>('.cat-item.selected .cat-name'))
-        .map((item) => item.textContent?.trim())
-        .filter(Boolean)
       const accepted = document.getElementById('agreeWrap')?.classList.contains('checked')
 
       if (!accepted) {
@@ -416,7 +364,7 @@ export default function Page() {
         return
       }
 
-      localStorage.setItem('lokalgo_seller_onboarding_extra', JSON.stringify({ description, categories, seller_id: result.sellerId }))
+      localStorage.setItem('lokalgo_seller_onboarding_extra', JSON.stringify({ description, seller_id: result.sellerId }))
       localStorage.setItem('lokalgo_seller_onboarding_success', 'true')
       window.location.href = `/onboarding/step3?seller=${encodeURIComponent(result.sellerId || '')}&success=1`
     }

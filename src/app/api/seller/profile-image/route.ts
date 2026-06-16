@@ -2,8 +2,11 @@ import { NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { createClient as createServerClient } from '@/lib/supabase/server'
 
-// Client compresses to WebP before upload; 500 KB is generous headroom
-const MAX_IMAGE_BYTES = 500 * 1024
+// Client compresses to WebP before upload, except HEIC/HEIF which is passed
+// through raw (browser-image-compression can't reliably decode HEIC outside
+// Safari) — so the limit must tolerate an uncompressed phone photo, matching
+// the client's own MAX_RAW_BYTES ceiling and the product-image route's limit.
+const MAX_IMAGE_BYTES = 10 * 1024 * 1024
 const ALLOWED_IMAGE_TYPES = new Set([
   'image/jpeg',
   'image/png',
@@ -57,7 +60,7 @@ export async function POST(request: Request) {
 
   if (file.size > MAX_IMAGE_BYTES) {
     return NextResponse.json(
-      { error: `Image must be ${MAX_IMAGE_BYTES / 1024}KB or smaller after compression` },
+      { error: `Image must be ${MAX_IMAGE_BYTES / (1024 * 1024)}MB or smaller` },
       { status: 400 },
     )
   }
