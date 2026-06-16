@@ -42,6 +42,25 @@ function switchTab(id, navEl) {
   if (id === 'tab-listings') renderListings();
   if (id === 'tab-dataquality') renderDataQuality();
   if (id === 'tab-settings') renderSettings();
+  closeMobileSidebar();
+}
+
+/* ── Mobile sidebar drawer ─────────────────────────────────────────────────── */
+
+function toggleMobileSidebar() {
+  var sidebar = document.getElementById('admin-sidebar');
+  var backdrop = document.getElementById('mobile-nav-backdrop');
+  if (!sidebar || !backdrop) return;
+  var opening = !sidebar.classList.contains('mobile-open');
+  sidebar.classList.toggle('mobile-open', opening);
+  backdrop.classList.toggle('open', opening);
+}
+
+function closeMobileSidebar() {
+  var sidebar = document.getElementById('admin-sidebar');
+  var backdrop = document.getElementById('mobile-nav-backdrop');
+  if (sidebar) sidebar.classList.remove('mobile-open');
+  if (backdrop) backdrop.classList.remove('open');
 }
 
 /* ── Theme toggle ──────────────────────────────────────────────────────────── */

@@ -17,7 +17,7 @@ const styles = `
 }
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
 html{height:auto!important;overflow:auto!important;overscroll-behavior:auto!important;background:var(--bg);}
-body{background:var(--bg);font-family:'Plus Jakarta Sans',-apple-system,BlinkMacSystemFont,sans-serif;font-size:14px;color:var(--text);-webkit-font-smoothing:antialiased;min-height:100vh;height:auto!important;overflow:auto!important;overscroll-behavior:auto!important;touch-action:auto!important;padding:0!important;transition:background 0.15s,color 0.15s;}
+body{background:var(--bg);font-family:'Plus Jakarta Sans',-apple-system,BlinkMacSystemFont,sans-serif;font-size:14px;color:var(--text);-webkit-font-smoothing:antialiased;min-height:100vh;height:auto!important;overflow:auto!important;overflow-x:hidden!important;overscroll-behavior:auto!important;touch-action:auto!important;padding:0!important;transition:background 0.15s,color 0.15s;}
 ::-webkit-scrollbar{display:block!important;width:5px;height:5px;}
 ::-webkit-scrollbar-track{background:transparent;}
 ::-webkit-scrollbar-thumb{background:var(--scrollbar-thumb);border-radius:3px;}
@@ -27,7 +27,10 @@ body{background:var(--bg);font-family:'Plus Jakarta Sans',-apple-system,BlinkMac
 .layout{display:flex;min-height:100vh;}
 
 /* SIDEBAR */
-.sidebar{width:230px;background:var(--surface-2);border-right:1px solid rgba(var(--border-rgb),0.07);position:fixed;top:0;left:0;height:100vh;display:flex;flex-direction:column;z-index:100;transition:width 0.2s;}
+.sidebar{width:230px;background:var(--surface-2);border-right:1px solid rgba(var(--border-rgb),0.07);position:fixed;top:0;left:0;height:100vh;display:flex;flex-direction:column;z-index:200;transition:width 0.2s,left 0.25s ease;}
+.mobile-nav-backdrop{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:150;}
+.mobile-nav-backdrop.open{display:block;}
+.hamburger-btn{display:none;border:1px solid rgba(var(--border-rgb),0.12);background:rgba(var(--border-rgb),0.05);color:var(--text);border-radius:9px;width:36px;height:36px;align-items:center;justify-content:center;font-size:17px;cursor:pointer;flex-shrink:0;}
 .sb-logo{padding:20px 20px 16px;border-bottom:1px solid rgba(var(--border-rgb),0.07);}
 .sb-logo svg{height:32px;width:auto;}
 .sb-tag{display:inline-block;background:#acd036;color:#000;font-size:9px;font-weight:800;padding:2px 9px;border-radius:20px;letter-spacing:1px;margin-top:7px;text-transform:uppercase;}
@@ -44,10 +47,12 @@ body{background:var(--bg);font-family:'Plus Jakarta Sans',-apple-system,BlinkMac
 .sb-foot{padding:14px 20px;border-top:1px solid rgba(var(--border-rgb),0.06);font-size:11px;color:rgba(var(--text-rgb),0.2);line-height:1.55;}
 
 /* MAIN */
-.main{margin-left:230px;flex:1;display:flex;flex-direction:column;}
+.main{margin-left:230px;flex:1;min-width:0;display:flex;flex-direction:column;}
 
 /* TOP BAR */
-.top-bar{background:rgba(11,11,14,0.96);backdrop-filter:blur(12px);border-bottom:1px solid rgba(var(--border-rgb),0.07);padding:13px 28px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:50;flex-wrap:wrap;gap:8px;}
+.top-bar{background:var(--surface-2);backdrop-filter:blur(12px);border-bottom:1px solid rgba(var(--border-rgb),0.07);padding:13px 28px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:50;flex-wrap:wrap;gap:8px;}
+.top-left{display:flex;align-items:center;gap:12px;min-width:0;}
+.top-left-text{display:flex;flex-direction:column;min-width:0;}
 .top-title{font-size:16px;font-weight:800;color:var(--text);}
 .top-sub{font-size:11px;color:rgba(var(--text-rgb),0.28);margin-top:1px;}
 .top-actions{display:flex;align-items:center;gap:9px;flex-wrap:wrap;}
@@ -279,7 +284,30 @@ body{background:var(--bg);font-family:'Plus Jakarta Sans',-apple-system,BlinkMac
 @media(max-width:1280px){.feat-grid{grid-template-columns:repeat(3,1fr);}}
 @media(max-width:1024px){.stat-strip{grid-template-columns:repeat(2,1fr);}.feat-grid{grid-template-columns:repeat(2,1fr);}.dash-row{grid-template-columns:1fr;}.ps-grid{grid-template-columns:1fr 1fr;}.ps-card.s2{grid-column:span 1;}.ps-card.s3{grid-column:span 2;}.stats-bottom-grid{grid-template-columns:1fr;}}
 @media(max-width:820px){.sidebar{width:58px;}.sb-section,.sb-nav .nav-item span,.sb-foot,.sb-tag{display:none;}.main{margin-left:58px;}.content{padding:16px;}.feat-grid{grid-template-columns:repeat(2,1fr);}.stat-strip-wrap{padding:16px 16px 0;}}
-@media(max-width:580px){.sidebar{display:none;}.main{margin-left:0;}.stat-strip{grid-template-columns:1fr 1fr;}.feat-grid{grid-template-columns:1fr 1fr;}}
+@media(max-width:580px){
+  .hamburger-btn{display:inline-flex;}
+  .sidebar{width:240px;left:-240px;box-shadow:2px 0 30px rgba(0,0,0,0.4);}
+  .sidebar.mobile-open{left:0;}
+  .sidebar.mobile-open .sb-section,.sidebar.mobile-open .sb-nav .nav-item span,.sidebar.mobile-open .sb-foot,.sidebar.mobile-open .sb-tag{display:revert;}
+  .main{margin-left:0;}
+  .top-title{font-size:14px;}
+  .top-sub{display:none;}
+  .content{padding:14px;}
+  .stat-strip{grid-template-columns:1fr 1fr;gap:10px;}
+  .feat-grid{grid-template-columns:1fr 1fr;gap:10px;}
+  .feat-card{padding:16px 14px 14px;}
+  .sec-title{font-size:15px;}
+  .modal-overlay.open{padding:10px;}
+  .modal-box{padding:16px;border-radius:14px;}
+  .mo-row{grid-template-columns:1fr;}
+  .act-btn{padding:6px 10px;font-size:12px;margin:2px 3px 2px 0;}
+  .sd-actions-row .act-btn,.sd-info-grid{margin-bottom:8px;}
+  .tbl-card-head{flex-direction:column;align-items:flex-start;}
+  .search-inp{width:100%;}
+  .search-wrap{width:100%;}
+}
+
+#dq-list .ri{flex-wrap:wrap;}
 
 /* SELLER DETAIL MODAL */
 .modal-box.large{max-width:900px;}
@@ -300,8 +328,11 @@ body{background:var(--bg);font-family:'Plus Jakarta Sans',-apple-system,BlinkMac
 const markup = `
 <div class="layout">
 
+<!-- MOBILE NAV BACKDROP -->
+<div class="mobile-nav-backdrop" id="mobile-nav-backdrop" onclick="closeMobileSidebar()"></div>
+
 <!-- SIDEBAR -->
-<aside class="sidebar">
+<aside class="sidebar" id="admin-sidebar">
   <div class="sb-logo">
     <img src="/icons/Lokalgo-Logo-New.PNG" alt="LokalGo" height="28" style="display:block;width:auto;">
     <div class="sb-tag">Admin Panel</div>
@@ -333,8 +364,11 @@ const markup = `
   <!-- TOP BAR -->
   <div class="top-bar">
     <div class="top-left">
-      <div class="top-title">Panel Pengurusan</div>
-      <div class="top-sub" id="top-sub">Memuatkan data...</div>
+      <button class="hamburger-btn" id="hamburger-btn" onclick="toggleMobileSidebar()" aria-label="Buka menu">&#9776;</button>
+      <div class="top-left-text">
+        <div class="top-title">Panel Pengurusan</div>
+        <div class="top-sub" id="top-sub">Memuatkan data...</div>
+      </div>
     </div>
     <div class="top-actions">
       <button class="btn btn-ghost" id="theme-toggle-btn" onclick="toggleAdminTheme()">&#9728; Light Mode</button>
@@ -762,34 +796,34 @@ const markup = `
         </div>
         <div style="font-size:11px;color:rgba(var(--text-rgb),0.25);margin-top:12px;line-height:1.6;">Perubahan akan dipaparkan serta-merta di dashboard seller selepas disimpan. Teks ini dipaparkan dalam kotak doa di halaman utama dashboard seller.</div>
       </div>
-    </div>
 
-    <!-- Seller Broadcast -->
-    <div class="tbl-card" style="max-width:680px;margin-top:16px;">
-      <div style="padding:18px 20px 0;">
-        <div style="font-size:14px;font-weight:800;color:var(--text);margin-bottom:3px;">&#128226; Broadcast Mesej ke Semua Seller</div>
-        <div style="font-size:12px;color:rgba(var(--text-rgb),0.3);margin-bottom:14px;">Mesej akan dihantar ke inbox semua seller melalui sistem admin message sedia ada. Seller akan nampak mesej ini dalam tab Inbox/Notifikasi mereka.</div>
-        <div id="bc-seller-status" style="display:none;border-radius:10px;padding:10px 14px;font-size:13px;font-weight:700;margin-bottom:14px;"></div>
-        <div style="display:flex;gap:12px;margin-bottom:12px;flex-wrap:wrap;">
-          <div style="flex:0 0 140px;">
-            <div style="font-size:11px;font-weight:700;color:rgba(var(--text-rgb),0.4);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:5px;">Jenis *</div>
-            <select id="bc-seller-type" style="width:100%;background:var(--surface-2);border:1px solid rgba(var(--border-rgb),0.12);border-radius:10px;padding:10px 12px;font-size:13px;color:var(--text);font-family:inherit;outline:none;">
-              <option value="info">&#8505; Maklumat</option>
-              <option value="success">&#10003; Pengumuman</option>
-              <option value="warning">&#9888; Amaran</option>
-              <option value="flag">&#9873; Penting</option>
-            </select>
+      <!-- Seller Broadcast -->
+      <div class="tbl-card" style="max-width:680px;margin-top:16px;">
+        <div style="padding:18px 20px 0;">
+          <div style="font-size:14px;font-weight:800;color:var(--text);margin-bottom:3px;">&#128226; Broadcast Mesej ke Semua Seller</div>
+          <div style="font-size:12px;color:rgba(var(--text-rgb),0.3);margin-bottom:14px;">Mesej akan dihantar ke inbox semua seller melalui sistem admin message sedia ada. Seller akan nampak mesej ini dalam tab Inbox/Notifikasi mereka.</div>
+          <div id="bc-seller-status" style="display:none;border-radius:10px;padding:10px 14px;font-size:13px;font-weight:700;margin-bottom:14px;"></div>
+          <div style="display:flex;gap:12px;margin-bottom:12px;flex-wrap:wrap;">
+            <div style="flex:0 0 140px;">
+              <div style="font-size:11px;font-weight:700;color:rgba(var(--text-rgb),0.4);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:5px;">Jenis *</div>
+              <select id="bc-seller-type" style="width:100%;background:var(--surface-2);border:1px solid rgba(var(--border-rgb),0.12);border-radius:10px;padding:10px 12px;font-size:13px;color:var(--text);font-family:inherit;outline:none;">
+                <option value="info">&#8505; Maklumat</option>
+                <option value="success">&#10003; Pengumuman</option>
+                <option value="warning">&#9888; Amaran</option>
+                <option value="flag">&#9873; Penting</option>
+              </select>
+            </div>
+            <div style="flex:1;min-width:160px;">
+              <div style="font-size:11px;font-weight:700;color:rgba(var(--text-rgb),0.4);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:5px;">Tajuk *</div>
+              <input id="bc-seller-title" type="text" maxlength="80" placeholder="Cth: Kemaskini Platform LokalGo" style="width:100%;background:var(--surface-2);border:1px solid rgba(var(--border-rgb),0.12);border-radius:10px;padding:10px 12px;font-size:13px;color:var(--text);font-family:inherit;outline:none;">
+            </div>
           </div>
-          <div style="flex:1;min-width:160px;">
-            <div style="font-size:11px;font-weight:700;color:rgba(var(--text-rgb),0.4);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:5px;">Tajuk *</div>
-            <input id="bc-seller-title" type="text" maxlength="80" placeholder="Cth: Kemaskini Platform LokalGo" style="width:100%;background:var(--surface-2);border:1px solid rgba(var(--border-rgb),0.12);border-radius:10px;padding:10px 12px;font-size:13px;color:var(--text);font-family:inherit;outline:none;">
+          <div style="margin-bottom:14px;">
+            <div style="font-size:11px;font-weight:700;color:rgba(var(--text-rgb),0.4);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:5px;">Kandungan *</div>
+            <textarea id="bc-seller-body" rows="4" maxlength="500" placeholder="Tulis mesej broadcast di sini..." style="width:100%;background:var(--surface-2);border:1px solid rgba(var(--border-rgb),0.12);border-radius:10px;padding:10px 12px;font-size:13px;color:var(--text);font-family:inherit;outline:none;resize:vertical;line-height:1.6;"></textarea>
           </div>
+          <button class="btn btn-primary" id="bc-seller-send-btn" onclick="broadcastToAllSellers()" style="width:100%;margin-bottom:16px;">&#128226; Hantar kepada Semua Seller</button>
         </div>
-        <div style="margin-bottom:14px;">
-          <div style="font-size:11px;font-weight:700;color:rgba(var(--text-rgb),0.4);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:5px;">Kandungan *</div>
-          <textarea id="bc-seller-body" rows="4" maxlength="500" placeholder="Tulis mesej broadcast di sini..." style="width:100%;background:var(--surface-2);border:1px solid rgba(var(--border-rgb),0.12);border-radius:10px;padding:10px 12px;font-size:13px;color:var(--text);font-family:inherit;outline:none;resize:vertical;line-height:1.6;"></textarea>
-        </div>
-        <button class="btn btn-primary" id="bc-seller-send-btn" onclick="broadcastToAllSellers()" style="width:100%;margin-bottom:16px;">&#128226; Hantar kepada Semua Seller</button>
       </div>
     </div>
 

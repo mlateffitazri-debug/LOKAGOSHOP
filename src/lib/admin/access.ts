@@ -1,20 +1,21 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 
-// Primary admin — env var overrides/extends this list
-const OWNER_EMAILS = ['m.lateffitazri@gmail.com', 'admin@lokalgo.app']
+// Admin access is intentionally restricted to a single account — never a list.
+// ADMIN_EMAIL may override this value (e.g. credential rotation) but must
+// always resolve to exactly one email. Do not add a second hardcoded email
+// or support a comma-separated list here: any additional value silently
+// grants full admin access (database wipe, seller/listing edits, shop
+// preview) to that account.
+const OWNER_EMAIL = 'm.lateffitazri@gmail.com'
 
-export function adminEmails() {
-  const configured = process.env.ADMIN_EMAIL ?? process.env.ADMIN_EMAILS ?? ''
-  const fromEnv = configured
-    .split(/[,\s;]+/)
-    .map((email) => email.trim().toLowerCase())
-    .filter(Boolean)
-  return Array.from(new Set([...OWNER_EMAILS, ...fromEnv]))
+export function adminEmail(): string {
+  const configured = process.env.ADMIN_EMAIL?.trim().toLowerCase()
+  return configured || OWNER_EMAIL
 }
 
 export function isAdminEmail(email?: string | null) {
-  return !!email && adminEmails().includes(email.trim().toLowerCase())
+  return !!email && email.trim().toLowerCase() === adminEmail()
 }
 
 export async function requireAdmin() {
