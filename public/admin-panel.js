@@ -4,10 +4,29 @@ var _data = null;
 var _dbTable = '';
 var _sellersFilter = 'all';
 var _sellersSearch = '';
+var _sellersTypeFilter = 'all';
+var _sellersPlanFilter = 'all';
 var _buyersFilter = 'all';
 var _testiFilter = 'all';
 var _sdSellerId = null;
 var _sdProducts = [];
+var _listingsStatusFilter = 'all';
+var _listingsTypeFilter = 'all';
+var _listingsSearch = '';
+var _dqFilter = 'all';
+var _spSellerId = null;
+
+// Mirrors src/lib/business-types.ts CATEGORIES_BY_BUSINESS_TYPE — keep in sync.
+var CATEGORIES_BY_TYPE = {
+  FOOD: ['Nasi', 'Kuih', 'Dessert', 'Frozen', 'Minuman', 'Pastri & Kek', 'Snek'],
+  SERVICE: ['Aircond', 'Plumbing', 'Electrical', 'Cleaning', 'Grass Cutting', 'Repair'],
+  PRODUCT: ['Grocery', 'Fresh Fish', 'Vegetables', 'Beauty', 'Homemade Product', 'Household'],
+  HOMESTAY: ['Homestay', 'Apartment', 'House', 'Room', 'Villa']
+};
+
+function isValidPostcode(pc) {
+  return !!pc && /^\d{5}$/.test(String(pc).trim()) && String(pc).trim() !== '00000';
+}
 
 /* ── Tab switching ─────────────────────────────────────────────────────────── */
 
@@ -20,6 +39,47 @@ function switchTab(id, navEl) {
   // Lazy-load per-tab data
   if (id === 'tab-broadcast') loadBroadcast();
   if (id === 'tab-messages') loadMessages();
+  if (id === 'tab-listings') renderListings();
+  if (id === 'tab-dataquality') renderDataQuality();
+  if (id === 'tab-settings') renderSettings();
+  closeMobileSidebar();
+}
+
+/* ── Mobile sidebar drawer ─────────────────────────────────────────────────── */
+
+function toggleMobileSidebar() {
+  var sidebar = document.getElementById('admin-sidebar');
+  var backdrop = document.getElementById('mobile-nav-backdrop');
+  if (!sidebar || !backdrop) return;
+  var opening = !sidebar.classList.contains('mobile-open');
+  sidebar.classList.toggle('mobile-open', opening);
+  backdrop.classList.toggle('open', opening);
+}
+
+function closeMobileSidebar() {
+  var sidebar = document.getElementById('admin-sidebar');
+  var backdrop = document.getElementById('mobile-nav-backdrop');
+  if (sidebar) sidebar.classList.remove('mobile-open');
+  if (backdrop) backdrop.classList.remove('open');
+}
+
+/* ── Theme toggle ──────────────────────────────────────────────────────────── */
+
+function toggleAdminTheme() {
+  var root = document.documentElement;
+  var isLight = root.getAttribute('data-theme') === 'light';
+  var next = isLight ? 'dark' : 'light';
+  if (next === 'light') root.setAttribute('data-theme', 'light');
+  else root.removeAttribute('data-theme');
+  try { localStorage.setItem('lokalgo_admin_theme', next); } catch (e) {}
+  updateThemeToggleLabel();
+}
+
+function updateThemeToggleLabel() {
+  var btn = document.getElementById('theme-toggle-btn');
+  if (!btn) return;
+  var isLight = document.documentElement.getAttribute('data-theme') === 'light';
+  btn.innerHTML = isLight ? '&#127769; Dark Mode' : '&#9728; Light Mode';
 }
 
 /* ── Filter / search helpers ───────────────────────────────────────────────── */
@@ -33,6 +93,22 @@ function filterSellers(el, f) {
 
 function searchSellers(val) {
   _sellersSearch = (val || '').trim().toLowerCase();
+  renderSellers();
+}
+
+function filterSellersType(el, f) {
+  _sellersTypeFilter = f;
+  _sellersPlanFilter = 'all';
+  document.querySelectorAll('#sellers-type-filter .f-chip').forEach(function(c) { c.classList.remove('active'); });
+  el.classList.add('active');
+  renderSellers();
+}
+
+function filterSellersPlan(el, f) {
+  _sellersPlanFilter = f;
+  _sellersTypeFilter = 'all';
+  document.querySelectorAll('#sellers-type-filter .f-chip').forEach(function(c) { c.classList.remove('active'); });
+  el.classList.add('active');
   renderSellers();
 }
 
@@ -162,7 +238,7 @@ function renderDashboard() {
     return '<div class="ri"><div class="ri-av">' + esc(initial) + '</div>'
       + '<div><div class="ri-name">' + name + '</div><div class="ri-sub">' + esc(s.kawasan || '—') + '</div></div>'
       + '<span class="pill ' + pillCls + '" style="margin-left:auto;font-size:10px;">' + esc(status) + '</span></div>';
-  }).join('') : '<div style="text-align:center;color:rgba(240,240,240,0.2);padding:20px;font-size:13px;">Tiada data</div>');
+  }).join('') : '<div style="text-align:center;color:rgba(var(--text-rgb),0.2);padding:20px;font-size:13px;">Tiada data</div>');
 
   // Recent buyers
   var recentBuyers = (_data.buyers || []).slice(0, 5);
@@ -172,7 +248,7 @@ function renderDashboard() {
     return '<div class="ri"><div class="ri-av b">' + esc(initial) + '</div>'
       + '<div><div class="ri-name">' + name + '</div><div class="ri-sub">' + timeAgo(b.created_at) + '</div></div>'
       + '<span class="ri-time">' + fmtDate(b.created_at) + '</span></div>';
-  }).join('') : '<div style="text-align:center;color:rgba(240,240,240,0.2);padding:20px;font-size:13px;">Tiada data</div>');
+  }).join('') : '<div style="text-align:center;color:rgba(var(--text-rgb),0.2);padding:20px;font-size:13px;">Tiada data</div>');
 }
 
 /* ── Render: Sellers ────────────────────────────────────────────────────────── */
@@ -196,10 +272,22 @@ function renderSellers() {
     });
   }
 
+  // Apply business_type filter
+  if (_sellersTypeFilter !== 'all') {
+    filtered = filtered.filter(function(s) { return s.business_type === _sellersTypeFilter; });
+  }
+
+  // Apply plan_type / postcode-warning filter
+  if (_sellersPlanFilter === 'free' || _sellersPlanFilter === 'pro') {
+    filtered = filtered.filter(function(s) { return (s.plan_type === 'pro' ? 'pro' : 'free') === _sellersPlanFilter; });
+  } else if (_sellersPlanFilter === 'postcode_warning') {
+    filtered = filtered.filter(function(s) { return !isValidPostcode(s.postcode); });
+  }
+
   setText('sellers-count', filtered.length + ' rekod');
 
   if (!filtered.length) {
-    setHtml('sellers-tbody', '<tr><td colspan="8" class="td-empty">Tiada seller dijumpai</td></tr>');
+    setHtml('sellers-tbody', '<tr><td colspan="9" class="td-empty">Tiada seller dijumpai</td></tr>');
     return;
   }
 
@@ -227,7 +315,7 @@ function renderSellers() {
 
     var isOpen = s.is_open
       ? '<span style="color:#acd036;font-size:12px;font-weight:700;">Buka</span>'
-      : '<span style="color:rgba(240,240,240,0.28);font-size:12px;">Tutup</span>';
+      : '<span style="color:rgba(var(--text-rgb),0.28);font-size:12px;">Tutup</span>';
 
     // Action buttons
     var sid = esc(s.id);
@@ -245,21 +333,28 @@ function renderSellers() {
       : '<button class="act-btn ab-o" title="Buang Verified" onclick="adminAction(\'seller\',\'' + sid + '\',\'badge_aktif\')">Unverify</button>';
     var detailBtn = '<button class="act-btn ab-b" onclick="openSellerDetail(\'' + sid + '\')">&#128269; Detail</button>';
     var editBtn = '<button class="act-btn ab-e" onclick="openEditSeller(\'' + sid + '\')">&#9998; Edit</button>';
+    var viewShopBtn = '<button class="act-btn ab-b" onclick="openShopPreview(\'' + sid + '\')">&#128065; Shop</button>';
     var delBtn = '<button class="act-btn ab-r" onclick="adminDelete(\'seller\',\'' + sid + '\',\'' + esc(s.shop_name || s.name || 'seller') + '\')">Padam</button>';
 
     var shopName = esc((s.shop_name || s.name || '—').toString());
     var kawasan = esc((s.kawasan || '—').toString());
+    var businessType = s.business_type || '—';
+    var planType = s.plan_type === 'pro' ? 'pro' : 'free';
+    var postcodeWarn = !isValidPostcode(s.postcode) ? ' <span title="Postcode tidak sah/00000" style="color:#f0c040;">&#9888;</span>' : '';
+    var typePlanCell = '<div style="font-size:12px;font-weight:700;color:var(--text);">' + esc(businessType) + '</div>'
+      + '<div class="td-sub">' + (planType === 'pro' ? '<span style="color:#acd036;">PRO</span>' : 'free') + postcodeWarn + '</div>';
 
     return '<tr data-id="' + esc(s.id) + '">'
       + '<td><div class="td-shop" title="' + shopName + '">' + shopName.slice(0, 26) + '</div>'
       + '<div class="td-sub">' + esc(s.email || '') + '</div></td>'
       + '<td class="td-cell">' + kawasan + '</td>'
+      + '<td class="td-cell">' + typePlanCell + '</td>'
       + '<td class="td-c">' + badgePill + '</td>'
       + '<td class="td-c">' + statusPill + '</td>'
-      + '<td class="td-c" style="font-size:13px;font-weight:700;color:' + (qrCount > 0 ? '#acd036' : 'rgba(240,240,240,0.3)') + ';">' + qrCount + '</td>'
+      + '<td class="td-c" style="font-size:13px;font-weight:700;color:' + (qrCount > 0 ? '#acd036' : 'rgba(var(--text-rgb),0.3)') + ';">' + qrCount + '</td>'
       + '<td class="td-c">' + isOpen + '</td>'
       + '<td class="td-cell">' + fmtDate(s.created_at) + '</td>'
-      + '<td class="td-r">' + approveBtn + rejectBtn + suspendBtn + verifyBtn + detailBtn + editBtn + delBtn + '</td>'
+      + '<td class="td-r">' + approveBtn + rejectBtn + suspendBtn + verifyBtn + detailBtn + editBtn + viewShopBtn + delBtn + '</td>'
       + '</tr>';
   }).join('');
 
@@ -321,7 +416,7 @@ function renderTesti() {
     return '<tr>'
       + '<td class="td-cell">' + buyer + '</td>'
       + '<td class="td-cell">' + shop + '</td>'
-      + '<td style="max-width:200px;color:rgba(240,240,240,0.55);font-size:13px;" title="' + esc(t.content || '') + '">' + content + (t.content && t.content.length > 35 ? '…' : '') + '</td>'
+      + '<td style="max-width:200px;color:rgba(var(--text-rgb),0.55);font-size:13px;" title="' + esc(t.content || '') + '">' + content + (t.content && t.content.length > 35 ? '…' : '') + '</td>'
       + '<td class="td-c" style="color:#f0c040;font-size:13px;">' + (stars || '—') + '</td>'
       + '<td class="td-c">' + statusBadge + '</td>'
       + '<td class="td-cell">' + fmtDate(t.created_at) + '</td>'
@@ -386,7 +481,7 @@ function renderStats() {
       + '<div class="area-count">' + esc(a.count) + ' seller</div>'
       + '</div>';
   }).join('');
-  setHtml('area-bars', areaHtml || '<div style="text-align:center;color:rgba(240,240,240,0.2);padding:20px;font-size:13px;">Tiada data</div>');
+  setHtml('area-bars', areaHtml || '<div style="text-align:center;color:rgba(var(--text-rgb),0.2);padding:20px;font-size:13px;">Tiada data</div>');
 
   renderRegistrationChart(_data.sellers || [], _data.buyers || []);
 }
@@ -423,10 +518,12 @@ function renderRegistrationChart(sellers, buyers) {
       + '<div class="chart-lbl">' + m.label + '</div>'
       + '</div>';
   }).join('');
-  setHtml('reg-chart', html || '<div style="color:rgba(240,240,240,0.2);font-size:12px;padding:20px 0;text-align:center;">Tiada data</div>');
+  setHtml('reg-chart', html || '<div style="color:rgba(var(--text-rgb),0.2);font-size:12px;padding:20px 0;text-align:center;">Tiada data</div>');
 }
 
 /* ── Edit Seller Modal ────────────────────────────────────────────────────────── */
+
+var _editSellerOrigType = null;
 
 function openEditSeller(id) {
   if (!_data) return;
@@ -440,12 +537,39 @@ function openEditSeller(id) {
   get('edit-kawasan').value = seller.kawasan || '';
   get('edit-postcode').value = seller.postcode || '';
   get('edit-is-open').checked = !!seller.is_open;
+  get('edit-business-type').value = seller.business_type || 'FOOD';
+  get('edit-plan-type').value = seller.plan_type === 'pro' ? 'pro' : 'free';
+  get('edit-listing-limit').value = (seller.listing_limit != null ? seller.listing_limit : 5);
+  get('edit-cascade-listings').checked = false;
+  get('edit-cascade-row').style.display = 'none';
+  _editSellerOrigType = seller.business_type || null;
+  updateEditPostcodeWarning();
 
   document.getElementById('edit-modal').classList.add('open');
 }
 
+function onEditBusinessTypeChange() {
+  var sel = document.getElementById('edit-business-type');
+  var row = document.getElementById('edit-cascade-row');
+  if (!sel || !row) return;
+  row.style.display = (_editSellerOrigType && sel.value !== _editSellerOrigType) ? 'flex' : 'none';
+}
+
+function updateEditPostcodeWarning() {
+  var pc = (document.getElementById('edit-postcode') || {}).value || '';
+  var warnEl = document.getElementById('edit-postcode-warn');
+  if (warnEl) warnEl.style.display = isValidPostcode(pc) ? 'none' : 'block';
+}
+
 function closeEditSeller() {
   document.getElementById('edit-modal').classList.remove('open');
+}
+
+function viewShopFromEdit() {
+  var id = (document.getElementById('edit-seller-id') || {}).value;
+  if (!id) return;
+  closeEditSeller();
+  openShopPreview(id);
 }
 
 function submitEditSeller() {
@@ -455,6 +579,18 @@ function submitEditSeller() {
   var shopName = ((document.getElementById('edit-shop-name') || {}).value || '').trim();
   if (!shopName) { alert('Nama kedai diperlukan.'); return; }
 
+  var businessType = (document.getElementById('edit-business-type') || {}).value || 'FOOD';
+  var listingLimit = Number((document.getElementById('edit-listing-limit') || {}).value);
+  if (!Number.isFinite(listingLimit) || listingLimit < 0) {
+    alert('Listing limit tidak boleh negatif.');
+    return;
+  }
+
+  var cascade = 'none';
+  if (_editSellerOrigType && businessType !== _editSellerOrigType && (document.getElementById('edit-cascade-listings') || {}).checked) {
+    cascade = 'all_listings';
+  }
+
   var payload = {
     id: id,
     shop_name: shopName,
@@ -462,6 +598,10 @@ function submitEditSeller() {
     kawasan: ((document.getElementById('edit-kawasan') || {}).value || '').trim() || null,
     postcode: ((document.getElementById('edit-postcode') || {}).value || '').trim() || null,
     is_open: !!(document.getElementById('edit-is-open') || {}).checked,
+    business_type: businessType,
+    plan_type: (document.getElementById('edit-plan-type') || {}).value || 'free',
+    listing_limit: listingLimit,
+    cascade: cascade,
   };
 
   var btn = document.querySelector('#edit-modal .btn-submit');
@@ -474,6 +614,7 @@ function submitEditSeller() {
   }).then(function(r) { return r.json(); }).then(function(d) {
     if (btn) { btn.textContent = 'Simpan Perubahan'; btn.disabled = false; }
     if (d.error) { alert('Ralat: ' + d.error); return; }
+    if (d.cascadeError) { alert('Seller dikemaskini, tetapi cascade ke listing gagal: ' + d.cascadeError); }
     closeEditSeller();
     loadAdminData();
   }).catch(function(e) {
@@ -490,10 +631,12 @@ function openManualForm() {
 
 function closeManualForm() {
   document.getElementById('manual-modal').classList.remove('open');
-  ['mo-email', 'mo-shop', 'mo-taman', 'mo-phone', 'mo-kawasan', 'mo-postcode'].forEach(function(fid) {
+  ['mo-email', 'mo-shop', 'mo-taman', 'mo-phone', 'mo-kawasan', 'mo-postcode', 'mo-listing-limit'].forEach(function(fid) {
     var el = document.getElementById(fid);
     if (el) el.value = '';
   });
+  var bt = document.getElementById('mo-business-type'); if (bt) bt.value = 'FOOD';
+  var pt = document.getElementById('mo-plan-type'); if (pt) pt.value = 'free';
 }
 
 function submitManualOnboard() {
@@ -503,6 +646,9 @@ function submitManualOnboard() {
   var phone    = ((document.getElementById('mo-phone')    || {}).value || '').trim();
   var kawasan  = ((document.getElementById('mo-kawasan')  || {}).value || '').trim();
   var postcode = ((document.getElementById('mo-postcode') || {}).value || '').trim();
+  var businessType = ((document.getElementById('mo-business-type') || {}).value || 'FOOD');
+  var planType = ((document.getElementById('mo-plan-type') || {}).value || 'free');
+  var listingLimit = (document.getElementById('mo-listing-limit') || {}).value;
 
   if (!email || !shopName || !taman || !phone) {
     alert('Sila lengkapkan: Email Google, Nama Kedai, Taman dan No. WhatsApp.');
@@ -521,7 +667,10 @@ function submitManualOnboard() {
       taman_name: taman,
       whatsapp_number: phone,
       kawasan: kawasan || taman,
-      postcode: postcode || '00000'
+      postcode: postcode || '00000',
+      business_type: businessType,
+      plan_type: planType,
+      listing_limit: listingLimit ? Number(listingLimit) : undefined
     })
   }).then(function(r) { return r.json(); })
   .then(function(d) {
@@ -557,7 +706,7 @@ function loadDbTable(table) {
       var keyColumn = data.idColumn || 'id';
       setHtml('db-info', table + ' — ' + data.count + ' jumlah rekod (paparan: ' + rows.length + ')');
       if (!rows.length) {
-        setHtml('db-content', '<div style="text-align:center;color:rgba(240,240,240,0.2);padding:44px 16px;font-size:14px;">Jadual kosong</div>');
+        setHtml('db-content', '<div style="text-align:center;color:rgba(var(--text-rgb),0.2);padding:44px 16px;font-size:14px;">Jadual kosong</div>');
         return;
       }
       var cols = Object.keys(rows[0]);
@@ -569,11 +718,11 @@ function loadDbTable(table) {
         cols.forEach(function(col) {
           var val = row[col];
           var display;
-          if (val === null || val === undefined) display = '<span style="color:rgba(240,240,240,0.2);">null</span>';
+          if (val === null || val === undefined) display = '<span style="color:rgba(var(--text-rgb),0.2);">null</span>';
           else if (typeof val === 'boolean') display = val
             ? '<span style="color:#acd036;">true</span>'
-            : '<span style="color:rgba(240,240,240,0.3);">false</span>';
-          else if (typeof val === 'object') display = '<span style="color:rgba(240,240,240,0.4);font-size:11px;">' + esc(JSON.stringify(val).slice(0, 32)) + '…</span>';
+            : '<span style="color:rgba(var(--text-rgb),0.3);">false</span>';
+          else if (typeof val === 'object') display = '<span style="color:rgba(var(--text-rgb),0.4);font-size:11px;">' + esc(JSON.stringify(val).slice(0, 32)) + '…</span>';
           else display = esc(String(val).slice(0, 45));
           html += '<td class="td-cell" title="' + esc(String(row[col] || '')) + '">' + display + '</td>';
         });
@@ -706,6 +855,12 @@ function loadAdminData() {
           nbTesti.style.display = 'none';
         }
       }
+      var nbDq = document.getElementById('nb-dq');
+      if (nbDq) {
+        var dqCount = (data.dataQualityWarnings || []).length;
+        if (dqCount > 0) { nbDq.textContent = dqCount; nbDq.style.display = 'inline'; }
+        else nbDq.style.display = 'none';
+      }
 
       // Timestamp
       setText('top-sub', 'Kemaskini: ' + new Date().toLocaleTimeString('ms-MY'));
@@ -717,6 +872,10 @@ function loadAdminData() {
       renderSaved();
       renderStats();
       renderProducts();
+      renderListings();
+      renderDataQuality();
+      renderSettings();
+      updateThemeToggleLabel();
 
       // Re-render seller detail modal if still open
       if (_sdSellerId) {
@@ -759,8 +918,8 @@ function renderProducts() {
     var shop = esc((sellerMap[p.seller_id] || '—').toString().slice(0, 20));
     var price = p.price_from != null ? 'RM ' + Number(p.price_from).toFixed(2) : '—';
     var imgHtml = (p.images && p.images[0])
-      ? '<img src="' + esc(p.images[0]) + '" style="width:44px;height:44px;object-fit:cover;border-radius:8px;border:1px solid rgba(255,255,255,0.08);">'
-      : '<div style="width:44px;height:44px;background:#1a1a1e;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:18px;">&#127873;</div>';
+      ? '<img src="' + esc(p.images[0]) + '" style="width:44px;height:44px;object-fit:cover;border-radius:8px;border:1px solid rgba(var(--border-rgb),0.08);">'
+      : '<div style="width:44px;height:44px;background:var(--surface-2);border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:18px;">&#127873;</div>';
     return '<tr>'
       + '<td>' + imgHtml + '</td>'
       + '<td><div class="td-shop" style="max-width:180px;" title="' + name + '">' + name + '</div>'
@@ -784,7 +943,7 @@ var _messagesLoaded = false;
 
 function loadMessages() {
   _messagesLoaded = false;
-  setHtml('messages-tbody', '<tr><td colspan="7" style="text-align:center;color:rgba(240,240,240,0.2);padding:24px;font-size:13px;">Memuatkan...</td></tr>');
+  setHtml('messages-tbody', '<tr><td colspan="7" style="text-align:center;color:rgba(var(--text-rgb),0.2);padding:24px;font-size:13px;">Memuatkan...</td></tr>');
   fetch('/api/admin/messages')
     .then(function(r) { return r.json(); })
     .then(function(data) {
@@ -804,12 +963,12 @@ function loadMessages() {
         var typePill = '<span class="pill ' + (typeCls[m.type] || 'p-aktif') + '" style="font-size:10px;">' + (typeLabel[m.type] || esc(m.type)) + '</span>';
         var readBadge = m.is_read
           ? '<span style="color:#acd036;font-size:11px;font-weight:700;">Dibaca</span>'
-          : '<span style="color:rgba(240,240,240,0.3);font-size:11px;">Belum</span>';
+          : '<span style="color:rgba(var(--text-rgb),0.3);font-size:11px;">Belum</span>';
         return '<tr>'
           + '<td class="td-cell">' + shop + '</td>'
           + '<td class="td-c">' + typePill + '</td>'
           + '<td class="td-cell" title="' + title + '">' + title + '</td>'
-          + '<td class="td-cell" style="color:rgba(240,240,240,0.45);" title="' + body + '">' + body + (m.body && m.body.length > 50 ? '…' : '') + '</td>'
+          + '<td class="td-cell" style="color:rgba(var(--text-rgb),0.45);" title="' + body + '">' + body + (m.body && m.body.length > 50 ? '…' : '') + '</td>'
           + '<td class="td-c">' + readBadge + '</td>'
           + '<td class="td-cell">' + fmtDate(m.sent_at) + '</td>'
           + '<td class="td-r"><button class="act-btn ab-r" onclick="deleteAdminMessage(\'' + esc(m.id) + '\')">Del</button></td>'
@@ -983,7 +1142,7 @@ function openSellerDetail(id) {
   // Render seller info immediately, products loading
   renderSellerDetailContent(seller, []);
   setHtml('sd-products-list',
-    '<div style="text-align:center;color:rgba(240,240,240,0.2);padding:24px;font-size:13px;">Memuatkan produk...</div>');
+    '<div style="text-align:center;color:rgba(var(--text-rgb),0.2);padding:24px;font-size:13px;">Memuatkan produk...</div>');
 
   fetch('/api/admin/seller-products?seller_id=' + encodeURIComponent(id))
     .then(function(r) { return r.json(); })
@@ -1164,7 +1323,7 @@ function renderSellerDetailContent(seller, products) {
   setHtml('sd-visibility',
     '<div style="display:inline-flex;flex-direction:column;gap:3px;border-radius:10px;padding:9px 14px;background:' + vis.bg + ';border:1px solid ' + vis.color + '33;margin-bottom:12px;">'
     + '<div style="font-size:12px;font-weight:800;color:' + vis.color + ';">' + vis.label + '</div>'
-    + '<div style="font-size:11px;color:rgba(240,240,240,0.4);">' + esc(vis.reason) + '</div>'
+    + '<div style="font-size:11px;color:rgba(var(--text-rgb),0.4);">' + esc(vis.reason) + '</div>'
     + (vis.action ? '<div style="font-size:11px;color:' + vis.color + ';margin-top:2px;">&#8594; ' + esc(vis.action) + '</div>' : '')
     + '</div>'
   );
@@ -1218,15 +1377,15 @@ function renderSellerDetailContent(seller, products) {
   // Profile image
   var imgUrl = seller.profile_image_url;
   var imgHtml = imgUrl
-    ? '<img src="' + esc(imgUrl) + '" style="width:80px;height:80px;border-radius:12px;object-fit:cover;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);">'
-    : '<div style="width:80px;height:80px;border-radius:12px;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.1);display:flex;align-items:center;justify-content:center;font-size:28px;">&#128722;</div>';
+    ? '<img src="' + esc(imgUrl) + '" style="width:80px;height:80px;border-radius:12px;object-fit:cover;background:rgba(var(--border-rgb),0.05);border:1px solid rgba(var(--border-rgb),0.1);">'
+    : '<div style="width:80px;height:80px;border-radius:12px;background:rgba(var(--border-rgb),0.06);border:1px solid rgba(var(--border-rgb),0.1);display:flex;align-items:center;justify-content:center;font-size:28px;">&#128722;</div>';
   var imgPosPart = (seller.profile_image_position_x != null)
-    ? '<div style="font-size:10px;color:rgba(240,240,240,0.28);margin-top:4px;">pos x:' + seller.profile_image_position_x + ' y:' + seller.profile_image_position_y + '</div>'
+    ? '<div style="font-size:10px;color:rgba(var(--text-rgb),0.28);margin-top:4px;">pos x:' + seller.profile_image_position_x + ' y:' + seller.profile_image_position_y + '</div>'
     : '';
 
   // Left column: text data
   var leftCol = ''
-    + sdField('Seller ID', '<span style="font-size:11px;font-family:monospace;color:rgba(240,240,240,0.45);">' + esc(seller.id) + '</span>')
+    + sdField('Seller ID', '<span style="font-size:11px;font-family:monospace;color:rgba(var(--text-rgb),0.45);">' + esc(seller.id) + '</span>')
     + sdField('Email', seller.email ? esc(seller.email) : '<span class="muted">—</span>', !seller.email)
     + sdField('WhatsApp', seller.whatsapp_number ? esc(seller.whatsapp_number) : '<span class="muted">Tiada</span>', !seller.whatsapp_number)
     + sdField('Taman', seller.taman_name ? esc(seller.taman_name) : '<span class="muted">—</span>', !seller.taman_name)
@@ -1247,7 +1406,7 @@ function renderSellerDetailContent(seller, products) {
     + sdField('Badge', sdBadgePill(badge))
     + sdField('Kedai', isOpen
         ? '<span style="color:#acd036;font-weight:700;">Buka</span>'
-        : '<span style="color:rgba(240,240,240,0.3);">Tutup</span>')
+        : '<span style="color:rgba(var(--text-rgb),0.3);">Tutup</span>')
     + sdField('View Count', esc(String(seller.view_count || 0)))
     + sdField('WA Klik', esc(String(seller.wa_click_count || 0)))
     + sdField('Testimonial', esc(String(seller.testimonial_count || 0)));
@@ -1277,24 +1436,24 @@ function renderSellerDetailContent(seller, products) {
   // Product table
   if (!products.length) {
     setHtml('sd-products-list',
-      '<div style="text-align:center;color:rgba(240,240,240,0.2);padding:30px;font-size:13px;">Tiada produk</div>');
+      '<div style="text-align:center;color:rgba(var(--text-rgb),0.2);padding:30px;font-size:13px;">Tiada produk</div>');
     return;
   }
 
   var prodHtml = '<table style="width:100%;border-collapse:collapse;font-size:12px;min-width:640px;">'
     + '<thead><tr>'
-    + '<th style="background:rgba(0,0,0,0.25);padding:8px 10px;text-align:left;font-size:9px;color:rgba(240,240,240,0.28);font-weight:700;text-transform:uppercase;letter-spacing:0.5px;border-bottom:1px solid rgba(255,255,255,0.07);">Gambar</th>'
-    + '<th style="background:rgba(0,0,0,0.25);padding:8px 10px;text-align:left;font-size:9px;color:rgba(240,240,240,0.28);font-weight:700;text-transform:uppercase;letter-spacing:0.5px;border-bottom:1px solid rgba(255,255,255,0.07);">Nama / Kategori</th>'
-    + '<th style="background:rgba(0,0,0,0.25);padding:8px 10px;text-align:left;font-size:9px;color:rgba(240,240,240,0.28);font-weight:700;text-transform:uppercase;letter-spacing:0.5px;border-bottom:1px solid rgba(255,255,255,0.07);">Harga</th>'
-    + '<th style="background:rgba(0,0,0,0.25);padding:8px 10px;text-align:left;font-size:9px;color:rgba(240,240,240,0.28);font-weight:700;text-transform:uppercase;letter-spacing:0.5px;border-bottom:1px solid rgba(255,255,255,0.07);">Status</th>'
-    + '<th style="background:rgba(0,0,0,0.25);padding:8px 10px;text-align:left;font-size:9px;color:rgba(240,240,240,0.28);font-weight:700;text-transform:uppercase;letter-spacing:0.5px;border-bottom:1px solid rgba(255,255,255,0.07);">Tarikh</th>'
-    + '<th style="background:rgba(0,0,0,0.25);padding:8px 10px;text-align:right;font-size:9px;color:rgba(240,240,240,0.28);font-weight:700;text-transform:uppercase;letter-spacing:0.5px;border-bottom:1px solid rgba(255,255,255,0.07);">Tindakan</th>'
+    + '<th style="background:var(--th-bg);padding:8px 10px;text-align:left;font-size:9px;color:rgba(var(--text-rgb),0.28);font-weight:700;text-transform:uppercase;letter-spacing:0.5px;border-bottom:1px solid rgba(var(--border-rgb),0.07);">Gambar</th>'
+    + '<th style="background:var(--th-bg);padding:8px 10px;text-align:left;font-size:9px;color:rgba(var(--text-rgb),0.28);font-weight:700;text-transform:uppercase;letter-spacing:0.5px;border-bottom:1px solid rgba(var(--border-rgb),0.07);">Nama / Kategori</th>'
+    + '<th style="background:var(--th-bg);padding:8px 10px;text-align:left;font-size:9px;color:rgba(var(--text-rgb),0.28);font-weight:700;text-transform:uppercase;letter-spacing:0.5px;border-bottom:1px solid rgba(var(--border-rgb),0.07);">Harga</th>'
+    + '<th style="background:var(--th-bg);padding:8px 10px;text-align:left;font-size:9px;color:rgba(var(--text-rgb),0.28);font-weight:700;text-transform:uppercase;letter-spacing:0.5px;border-bottom:1px solid rgba(var(--border-rgb),0.07);">Status</th>'
+    + '<th style="background:var(--th-bg);padding:8px 10px;text-align:left;font-size:9px;color:rgba(var(--text-rgb),0.28);font-weight:700;text-transform:uppercase;letter-spacing:0.5px;border-bottom:1px solid rgba(var(--border-rgb),0.07);">Tarikh</th>'
+    + '<th style="background:var(--th-bg);padding:8px 10px;text-align:right;font-size:9px;color:rgba(var(--text-rgb),0.28);font-weight:700;text-transform:uppercase;letter-spacing:0.5px;border-bottom:1px solid rgba(var(--border-rgb),0.07);">Tindakan</th>'
     + '</tr></thead><tbody>';
 
   products.forEach(function(p) {
     var pImgHtml = (p.images && p.images[0])
-      ? '<img src="' + esc(p.images[0]) + '" style="width:40px;height:40px;object-fit:cover;border-radius:7px;border:1px solid rgba(255,255,255,0.08);">'
-      : '<div style="width:40px;height:40px;background:#1a1a1e;border-radius:7px;display:flex;align-items:center;justify-content:center;font-size:16px;">&#127873;</div>';
+      ? '<img src="' + esc(p.images[0]) + '" style="width:40px;height:40px;object-fit:cover;border-radius:7px;border:1px solid rgba(var(--border-rgb),0.08);">'
+      : '<div style="width:40px;height:40px;background:var(--surface-2);border-radius:7px;display:flex;align-items:center;justify-content:center;font-size:16px;">&#127873;</div>';
 
     var pName = esc((p.name || p.category || '—').toString().slice(0, 30));
     var pCat = esc((p.category || '').toString());
@@ -1320,16 +1479,16 @@ function renderSellerDetailContent(seller, products) {
       + '<button class="act-btn ab-o" title="Sembunyikan" onclick="productConfirm(\'Sembunyikan produk ini?\',\'' + pid + '\',\'hide_product\')">Hide</button>'
       + '<button class="act-btn ab-r" onclick="productConfirm(\'Tolak produk ini?\',\'' + pid + '\',\'reject\')">Tolak</button>';
 
-    var cellStyle = 'padding:10px 10px;border-bottom:1px solid rgba(255,255,255,0.04);vertical-align:middle;';
+    var cellStyle = 'padding:10px 10px;border-bottom:1px solid rgba(var(--border-rgb),0.04);vertical-align:middle;';
     prodHtml += '<tr>'
       + '<td style="' + cellStyle + '">' + pImgHtml + '</td>'
       + '<td style="' + cellStyle + '">'
-      + '<div style="font-weight:700;font-size:13px;color:#f0f0f0;">' + pName + '</div>'
-      + '<div style="font-size:11px;color:rgba(240,240,240,0.32);">' + pCat + '</div>'
+      + '<div style="font-weight:700;font-size:13px;color:var(--text);">' + pName + '</div>'
+      + '<div style="font-size:11px;color:rgba(var(--text-rgb),0.32);">' + pCat + '</div>'
       + '</td>'
       + '<td style="' + cellStyle + 'color:#acd036;font-weight:700;">' + esc(pPrice) + '</td>'
       + '<td style="' + cellStyle + '">' + pStatusBadge + pAvailBadge + '</td>'
-      + '<td style="' + cellStyle + 'color:rgba(240,240,240,0.35);font-size:11px;">' + fmtDate(p.created_at) + '</td>'
+      + '<td style="' + cellStyle + 'color:rgba(var(--text-rgb),0.35);font-size:11px;">' + fmtDate(p.created_at) + '</td>'
       + '<td style="' + cellStyle + 'text-align:right;">' + pActions + '</td>'
       + '</tr>';
   });
@@ -1341,6 +1500,12 @@ function renderSellerDetailContent(seller, products) {
   var msgBtn = document.getElementById('sd-msg-btn');
   if (msgBtn) {
     msgBtn.setAttribute('onclick', 'openDirectMessageFromDetail(\'' + sid + '\')');
+  }
+
+  // View Shop button
+  var viewShopBtn = document.getElementById('sd-view-shop-btn');
+  if (viewShopBtn) {
+    viewShopBtn.setAttribute('onclick', 'openShopPreview(\'' + sid + '\')');
   }
 }
 
@@ -1464,6 +1629,319 @@ function broadcastToAllSellers() {
         statusEl.style.color = '#f06060';
       }
     });
+}
+
+/* ── Render: Listings (all products, full management) ───────────────────── */
+
+function filterListings(el, kind, val) {
+  if (kind === 'status') _listingsStatusFilter = val;
+  if (kind === 'type') _listingsTypeFilter = val;
+  var scope = kind === 'status' ? '#listings-status-filter' : '#listings-type-filter';
+  document.querySelectorAll(scope + ' .f-chip').forEach(function(c) { c.classList.remove('active'); });
+  el.classList.add('active');
+  renderListings();
+}
+
+function searchListings(val) {
+  _listingsSearch = (val || '').trim().toLowerCase();
+  renderListings();
+}
+
+function renderListings() {
+  if (!_data) return;
+  var products = _data.products || [];
+  var sellerMap = {};
+  (_data.sellers || []).forEach(function(s) { sellerMap[s.id] = s.shop_name || s.name || s.id; });
+
+  var filtered = products;
+  if (_listingsStatusFilter !== 'all') {
+    filtered = filtered.filter(function(p) { return (p.status || 'pending') === _listingsStatusFilter; });
+  }
+  if (_listingsTypeFilter !== 'all') {
+    filtered = filtered.filter(function(p) { return p.listing_type === _listingsTypeFilter; });
+  }
+  if (_listingsSearch) {
+    filtered = filtered.filter(function(p) {
+      var name = (p.name || p.category || '').toLowerCase();
+      return name.indexOf(_listingsSearch) !== -1;
+    });
+  }
+
+  setText('listings-count', filtered.length + ' rekod');
+
+  if (!filtered.length) {
+    setHtml('listings-tbody', '<tr><td colspan="8" class="td-empty">Tiada listing dijumpai</td></tr>');
+    return;
+  }
+
+  var html = filtered.map(function(p) {
+    var name = esc((p.name || p.category || '—').toString().slice(0, 30));
+    var category = esc((p.category || '—').toString());
+    var listingType = p.listing_type || '—';
+    var shop = esc((sellerMap[p.seller_id] || '—').toString().slice(0, 20));
+    var price = p.price_from != null ? 'RM ' + Number(p.price_from).toFixed(2) : '—';
+    var status = p.status || 'pending';
+    var statusPill = status === 'approved'
+      ? '<span class="pill p-active" style="font-size:10px;">Approved</span>'
+      : status === 'pending'
+        ? '<span class="pill p-pending" style="font-size:10px;">Pending</span>'
+        : '<span class="pill p-suspended" style="font-size:10px;">Rejected</span>';
+    var saleMode = p.is_available
+      ? '<span style="color:#acd036;font-size:11px;font-weight:700;">Jual Terus</span>'
+      : p.is_preorder
+        ? '<span style="color:#7eb8f7;font-size:11px;font-weight:700;">Pre-Order</span>'
+        : '<span style="color:rgba(var(--text-rgb),0.3);font-size:11px;">—</span>';
+    var imgHtml = (p.images && p.images[0])
+      ? '<img src="' + esc(p.images[0]) + '" style="width:40px;height:40px;object-fit:cover;border-radius:7px;border:1px solid rgba(var(--border-rgb),0.08);">'
+      : '<div style="width:40px;height:40px;background:var(--surface-2);border-radius:7px;display:flex;align-items:center;justify-content:center;font-size:16px;">&#127873;</div>';
+
+    return '<tr>'
+      + '<td>' + imgHtml + '</td>'
+      + '<td><div class="td-shop" style="max-width:180px;" title="' + name + '">' + name + '</div>'
+      + '<div class="td-sub">' + category + '</div></td>'
+      + '<td class="td-cell">' + esc(listingType) + '</td>'
+      + '<td class="td-cell">' + shop + '</td>'
+      + '<td class="td-cell" style="font-weight:700;color:#acd036;">' + price + '</td>'
+      + '<td class="td-c">' + statusPill + '</td>'
+      + '<td class="td-c">' + saleMode + '</td>'
+      + '<td class="td-r">'
+      + '<button class="act-btn ab-e" onclick="openEditListing(\'' + esc(p.id) + '\')">&#9998; Edit</button>'
+      + '<button class="act-btn ab-b" onclick="openShopPreview(\'' + esc(p.seller_id) + '\')">&#128065; Shop</button>'
+      + '</td></tr>';
+  }).join('');
+  setHtml('listings-tbody', html);
+}
+
+/* ── Edit Listing Modal (category correction) ─────────────────────────────── */
+
+function populateCategoryOptions(listingType, currentCategory) {
+  var sel = document.getElementById('el-category');
+  if (!sel) return;
+  var cats = CATEGORIES_BY_TYPE[listingType] || [];
+  var html = cats.map(function(c) { return '<option value="' + esc(c) + '">' + esc(c) + '</option>'; }).join('');
+  if (currentCategory && cats.indexOf(currentCategory) === -1) {
+    html += '<option value="' + esc(currentCategory) + '">(legacy) ' + esc(currentCategory) + '</option>';
+  }
+  sel.innerHTML = html;
+  if (currentCategory) sel.value = currentCategory;
+}
+
+function onListingTypeChange() {
+  var typeSel = document.getElementById('el-listing-type');
+  if (!typeSel) return;
+  populateCategoryOptions(typeSel.value, null);
+}
+
+function openEditListing(id) {
+  if (!_data) return;
+  var product = (_data.products || []).find(function(p) { return p.id === id; });
+  if (!product) { alert('Listing tidak dijumpai.'); return; }
+
+  var get = function(fid) { return document.getElementById(fid); };
+  get('el-id').value = product.id || '';
+  get('el-name').value = product.name || '';
+  get('el-listing-type').value = product.listing_type || 'FOOD';
+  populateCategoryOptions(product.listing_type || 'FOOD', product.category || null);
+  get('el-price').value = product.price_from != null ? product.price_from : '';
+  get('el-unit').value = product.unit || '';
+  get('el-description').value = product.description || '';
+  get('el-status').value = product.status || 'pending';
+  get('el-available').checked = !!product.is_available;
+  get('el-preorder').checked = !!product.is_preorder;
+
+  document.getElementById('edit-listing-modal').classList.add('open');
+}
+
+function closeEditListing() {
+  document.getElementById('edit-listing-modal').classList.remove('open');
+}
+
+function submitEditListing() {
+  var id = (document.getElementById('el-id') || {}).value;
+  if (!id) return;
+
+  var price = (document.getElementById('el-price') || {}).value;
+
+  var payload = {
+    id: id,
+    name: ((document.getElementById('el-name') || {}).value || '').trim() || null,
+    listing_type: (document.getElementById('el-listing-type') || {}).value,
+    category: (document.getElementById('el-category') || {}).value,
+    price_from: price !== '' ? Number(price) : null,
+    unit: ((document.getElementById('el-unit') || {}).value || '').trim() || null,
+    description: ((document.getElementById('el-description') || {}).value || '').trim() || null,
+    status: (document.getElementById('el-status') || {}).value,
+    is_available: !!(document.getElementById('el-available') || {}).checked,
+    is_preorder: !!(document.getElementById('el-preorder') || {}).checked,
+  };
+
+  var btn = document.querySelector('#edit-listing-modal .btn-submit');
+  if (btn) { btn.textContent = 'Menyimpan...'; btn.disabled = true; }
+
+  fetch('/api/admin/edit-listing', {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload)
+  }).then(function(r) { return r.json(); }).then(function(d) {
+    if (btn) { btn.textContent = 'Simpan Perubahan'; btn.disabled = false; }
+    if (d.error) { alert('Ralat: ' + d.error); return; }
+    closeEditListing();
+    loadAdminData();
+  }).catch(function(e) {
+    if (btn) { btn.textContent = 'Simpan Perubahan'; btn.disabled = false; }
+    alert('Ralat rangkaian: ' + e.message);
+  });
+}
+
+/* ── Data Quality Center ──────────────────────────────────────────────────── */
+
+function filterDataQuality(el, f) {
+  _dqFilter = f;
+  document.querySelectorAll('#dq-filter .f-chip').forEach(function(c) { c.classList.remove('active'); });
+  el.classList.add('active');
+  renderDataQuality();
+}
+
+function renderDataQuality() {
+  if (!_data) return;
+  var warnings = _data.dataQualityWarnings || [];
+  var filtered = _dqFilter === 'all' ? warnings : warnings.filter(function(w) { return w.type === _dqFilter; });
+
+  setText('dq-count', filtered.length + ' amaran');
+
+  if (!filtered.length) {
+    setHtml('dq-list', '<div class="td-empty">&#10003; Tiada amaran data quality</div>');
+    return;
+  }
+
+  var typeLabel = {
+    seller_postcode: 'Postcode',
+    seller_business_type: 'Business Type',
+    seller_zero_listings: 'Zero Listing',
+    listing_type_mismatch: 'Type Mismatch',
+    listing_category_mismatch: 'Category Legacy',
+    listing_missing_type: 'Missing Type'
+  };
+
+  var html = filtered.map(function(w) {
+    var actionBtn = w.productId
+      ? '<button class="act-btn ab-e" onclick="openEditListing(\'' + esc(w.productId) + '\')">&#9998; Betulkan Listing</button>'
+      : w.sellerId
+        ? '<button class="act-btn ab-e" onclick="openEditSeller(\'' + esc(w.sellerId) + '\')">&#9998; Betulkan Seller</button>'
+        : '';
+    return '<div class="ri" style="padding:12px 20px;">'
+      + '<div class="ri-av" style="background:rgba(240,96,96,0.1);color:#f06060;">&#9888;</div>'
+      + '<div style="flex:1;"><div class="ri-name">' + esc(typeLabel[w.type] || w.type) + '</div>'
+      + '<div class="ri-sub">' + esc(w.message) + '</div></div>'
+      + actionBtn
+      + '</div>';
+  }).join('');
+  setHtml('dq-list', html);
+}
+
+/* ── Settings / System Info ───────────────────────────────────────────────── */
+
+function renderSettings() {
+  if (!_data) return;
+  var s = _data.stats || {};
+
+  setHtml('settings-db-health',
+    '<div class="sd-field"><div class="sd-field-lbl">Sellers</div><div class="sd-field-val">' + (s.totalSellers || 0) + ' rekod &mdash; OK</div></div>'
+    + '<div class="sd-field"><div class="sd-field-lbl">Products</div><div class="sd-field-val">' + (s.totalProducts || 0) + ' rekod &mdash; OK</div></div>'
+    + '<div class="sd-field"><div class="sd-field-lbl">Buyers</div><div class="sd-field-val">' + (s.totalBuyers || 0) + ' rekod &mdash; OK</div></div>'
+    + '<div class="sd-field"><div class="sd-field-lbl">Testimonials</div><div class="sd-field-val">' + (s.totalTestimonials || 0) + ' rekod &mdash; OK</div></div>'
+    + '<div class="sd-field"><div class="sd-field-lbl">Data Quality Warnings</div><div class="sd-field-val' + ((_data.dataQualityWarnings || []).length ? ' muted' : '') + '">' + (_data.dataQualityWarnings || []).length + ' amaran terbuka</div></div>'
+  );
+
+  var bt = s.sellersByBusinessType || {};
+  var pt = s.sellersByPlanType || {};
+  setHtml('settings-data-summary',
+    '<div class="ps-grid" style="grid-template-columns:repeat(4,1fr);margin-bottom:14px;">'
+    + ['FOOD', 'SERVICE', 'PRODUCT', 'HOMESTAY'].map(function(t) {
+      return '<div class="ps-card"><div class="ps-num" style="font-size:24px;">' + (bt[t] || 0) + '</div><div class="ps-lbl">' + t + '</div></div>';
+    }).join('')
+    + '</div>'
+    + '<div class="ps-line">Free plan: <strong>' + (pt.free || 0) + '</strong> &nbsp; | &nbsp; Pro plan: <strong>' + (pt.pro || 0) + '</strong></div>'
+    + '<div class="ps-line">Postcode bermasalah (00000/tidak sah): <strong style="color:#f0c040;">' + (s.postcodeWarningCount || 0) + '</strong></div>'
+  );
+}
+
+/* ── Admin Shop Preview ───────────────────────────────────────────────────── */
+
+function openShopPreview(sellerId) {
+  if (!sellerId) return;
+  _spSellerId = sellerId;
+  document.getElementById('shop-preview-modal').classList.add('open');
+  setHtml('sp-content', '<div class="td-empty">Memuatkan...</div>');
+
+  fetch('/api/admin/shop-preview?seller_id=' + encodeURIComponent(sellerId))
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+      if (data.error) {
+        setHtml('sp-content', '<div style="color:#f06060;padding:16px;font-size:13px;">Ralat: ' + esc(data.error) + '</div>');
+        return;
+      }
+      renderShopPreviewContent(data.seller, data.products || []);
+    })
+    .catch(function(e) {
+      setHtml('sp-content', '<div style="color:#f06060;padding:16px;font-size:13px;">Ralat rangkaian: ' + esc(e.message) + '</div>');
+    });
+}
+
+function closeShopPreview() {
+  document.getElementById('shop-preview-modal').classList.remove('open');
+  _spSellerId = null;
+}
+
+function renderShopPreviewContent(seller, products) {
+  var imgUrl = seller.profile_image_url;
+  var imgHtml = imgUrl
+    ? '<img src="' + esc(imgUrl) + '" style="width:72px;height:72px;border-radius:12px;object-fit:cover;border:1px solid rgba(var(--border-rgb),0.1);">'
+    : '<div style="width:72px;height:72px;border-radius:12px;background:var(--surface-2);display:flex;align-items:center;justify-content:center;font-size:26px;">&#127873;</div>';
+
+  var status = seller.status || 'pending';
+  var planType = seller.plan_type === 'pro' ? 'pro' : 'free';
+
+  var header = '<div style="display:flex;gap:16px;margin-bottom:18px;padding-bottom:18px;border-bottom:1px solid rgba(var(--border-rgb),0.07);">'
+    + imgHtml
+    + '<div style="flex:1;">'
+    + '<div style="font-size:17px;font-weight:800;color:var(--text);margin-bottom:4px;">' + esc(seller.shop_name || seller.name || '—') + '</div>'
+    + '<div style="font-size:12px;color:rgba(var(--text-rgb),0.45);margin-bottom:8px;">' + esc(seller.kawasan || '—') + ' &middot; Postcode: ' + esc(seller.postcode || '—') + '</div>'
+    + '<div style="display:flex;gap:6px;flex-wrap:wrap;">'
+    + '<span class="cnt">' + esc(seller.business_type || 'N/A') + '</span>'
+    + '<span class="cnt ' + (planType === 'pro' ? 'g' : '') + '">' + planType + '</span>'
+    + sdStatusPill(status)
+    + (seller.is_open ? '<span class="pill p-active">Buka</span>' : '<span class="pill p-deleted">Tutup</span>')
+    + '</div></div></div>';
+
+  var productCards = !products.length
+    ? '<div class="td-empty">Seller ini belum ada sebarang produk/listing.</div>'
+    : '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:12px;">' + products.map(function(p) {
+        var pImg = (p.images && p.images[0])
+          ? '<img src="' + esc(p.images[0]) + '" style="width:100%;height:90px;object-fit:cover;border-radius:8px 8px 0 0;">'
+          : '<div style="width:100%;height:90px;background:var(--surface-2);border-radius:8px 8px 0 0;display:flex;align-items:center;justify-content:center;font-size:22px;">&#127873;</div>';
+        var pPrice = p.price_from != null ? 'RM ' + Number(p.price_from).toFixed(2) : 'Ikut pesanan';
+        var pStatus = p.status === 'approved'
+          ? '<span class="pill p-active" style="font-size:9px;">Approved</span>'
+          : p.status === 'pending'
+            ? '<span class="pill p-pending" style="font-size:9px;">Pending</span>'
+            : '<span class="pill p-suspended" style="font-size:9px;">Rejected</span>';
+        return '<div style="background:var(--surface-1);border:1px solid rgba(var(--border-rgb),0.08);border-radius:8px;overflow:hidden;">'
+          + pImg
+          + '<div style="padding:8px 10px;">'
+          + '<div style="font-size:12px;font-weight:700;color:var(--text);">' + esc((p.name || p.category || '—').toString().slice(0, 22)) + '</div>'
+          + '<div style="font-size:10px;color:rgba(var(--text-rgb),0.4);margin-bottom:4px;">' + esc(p.listing_type || '—') + ' &middot; ' + esc(p.category || '—') + '</div>'
+          + '<div style="font-size:12px;font-weight:700;color:#acd036;margin-bottom:4px;">' + pPrice + '</div>'
+          + pStatus + (p.is_preorder ? ' <span style="font-size:9px;color:#7eb8f7;">PO</span>' : '')
+          + '</div></div>';
+      }).join('') + '</div>';
+
+  var actions = '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:16px;">'
+    + '<button class="btn btn-ghost" onclick="closeShopPreview();openEditSeller(\'' + esc(seller.id) + '\')" style="font-size:12px;">&#9998; Edit Seller</button>'
+    + (seller.whatsapp_number ? '<a class="btn btn-ghost" href="https://wa.me/' + esc(seller.whatsapp_number) + '" target="_blank" rel="noopener" style="font-size:12px;text-decoration:none;">&#128241; WhatsApp</a>' : '')
+    + '</div>';
+
+  setHtml('sp-content', header + '<div class="sd-section-title">Produk / Listing (' + products.length + ')</div>' + productCards + actions);
 }
 
 // Init

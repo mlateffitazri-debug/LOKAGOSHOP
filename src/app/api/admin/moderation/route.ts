@@ -1,6 +1,12 @@
 import { NextResponse } from 'next/server'
 import { requireAdmin } from '@/lib/admin/access'
 import { createAdminClient } from '@/lib/supabase/admin'
+import { BUSINESS_TYPE_OPTIONS, CATEGORIES_BY_BUSINESS_TYPE, PLAN_TYPE_OPTIONS, isBusinessType } from '@/lib/business-types'
+
+function isInvalidPostcode(postcode: unknown) {
+  const value = typeof postcode === 'string' ? postcode.trim() : ''
+  return !value || value === '00000' || !/^\d{5}$/.test(value)
+}
 
 type ModerationType = 'seller' | 'testimonial' | 'product' | 'complaint' | 'buyer'
 type ModerationAction =
@@ -49,6 +55,7 @@ export async function GET(request: Request) {
       testimonialsResult,
       savedShopsResult,
       pendingProductsResult,
+      allProductsResult,
       complaintsResult,
       supportStatsResult,
     ] = await Promise.all([
@@ -57,6 +64,7 @@ export async function GET(request: Request) {
       supabase.from('testimonials').select('*', { count: 'exact' }).order('created_at', { ascending: false }).range(page * PAGE_SIZE, (page + 1) * PAGE_SIZE - 1),
       supabase.from('saved_shops').select('*', { count: 'exact' }).order('created_at', { ascending: false }).range(page * PAGE_SIZE, (page + 1) * PAGE_SIZE - 1),
       supabase.from('products').select('*', { count: 'exact' }).eq('status', 'pending').order('created_at', { ascending: false }),
+      supabase.from('products').select('*', { count: 'exact' }).order('created_at', { ascending: false }).range(page * PAGE_SIZE, (page + 1) * PAGE_SIZE - 1),
       supabase.from('suspended_sellers').select('*', { count: 'exact' }).order('suspend_date', { ascending: false }).range(page * PAGE_SIZE, (page + 1) * PAGE_SIZE - 1),
       supabase.from('support_stats').select('qr_download_count').eq('id', 1).maybeSingle(),
     ])
@@ -65,6 +73,7 @@ export async function GET(request: Request) {
     const buyers = buyersResult.data ?? []
     const testimonials = testimonialsResult.data ?? []
     const savedShopsRaw = savedShopsResult.data ?? []
+    const allProducts = allProductsResult.data ?? []
 
     // Enrich saved_shops with buyer name and seller name
     const buyerMap: Record<string, string> = {}
@@ -101,12 +110,89 @@ export async function GET(request: Request) {
       .sort((a, b) => b[1] - a[1])
       .map(([area, count]) => ({ area, count }))
 
+    // ── Business type / plan type / postcode quality (Part 4 & 8) ───────────
+    const sellersByBusinessType: Record<string, number> = { FOOD: 0, SERVICE: 0, PRODUCT: 0, HOMESTAY: 0, UNKNOWN: 0 }
+    const sellersByPlanType: Record<string, number> = { free: 0, pro: 0 }
+    let postcodeWarningCount = 0
+    sellers.forEach((s) => {
+      const bt = s.business_type as string | null
+      sellersByBusinessType[isBusinessType(bt) ? bt : 'UNKNOWN']++
+      sellersByPlanType[s.plan_type === 'pro' ? 'pro' : 'free']++
+      if (isInvalidPostcode(s.postcode)) postcodeWarningCount++
+    })
+
+    const productsByListingType: Record<string, number> = { FOOD: 0, SERVICE: 0, PRODUCT: 0, HOMESTAY: 0, UNKNOWN: 0 }
+    const productsByCategory: Record<string, number> = {}
+    const productsByStatus: Record<string, number> = { pending: 0, approved: 0, rejected: 0 }
+    allProducts.forEach((p) => {
+      const lt = p.listing_type as string | null
+      productsByListingType[isBusinessType(lt) ? lt : 'UNKNOWN']++
+      const cat = (p.category as string) || 'Tiada Kategori'
+      productsByCategory[cat] = (productsByCategory[cat] || 0) + 1
+      const status = (p.status as string) || 'pending'
+      if (status in productsByStatus) productsByStatus[status]++
+    })
+
+    // Seller listing counts (for zero-listing warning) — derived from the products page already fetched
+    const listingCountBySeller: Record<string, number> = {}
+    allProducts.forEach((p) => {
+      const sid = p.seller_id as string
+      listingCountBySeller[sid] = (listingCountBySeller[sid] || 0) + 1
+    })
+
+    type DataQualityWarning = {
+      type: 'seller_postcode' | 'seller_business_type' | 'seller_zero_listings' | 'listing_type_mismatch' | 'listing_category_mismatch' | 'listing_missing_type'
+      sellerId?: string
+      sellerName?: string
+      productId?: string
+      productName?: string
+      message: string
+    }
+    const dataQualityWarnings: DataQualityWarning[] = []
+
+    sellers.forEach((s) => {
+      const name = (s.shop_name as string) || s.id
+      if (isInvalidPostcode(s.postcode)) {
+        dataQualityWarnings.push({ type: 'seller_postcode', sellerId: s.id, sellerName: name, message: `${name}: postcode tidak sah atau 00000` })
+      }
+      if (!isBusinessType(s.business_type as string | null)) {
+        dataQualityWarnings.push({ type: 'seller_business_type', sellerId: s.id, sellerName: name, message: `${name}: business_type tiada/tidak sah` })
+      }
+      if ((listingCountBySeller[s.id as string] || 0) === 0 && getSellerStatus(s) === 'active') {
+        dataQualityWarnings.push({ type: 'seller_zero_listings', sellerId: s.id, sellerName: name, message: `${name}: seller aktif tanpa sebarang produk/listing` })
+      }
+    })
+
+    const sellerBusinessTypeMap: Record<string, string | null> = {}
+    sellers.forEach((s) => { sellerBusinessTypeMap[s.id as string] = (s.business_type as string) || null })
+
+    allProducts.forEach((p) => {
+      const pname = (p.name as string) || (p.category as string) || p.id
+      const sellerName = sellerMap[p.seller_id as string] ?? p.seller_id
+
+      if (!isBusinessType(p.listing_type as string | null)) {
+        dataQualityWarnings.push({ type: 'listing_missing_type', sellerId: p.seller_id as string, sellerName, productId: p.id, productName: pname, message: `${pname} (${sellerName}): listing_type tiada/tidak sah` })
+        return
+      }
+
+      const sellerBt = sellerBusinessTypeMap[p.seller_id as string]
+      if (sellerBt && isBusinessType(sellerBt) && sellerBt !== p.listing_type) {
+        dataQualityWarnings.push({ type: 'listing_type_mismatch', sellerId: p.seller_id as string, sellerName, productId: p.id, productName: pname, message: `${pname} (${sellerName}): listing_type (${p.listing_type}) tidak sepadan dengan business_type seller (${sellerBt})` })
+      }
+
+      const validCategories = CATEGORIES_BY_BUSINESS_TYPE[p.listing_type as keyof typeof CATEGORIES_BY_BUSINESS_TYPE]
+      if (p.category && !validCategories.includes(p.category as string)) {
+        dataQualityWarnings.push({ type: 'listing_category_mismatch', sellerId: p.seller_id as string, sellerName, productId: p.id, productName: pname, message: `${pname} (${sellerName}): kategori "${p.category}" adalah legacy/tidak sepadan dengan listing_type ${p.listing_type}` })
+      }
+    })
+
     const warnings: string[] = [
       sellersResult.error?.message,
       buyersResult.error?.message,
       testimonialsResult.error?.message,
       savedShopsResult.error?.message,
       pendingProductsResult.error?.message,
+      allProductsResult.error?.message,
       complaintsResult.error?.message,
     ].filter(Boolean) as string[]
 
@@ -121,6 +207,7 @@ export async function GET(request: Request) {
       pendingTestimonials: testimonials.filter((t) => !(t.is_approved as boolean)),
       savedShops,
       pendingProducts: pendingProductsResult.data ?? [],
+      products: allProducts,
       complaints: complaintsResult.data ?? [],
       buyerCount: buyersResult.count ?? buyers.length,
       qrDownloadCount: supportStatsResult.data?.qr_download_count ?? 0,
@@ -130,12 +217,14 @@ export async function GET(request: Request) {
         totalSellers: sellersResult.count ?? 0,
         totalBuyers: buyersResult.count ?? 0,
         totalTestimonials: testimonialsResult.count ?? 0,
+        totalProducts: allProductsResult.count ?? 0,
       },
       stats: {
         totalSellers: sellersResult.count ?? sellers.length,
         totalBuyers: buyersResult.count ?? buyers.length,
         totalTestimonials: testimonialsResult.count ?? testimonials.length,
         totalSavedShops: savedShopsResult.count ?? savedShopsRaw.length,
+        totalProducts: allProductsResult.count ?? allProducts.length,
         sellersByStatus: {
           pending: pending.length,
           active: active.length,
@@ -144,7 +233,17 @@ export async function GET(request: Request) {
         },
         sellersByBadge: badgeCount,
         sellersByArea,
+        sellersByBusinessType,
+        sellersByPlanType,
+        postcodeWarningCount,
+        productsByListingType,
+        productsByCategory,
+        productsByStatus,
       },
+      businessTypeOptions: BUSINESS_TYPE_OPTIONS,
+      planTypeOptions: PLAN_TYPE_OPTIONS,
+      categoriesByBusinessType: CATEGORIES_BY_BUSINESS_TYPE,
+      dataQualityWarnings,
       warnings,
     })
   } catch (error) {
