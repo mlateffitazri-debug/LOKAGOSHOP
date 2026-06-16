@@ -96,7 +96,7 @@ export async function POST(request: Request) {
   if (!existingSeller) {
     const postcode = body.postcode?.trim() ?? ''
     if (!/^\d{5}$/.test(postcode) || postcode === '00000') {
-      return NextResponse.json({ error: 'Sila masukkan poskod sebenar. 00000 tidak dibenarkan.' }, { status: 400 })
+      return NextResponse.json({ error: 'Poskod anda membantu pembeli mengenalpasti kawasan jualan anda. Isikan dengan tepat.' }, { status: 400 })
     }
   }
 

@@ -61,7 +61,7 @@ const markup = `<div class="page">
   <div class="field-group">
     <div class="field-label">Masukkan Poskod Kawasan Anda</div>
     <input id="inp-postcode" class="field-input" type="text" inputmode="numeric" maxlength="5" placeholder="Contoh: 43000">
-    <div class="field-hint">Poskod sebenar 5 digit diperlukan. 00000 tidak dibenarkan.</div>
+    <div class="field-hint">Poskod anda membantu pembeli mengenalpasti kawasan jualan anda. Isikan dengan tepat.</div>
   </div>
 
   <!-- Map Pin -->
@@ -131,7 +131,7 @@ const saveScript = `window.__saveSellerStep1 = function() {
   }
 
   if (!/^\\d{5}$/.test(postcode) || postcode === '00000') {
-    alert('Sila masukkan poskod sebenar. 00000 tidak dibenarkan.');
+    alert('Poskod anda membantu pembeli mengenalpasti kawasan jualan anda. Isikan dengan tepat.');
     return;
   }
 
