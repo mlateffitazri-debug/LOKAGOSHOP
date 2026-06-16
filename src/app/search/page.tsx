@@ -137,6 +137,42 @@ export default function Page() {
 
       const sellers = (data ?? []) as Seller[]
 
+      // Discovery: also surface sellers whose listing name/category matches the
+      // query, even if their shop name/location doesn't. Respects the active
+      // category pill so results stay consistent with the filter row above.
+      if (query) {
+        const q = query.toLowerCase()
+        const matchedSellerIds = new Set(
+          products
+            .filter((product) => {
+              if (sellerIdsByCategory && !sellerIdsByCategory.includes(product.seller_id)) return false
+              const name = (product.name ?? '').toLowerCase()
+              const cat = (product.category ?? '').toLowerCase()
+              return name.includes(q) || cat.includes(q)
+            })
+            .map((product) => product.seller_id),
+        )
+
+        const existingIds = new Set(sellers.map((seller) => seller.id))
+        const extraIds = Array.from(matchedSellerIds).filter((id) => !existingIds.has(id))
+
+        if (extraIds.length) {
+          const { data: extraData } = await supabase
+            .from('sellers')
+            .select('*')
+            .eq('status', 'active')
+            .eq('is_open', true)
+            .in('id', extraIds)
+
+          for (const seller of (extraData ?? []) as Seller[]) {
+            if (!existingIds.has(seller.id)) {
+              sellers.push(seller)
+              existingIds.add(seller.id)
+            }
+          }
+        }
+      }
+
       if (count) {
         count.textContent = query
           ? `${sellers.length} kedai ditemui untuk "${query}"`

@@ -38,11 +38,30 @@ const markup = `<div class="page">
     <div class="field-hint">Nama yang akan dipaparkan kepada pembeli.</div>
   </div>
 
+  <!-- Jenis Perniagaan -->
+  <div class="field-group">
+    <div class="field-label">Pilih Jenis Perniagaan</div>
+    <select id="inp-business-type" class="field-input">
+      <option value="FOOD">Food</option>
+      <option value="SERVICE">Service</option>
+      <option value="PRODUCT">Product</option>
+      <option value="HOMESTAY">Homestay</option>
+    </select>
+    <div class="field-hint">Pelan percuma membenarkan satu jenis perniagaan sahaja buat masa ini.</div>
+  </div>
+
   <!-- Lokasi Taman -->
   <div class="field-group">
     <div class="field-label">Masukkan Lokasi Taman Kedai Anda</div>
     <input id="inp-taman" class="field-input" type="text" placeholder="Contoh: Taman Desa Baiduri">
     <div class="field-hint">Jika anda seorang tepi jalan, masukkan alamat jalan anda</div>
+  </div>
+
+  <!-- Poskod -->
+  <div class="field-group">
+    <div class="field-label">Masukkan Poskod Kawasan Anda</div>
+    <input id="inp-postcode" class="field-input" type="text" inputmode="numeric" maxlength="5" placeholder="Contoh: 43000">
+    <div class="field-hint">Poskod anda membantu pembeli mengenalpasti kawasan jualan anda. Isikan dengan tepat.</div>
   </div>
 
   <!-- Map Pin -->
@@ -102,9 +121,17 @@ const saveScript = `window.__saveSellerStep1 = function() {
   phoneRaw = phoneRaw ? phoneRaw.trim() : '';
   var email = (document.getElementById('inp-email') || {}).value;
   email = email ? email.trim() : '';
+  var businessType = (document.getElementById('inp-business-type') || {}).value || 'FOOD';
+  var postcode = (document.getElementById('inp-postcode') || {}).value;
+  postcode = postcode ? postcode.trim() : '';
 
   if (!shopName || !tamanName || !phoneRaw) {
     alert('Sila lengkapkan nama kedai, lokasi taman dan nombor WhatsApp.');
+    return;
+  }
+
+  if (!/^\\d{5}$/.test(postcode) || postcode === '00000') {
+    alert('Poskod anda membantu pembeli mengenalpasti kawasan jualan anda. Isikan dengan tepat.');
     return;
   }
 
@@ -113,15 +140,15 @@ const saveScript = `window.__saveSellerStep1 = function() {
     var proceed = confirm('Anda belum pin lokasi kedai pada peta. Pembeli tidak dapat lihat jarak ke kedai anda.\\n\\nTeruskan tanpa lokasi?');
     if (!proceed) return;
   }
-  var postcodeMatch = tamanName.match(/\\b\\d{5}\\b/);
 
   var data = {
     shop_name: shopName,
     taman_name: tamanName,
     kawasan: tamanName,
-    postcode: postcodeMatch ? postcodeMatch[0] : '00000',
+    postcode: postcode,
     whatsapp_number: phoneRaw,
     email: email,
+    business_type: businessType,
     latitude: pin.lat != null ? String(pin.lat) : null,
     longitude: pin.lng != null ? String(pin.lng) : null
   };

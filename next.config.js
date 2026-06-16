@@ -61,6 +61,18 @@ const securityHeaders = [
 ]
 
 const nextConfig = {
+  // Prevent webpack from bundling native modules — they must be require()'d at runtime
+  serverExternalPackages: ['sharp'],
+  experimental: {
+    // Force-include libvips .so files in the OG route's serverless function bundle.
+    // Without this, Vercel's file tracer omits the shared libraries that sharp needs.
+    outputFileTracingIncludes: {
+      '/api/og/**': [
+        './node_modules/@img/sharp-linux-x64/**/*',
+        './node_modules/@img/sharp-libvips-linux-x64/**/*',
+      ],
+    },
+  },
   images: {
     remotePatterns: [
       {
