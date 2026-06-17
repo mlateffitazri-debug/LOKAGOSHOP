@@ -51,6 +51,11 @@ const uxStyles = `
 .back-btn,.clear-btn,.icon-btn{min-width:44px;min-height:44px}
 .pill{min-height:44px;display:flex;align-items:center;font-weight:700}
 .shop-card{cursor:pointer}
+@media(max-width:499px){
+  body{padding:0;background:#F5F5F5;}
+  .phone{width:100%;border-radius:0;border:none;box-shadow:none;}
+  .scroll-area{height:100dvh;}
+}
 `
 
 export default function Page() {
