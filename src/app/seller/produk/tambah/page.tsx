@@ -245,7 +245,7 @@ export default function TambahProdukPage() {
       <div style={{ maxWidth: 430, margin: '0 auto' }}>
         {/* Header */}
         <div style={{ background: '#7B1533', padding: 'calc(env(safe-area-inset-top) + 14px) 20px 14px', display: 'flex', alignItems: 'center', gap: 12 }}>
-          <button onClick={() => window.history.back()} style={{ background: 'rgba(255,255,255,0.15)', border: 'none', borderRadius: '50%', width: 36, height: 36, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', flexShrink: 0 }}>
+          <button onClick={() => window.history.back()} style={{ background: 'rgba(255,255,255,0.15)', border: 'none', borderRadius: '50%', width: 44, height: 44, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', flexShrink: 0 }}>
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
           </button>
           <div>
@@ -268,15 +268,15 @@ export default function TambahProdukPage() {
                   {/* position badge */}
                   <div style={{ position: 'absolute', bottom: 3, left: 3, background: 'rgba(0,0,0,0.55)', borderRadius: 4, padding: '1px 5px', fontSize: 9, color: '#fff', fontWeight: 700 }}>{i + 1}</div>
                   {/* remove */}
-                  <button type="button" onClick={() => removeImage(i)} style={{ position: 'absolute', top: -6, right: -6, background: '#e44', border: '2px solid #fff', borderRadius: '50%', width: 20, height: 20, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', padding: 0, zIndex: 1 }}>
+                  <button type="button" onClick={() => removeImage(i)} style={{ position: 'absolute', top: -10, right: -10, background: '#e44', border: '2px solid #fff', borderRadius: '50%', width: 28, height: 28, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', padding: 0, zIndex: 1 }}>
                     <svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="3.5" strokeLinecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
                   </button>
                   {/* reorder arrows */}
                   <div style={{ position: 'absolute', top: -6, left: '50%', transform: 'translateX(-50%)', display: 'flex', gap: 2, zIndex: 1 }}>
-                    <button type="button" onClick={() => moveImage(i, -1)} disabled={i === 0} style={{ background: i === 0 ? '#ccc' : '#7B1533', border: '2px solid #fff', borderRadius: 4, width: 18, height: 18, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: i === 0 ? 'default' : 'pointer', padding: 0 }}>
+                    <button type="button" onClick={() => moveImage(i, -1)} disabled={i === 0} style={{ background: i === 0 ? '#ccc' : '#7B1533', border: '2px solid #fff', borderRadius: 4, width: 26, height: 26, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: i === 0 ? 'default' : 'pointer', padding: 0 }}>
                       <svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
                     </button>
-                    <button type="button" onClick={() => moveImage(i, 1)} disabled={i === imageFiles.length - 1} style={{ background: i === imageFiles.length - 1 ? '#ccc' : '#7B1533', border: '2px solid #fff', borderRadius: 4, width: 18, height: 18, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: i === imageFiles.length - 1 ? 'default' : 'pointer', padding: 0 }}>
+                    <button type="button" onClick={() => moveImage(i, 1)} disabled={i === imageFiles.length - 1} style={{ background: i === imageFiles.length - 1 ? '#ccc' : '#7B1533', border: '2px solid #fff', borderRadius: 4, width: 26, height: 26, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: i === imageFiles.length - 1 ? 'default' : 'pointer', padding: 0 }}>
                       <svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
                     </button>
                   </div>
