@@ -7,15 +7,10 @@ import { createClient as createServerClient } from '@/lib/supabase/server'
 // Safari) — so the limit must tolerate an uncompressed phone photo, matching
 // the client's own MAX_RAW_BYTES ceiling and the product-image route's limit.
 const MAX_IMAGE_BYTES = 10 * 1024 * 1024
-const ALLOWED_IMAGE_TYPES = new Set([
-  'image/jpeg',
-  'image/png',
-  'image/webp',
-  'image/heic',
-  'image/heif',
-])
 
-// Verify actual file content via magic bytes — client-supplied MIME type is untrusted
+// Verify actual file content via magic bytes — this is the authoritative type check.
+// Client-declared MIME type is untrusted: some Android gallery apps return 'image/jpg'
+// instead of 'image/jpeg', and some file pickers return 'application/octet-stream' or ''.
 async function detectImageType(file: File): Promise<string | null> {
   const buf = await file.slice(0, 12).arrayBuffer()
   const bytes = new Uint8Array(buf)
@@ -24,9 +19,11 @@ async function detectImageType(file: File): Promise<string | null> {
   // PNG: 89 50 4E 47
   if (bytes[0] === 0x89 && bytes[1] === 0x50 && bytes[2] === 0x4E && bytes[3] === 0x47) return 'image/png'
   // WebP: RIFF....WEBP
-  if (bytes[0] === 0x52 && bytes[1] === 0x49 && bytes[2] === 0x46 && bytes[3] === 0x46 &&
-      bytes[8] === 0x57 && bytes[9] === 0x45 && bytes[10] === 0x42 && bytes[11] === 0x50) return 'image/webp'
-  // HEIC/HEIF — no reliable magic bytes at offset 0, allow if declared and size is ok
+  if (
+    bytes[0] === 0x52 && bytes[1] === 0x49 && bytes[2] === 0x46 && bytes[3] === 0x46 &&
+    bytes[8] === 0x57 && bytes[9] === 0x45 && bytes[10] === 0x42 && bytes[11] === 0x50
+  ) return 'image/webp'
+  // HEIC/HEIF — no reliable magic bytes at offset 0; trust declared MIME type
   if (file.type === 'image/heic' || file.type === 'image/heif') return file.type
   return null
 }
@@ -51,13 +48,6 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Image file is required' }, { status: 400 })
   }
 
-  if (!ALLOWED_IMAGE_TYPES.has(file.type.toLowerCase())) {
-    return NextResponse.json(
-      { error: 'Only JPG, PNG, WebP or HEIC images are allowed' },
-      { status: 400 },
-    )
-  }
-
   if (file.size > MAX_IMAGE_BYTES) {
     return NextResponse.json(
       { error: `Image must be ${MAX_IMAGE_BYTES / (1024 * 1024)}MB or smaller` },
@@ -65,15 +55,37 @@ export async function POST(request: Request) {
     )
   }
 
-  const detectedType = await detectImageType(file)
-  if (!detectedType) {
+  // Quick MIME pre-filter: only block obviously non-image types (text/html, application/pdf etc).
+  // Allow 'image/*' variants (including 'image/jpg'), 'application/octet-stream', and blank —
+  // these are common Android fallbacks. Magic bytes below is the authoritative content check.
+  const mimeType = file.type.toLowerCase()
+  const mimeIsImageLike =
+    mimeType === '' ||
+    mimeType.startsWith('image/') ||
+    mimeType === 'application/octet-stream'
+
+  if (!mimeIsImageLike) {
     return NextResponse.json(
-      { error: 'File content does not match a supported image format' },
+      { error: 'Only image files are allowed' },
       { status: 400 },
     )
   }
 
-  const extMap: Record<string, string> = { 'image/webp': 'webp', 'image/png': 'png', 'image/heic': 'heic', 'image/heif': 'heif' }
+  // Magic bytes detection — validates actual file content regardless of declared MIME type.
+  const detectedType = await detectImageType(file)
+  if (!detectedType) {
+    return NextResponse.json(
+      { error: 'File content does not match a supported image format (JPG, PNG, WebP or HEIC)' },
+      { status: 400 },
+    )
+  }
+
+  const extMap: Record<string, string> = {
+    'image/webp': 'webp',
+    'image/png': 'png',
+    'image/heic': 'heic',
+    'image/heif': 'heif',
+  }
   const ext = extMap[detectedType] ?? 'jpg'
   const path = `sellers/${user.id}/${Date.now()}.${ext}`
 
