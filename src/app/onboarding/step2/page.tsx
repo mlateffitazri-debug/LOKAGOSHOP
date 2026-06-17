@@ -34,12 +34,12 @@ const styles = `:root{--c-primary:#7B1533;--c-primary-dark:#6A1029;--c-primary-l
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;-webkit-font-smoothing:antialiased;}
 body{background:#0a0a0a;min-height:100vh;font-family:'Plus Jakarta Sans',-apple-system,sans-serif;font-size:14px;color:var(--c-text);}
 .page{width:100%;max-width:430px;margin:0 auto;min-height:100vh;background:var(--c-bg);overflow:hidden;}
-@media(min-width:500px){body{padding:40px 20px;display:flex;justify-content:center;align-items:flex-start;}.page{min-height:auto;border-radius:36px;border:8px solid #1a1a1a;box-shadow:0 32px 80px rgba(0,0,0,0.7);}}
+@media(min-width:500px){body{padding:40px 20px;display:flex;justify-content:center;align-items:flex-start;}.page{min-height:auto;border-radius:36px;border:8px solid #1a1a1a;box-shadow:0 32px 80px rgba(0,0,0,0.7);}.scroll{height:812px;}}
 @media(min-width:1024px){body{align-items:center;padding:40px;min-height:100vh;}}
-.scroll{height:812px;overflow-y:auto;padding-bottom:32px;}.scroll::-webkit-scrollbar{display:none;}
+.scroll{height:100dvh;overflow-y:auto;overscroll-behavior-y:contain;-webkit-overflow-scrolling:touch;padding-bottom:env(safe-area-inset-bottom,32px);}.scroll::-webkit-scrollbar{display:none;}
 
 /* HEADER */
-.header{background:var(--c-primary);padding:14px 20px 12px;}
+.header{background:var(--c-primary);padding:calc(env(safe-area-inset-top,0px) + 14px) 20px 12px;}
 .header-r1{display:flex;align-items:center;justify-content:space-between;margin-bottom:3px;}
 .header-sub{font-size:11px;color:rgba(255,255,255,0.55);margin-bottom:10px;}
 .header-r2{display:flex;gap:8px;align-items:center;}
@@ -92,7 +92,7 @@ body{background:#0a0a0a;min-height:100vh;font-family:'Plus Jakarta Sans',-apple-
 .submit-btn::after{content:'';position:absolute;top:0;left:0;right:0;height:50%;background:linear-gradient(180deg,rgba(255,255,255,0.12) 0%,transparent 100%);border-radius:14px 14px 0 0;pointer-events:none;}
 .submit-btn:active{transform:scale(0.985);}
 .submit-note{font-size:11px;color:var(--c-hint);text-align:center;margin-top:10px;line-height:1.6;padding:0 8px;}
-.back-btn{width:32px;height:32px;border-radius:50%;background:rgba(255,255,255,0.15);border:none;display:flex;align-items:center;justify-content:center;cursor:pointer;flex-shrink:0;}
+.back-btn{width:44px;height:44px;border-radius:50%;background:rgba(255,255,255,0.15);border:none;display:flex;align-items:center;justify-content:center;cursor:pointer;flex-shrink:0;}
 .img-guide-text{font-size:12px;color:var(--c-hint);text-align:center;margin-bottom:12px;line-height:1.6;padding:0 4px;}`
 
 const markup = `<div class="page">
