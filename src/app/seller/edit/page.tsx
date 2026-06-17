@@ -12,6 +12,7 @@ const MAX_RAW_BYTES = 10 * 1024 * 1024
 type EditWindow = Window & {
   saveChanges?: () => Promise<void>
   setPickupInstruction?: (value: string) => void
+  __triggerEditImageUpload?: () => void
 }
 
 const styles = `:root{--c-primary:#7B1533;--c-primary-dark:#6A1029;--c-primary-lt:#8f1a3a;--c-accent:#ADD036;--c-bg:#F5F5F5;--c-surface:#FFFFFF;--c-border:#E5E5EA;--c-text:#111111;--c-text2:#555555;--c-text3:#888888;--c-hint:#BBBBBB;}
@@ -85,7 +86,7 @@ const markup = `<div class="page">
     </div>
     <div id="photoStatus" style="font-size:12px;color:#7B1533;font-weight:600;margin-top:8px;min-height:16px;"></div>
     <div class="photo-actions">
-      <button class="btn-change" onclick="document.getElementById('imgInput').click()">Tukar Gambar</button>
+      <button class="btn-change" onclick="window.__triggerEditImageUpload && window.__triggerEditImageUpload()">Tukar Gambar</button>
       <button class="btn-remove">Buang Gambar</button>
     </div>
     <input type="file" id="imgInput" accept="image/*" style="display:none;">
@@ -427,6 +428,14 @@ export default function Page() {
       showPhotoStatus(null)
     }
 
+    // Resets file input value before click so the same file can be re-selected
+    runtime.__triggerEditImageUpload = () => {
+      if (fileInput) {
+        fileInput.value = ''
+        fileInput.click()
+      }
+    }
+
     fileInput?.addEventListener('change', onImageChange)
     removeButton?.addEventListener('click', removeImage)
     pickup?.addEventListener('input', queuePickupSave)
@@ -443,6 +452,7 @@ export default function Page() {
       pickup?.removeEventListener('input', queuePickupSave)
       delete runtime.saveChanges
       delete runtime.setPickupInstruction
+      delete runtime.__triggerEditImageUpload
     }
   }, [])
 
