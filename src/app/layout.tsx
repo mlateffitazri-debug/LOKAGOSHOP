@@ -2,7 +2,7 @@ import type { Metadata, Viewport } from 'next'
 import '../styles/globals.css'
 import ServiceWorkerRegister from '@/components/ServiceWorkerRegister'
 
-const OG_IMAGE = '/assets/OG.png?v=2'
+const OG_IMAGE = '/assets/OG.png'
 const SITE_URL = 'https://lokalgo.app'
 
 export const metadata: Metadata = {
