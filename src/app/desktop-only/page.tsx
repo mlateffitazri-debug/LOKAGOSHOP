@@ -10,59 +10,55 @@ export default function DesktopOnlyPage() {
       <style dangerouslySetInnerHTML={{ __html: `
         @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800;900&display=swap');
 
-        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+        html, body {
+          margin: 0;
+          padding: 0;
+          background: #fff;
+          min-height: 100vh;
+        }
+
+        *, *::before, *::after { box-sizing: border-box; }
 
         .dop {
           background: #fff;
           font-family: 'Poppins', -apple-system, sans-serif;
           min-height: 100vh;
+          width: 100%;
           display: flex;
           align-items: center;
           justify-content: center;
-          padding: 60px 48px;
-          overflow: hidden;
+          padding: 60px 80px;
         }
 
         .dop__inner {
-          max-width: 1120px;
+          max-width: 1100px;
           width: 100%;
           display: flex;
           align-items: center;
           justify-content: space-between;
-          gap: 40px;
+          gap: 48px;
         }
 
         /* ── Left column ── */
         .dop__left {
           flex: 1;
           min-width: 0;
+          display: flex;
+          flex-direction: column;
+          align-items: flex-start;
         }
 
-        .dop__logo {
-          margin-bottom: 36px;
+        /* CSS wordmark — maroon + lime, works on white bg */
+        .dop__wordmark {
+          font-family: 'Poppins', sans-serif;
+          font-size: 36px;
+          font-weight: 900;
+          letter-spacing: -1px;
+          line-height: 1;
+          margin-bottom: 28px;
         }
-
-        .dop__logo img {
-          height: 52px;
-          width: auto;
-          /* logo is white text + lime green — needs dark bg to show lokal part */
-          /* We'll place it on a maroon pill */
-          display: block;
-        }
-
-        .dop__logo-wrap {
-          display: inline-block;
-          background: #7B1533;
-          padding: 10px 24px;
-          border-radius: 14px;
-          margin-bottom: 36px;
-        }
-
-        .dop__logo-wrap img {
-          height: 44px;
-          width: auto;
-          display: block;
-        }
+        .dop__wordmark-lokal { color: #7B1533; }
+        .dop__wordmark-go    { color: #acd036; }
 
         .dop__badge {
           display: inline-flex;
@@ -77,34 +73,33 @@ export default function DesktopOnlyPage() {
           border-radius: 100px;
           letter-spacing: 0.7px;
           text-transform: uppercase;
-          margin-bottom: 22px;
+          margin-bottom: 20px;
         }
 
         .dop__h1 {
-          font-size: 54px;
+          font-size: 52px;
           font-weight: 800;
           color: #7B1533;
           line-height: 1.1;
           letter-spacing: -1.5px;
-          margin-bottom: 20px;
+          margin: 0 0 18px;
         }
 
         .dop__desc {
-          font-size: 17px;
+          font-size: 16px;
           font-weight: 400;
-          color: #777;
+          color: #888;
           line-height: 1.75;
-          margin-bottom: 40px;
-          max-width: 420px;
+          margin: 0 0 36px;
+          max-width: 400px;
         }
 
-        /* CTA */
         .dop__cta {
           display: flex;
           align-items: center;
-          gap: 16px;
+          gap: 14px;
           flex-wrap: wrap;
-          margin-bottom: 36px;
+          margin-bottom: 32px;
         }
 
         .dop__btn {
@@ -117,11 +112,10 @@ export default function DesktopOnlyPage() {
           font-size: 15px;
           font-weight: 700;
           padding: 14px 28px;
-          border-radius: 14px;
+          border-radius: 12px;
           text-decoration: none;
-          letter-spacing: -0.1px;
+          white-space: nowrap;
         }
-
         .dop__btn:hover { background: #5e0f26; }
 
         .dop__tip {
@@ -131,18 +125,19 @@ export default function DesktopOnlyPage() {
           font-family: 'Poppins', sans-serif;
           font-size: 13px;
           font-weight: 600;
-          padding: 11px 18px;
+          padding: 11px 16px;
           border-radius: 12px;
+          white-space: nowrap;
         }
 
         .dop__footer {
           font-size: 13px;
           font-weight: 400;
-          color: #bbb;
+          color: #ccc;
           line-height: 1.6;
         }
 
-        /* ── Right column ── */
+        /* ── Right column — phone mockup ── */
         .dop__right {
           flex-shrink: 0;
           display: flex;
@@ -151,38 +146,44 @@ export default function DesktopOnlyPage() {
         }
 
         .dop__phone-img {
-          width: 340px;
+          /* The source PNG is tilted ~12° clockwise; rotate back to upright */
+          width: 320px;
           height: auto;
           display: block;
-          filter: drop-shadow(0 32px 64px rgba(123,21,51,0.18));
+          transform: rotate(-12deg);
+          filter: drop-shadow(0 24px 48px rgba(123,21,51,0.15));
         }
 
         /* ── Responsive ── */
         @media (max-width: 900px) {
-          .dop { padding: 48px 28px; }
-          .dop__inner { flex-direction: column-reverse; align-items: center; text-align: center; gap: 32px; }
-          .dop__h1 { font-size: 38px; letter-spacing: -1px; }
+          .dop { padding: 48px 32px; }
+          .dop__inner {
+            flex-direction: column-reverse;
+            align-items: center;
+            text-align: center;
+            gap: 32px;
+          }
+          .dop__left { align-items: center; }
+          .dop__h1 { font-size: 36px; }
           .dop__desc { max-width: 100%; }
           .dop__cta { justify-content: center; }
-          .dop__footer { text-align: center; }
-          .dop__phone-img { width: 260px; }
-          .dop__logo-wrap { margin-left: auto; margin-right: auto; }
+          .dop__phone-img { width: 240px; }
         }
 
         @media (max-width: 480px) {
-          .dop__h1 { font-size: 30px; }
-          .dop__phone-img { width: 210px; }
-          .dop__btn { font-size: 14px; padding: 13px 22px; }
+          .dop { padding: 40px 20px; }
+          .dop__h1 { font-size: 28px; }
+          .dop__phone-img { width: 200px; }
         }
       ` }} />
 
       <div className="dop">
         <div className="dop__inner">
 
-          {/* Left — text */}
+          {/* Left */}
           <div className="dop__left">
-            <div className="dop__logo-wrap">
-              <img src="/assets/logo-white.png" alt="LokalGo" />
+            <div className="dop__wordmark">
+              <span className="dop__wordmark-lokal">lokal</span><span className="dop__wordmark-go">go</span>
             </div>
 
             <div className="dop__badge">
@@ -203,7 +204,7 @@ export default function DesktopOnlyPage() {
             <div className="dop__cta">
               <a className="dop__btn" href="https://lokalgo.app">
                 Open lokalgo.app
-                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                   <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/>
                   <polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/>
                 </svg>
@@ -216,7 +217,7 @@ export default function DesktopOnlyPage() {
             </p>
           </div>
 
-          {/* Right — phone mockup */}
+          {/* Right */}
           <div className="dop__right">
             <img
               src="/assets/phone-mockup.png"
