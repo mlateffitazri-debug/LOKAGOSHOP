@@ -2,10 +2,36 @@ import type { Metadata, Viewport } from 'next'
 import '../styles/globals.css'
 import ServiceWorkerRegister from '@/components/ServiceWorkerRegister'
 
+const OG_IMAGE = '/assets/OG.png?v=2'
+const SITE_URL = 'https://lokalgo.app'
+
 export const metadata: Metadata = {
-  title: 'LokalGo™ Shop',
-  description: 'Platform perniagaan lokal setempat',
+  title: 'LokalGo™',
+  description: 'Temui peniaga lokal, makanan homemade, produk dan servis berdekatan anda.',
   manifest: '/manifest.json',
+  metadataBase: new URL(SITE_URL),
+  openGraph: {
+    title: 'LokalGo™',
+    description: 'Temui peniaga lokal, makanan homemade, produk dan servis berdekatan anda.',
+    url: SITE_URL,
+    siteName: 'LokalGo',
+    images: [
+      {
+        url: OG_IMAGE,
+        width: 1200,
+        height: 630,
+        alt: 'LokalGo — Peniaga Lokal Berdekatan Anda',
+      },
+    ],
+    locale: 'ms_MY',
+    type: 'website',
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: 'LokalGo™',
+    description: 'Temui peniaga lokal, makanan homemade, produk dan servis berdekatan anda.',
+    images: [OG_IMAGE],
+  },
   // iOS standalone PWA — fullscreen app feel when added to Home Screen
   appleWebApp: {
     capable: true,
