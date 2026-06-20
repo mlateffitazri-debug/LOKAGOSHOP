@@ -1,13 +1,11 @@
-export const PRODUCT_CATEGORIES = [
-  'Pastri & Kek',
-  'Set Makanan & Lauk',
-  'Frozen & Simpanan',
-  'Minuman',
-  'Fresh & Semulajadi',
-  'Snek',
-] as const
+import { CATEGORIES_BY_BUSINESS_TYPE } from '@/lib/business-types'
+import type { BusinessType, PlanType } from '@/lib/business-types'
 
-export type ProductCategory = typeof PRODUCT_CATEGORIES[number]
+// FOOD categories — kept for backward compatibility with existing call sites.
+// For business-type-aware category lists use CATEGORIES_BY_BUSINESS_TYPE / getCategoriesForBusinessType.
+export const PRODUCT_CATEGORIES = CATEGORIES_BY_BUSINESS_TYPE.FOOD
+
+export type ProductCategory = string
 
 export type BadgeLevel = 'seller_baharu' | 'seller_aktif' | 'verified_seller'
 export type ShopStatus = 'pending' | 'active' | 'suspended' | 'rejected'
@@ -31,6 +29,9 @@ export interface Seller {
   // Pin GPS kedai dari onboarding step 1 — boleh jadi string (lajur text) atau number
   latitude?: number | string | null
   longitude?: number | string | null
+  business_type?: BusinessType | null
+  plan_type?: PlanType | null
+  listing_limit?: number | null
   badge: BadgeLevel
   status: ShopStatus
   is_open: boolean
@@ -50,6 +51,7 @@ export interface Product {
   seller_id: string
   name?: string | null
   category: string
+  listing_type?: BusinessType | null
   description: string | null
   price_from: number | null
   unit?: string | null

@@ -1,13 +1,9 @@
-import { redirect } from 'next/navigation'
-import { createClient } from '@/lib/supabase/server'
+'use client'
 
-export default async function RootPage() {
-  const supabase = createClient()
-  const { data: { session } } = await supabase.auth.getSession()
+import { useRouter } from 'next/navigation'
+import { SplashScreen } from '@/components/SplashScreen'
 
-  if (session) {
-    redirect('/home')
-  } else {
-    redirect('/auth')
-  }
+export default function RootPage() {
+  const router = useRouter()
+  return <SplashScreen onDone={() => router.replace('/home')} />
 }

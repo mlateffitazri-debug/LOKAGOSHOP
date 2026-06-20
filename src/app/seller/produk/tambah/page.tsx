@@ -4,20 +4,31 @@ export const dynamic = 'force-dynamic'
 
 import { useEffect, useRef, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
-import { PRODUCT_CATEGORIES } from '@/types/database'
-import type { ProductCategory } from '@/types/database'
 import { compressImage } from '@/lib/compressImage'
+import {
+  DEFAULT_LISTING_LIMIT,
+  BUSINESS_TYPE_LABELS,
+  getCategoriesForBusinessType,
+  isListingLimitReached,
+  normalizeBusinessType,
+  normalizeListingLimit,
+  normalizePlanType,
+} from '@/lib/business-types'
 
 const MAX_IMAGES = 4
 
 export default function TambahProdukPage() {
   const [sellerId, setSellerId] = useState<string | null>(null)
   const [shopStatus, setShopStatus] = useState<string | null>(null)
+  const [sellerBusinessType, setSellerBusinessType] = useState('FOOD')
+  const [planType, setPlanType] = useState('free')
+  const [listingLimit, setListingLimit] = useState(DEFAULT_LISTING_LIMIT)
+  const [listingCount, setListingCount] = useState(0)
   const [loading, setLoading] = useState(true)
   const [compressing, setCompressing] = useState(false)
   const [submitting, setSubmitting] = useState(false)
   const [name, setName] = useState('')
-  const [category, setCategory] = useState<ProductCategory>(PRODUCT_CATEGORIES[0])
+  const [category, setCategory] = useState<string>(getCategoriesForBusinessType('FOOD')[0])
   const [description, setDescription] = useState('')
   const [priceFrom, setPriceFrom] = useState('')
   const [unit, setUnit] = useState('')
@@ -34,12 +45,25 @@ export default function TambahProdukPage() {
       if (!user) { window.location.href = '/auth'; return }
       const { data: seller } = await supabase
         .from('sellers')
-        .select('id, status')
+        .select('id, status, business_type, plan_type, listing_limit')
         .eq('user_id', user.id)
         .maybeSingle()
       if (!seller) { window.location.href = '/home'; return }
+
+      const { count } = await supabase
+        .from('products')
+        .select('id', { count: 'exact', head: true })
+        .eq('seller_id', seller.id)
+        .in('status', ['pending', 'approved'])
+
+      const businessType = normalizeBusinessType(seller.business_type)
       setSellerId(seller.id)
       setShopStatus(seller.status)
+      setSellerBusinessType(businessType)
+      setPlanType(normalizePlanType(seller.plan_type))
+      setListingLimit(normalizeListingLimit(seller.listing_limit))
+      setListingCount(count ?? 0)
+      setCategory(getCategoriesForBusinessType(businessType)[0])
       setLoading(false)
     }
     loadSeller().catch(console.error)
@@ -128,6 +152,11 @@ export default function TambahProdukPage() {
     if (!sellerId) return
     setError(null)
 
+    if (isListingLimitReached({ planType, listingLimit, listingCount })) {
+      setError('Free plan allows up to 5 listings only. Upgrade to LokalGo Pro to add more.')
+      return
+    }
+
     if (!name.trim()) { setError('Nama produk diperlukan.'); return }
     if (!priceFrom || isNaN(Number(priceFrom)) || Number(priceFrom) <= 0) {
       setError('Masukkan harga yang sah.'); return
@@ -151,19 +180,23 @@ export default function TambahProdukPage() {
         uploadedUrls.push(json.url)
       }
 
-      const { error: insertError } = await supabase.from('products').insert({
-        seller_id: sellerId,
-        name: name.trim(),
-        category,
-        description: description.trim() || null,
-        price_from: Number(priceFrom),
-        unit: unit.trim() || null,
-        images: uploadedUrls,
-        is_available: false,
-        is_preorder: false,
-        status: 'pending',
+      const res = await fetch('/api/seller/products', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(session?.access_token ? { 'Authorization': `Bearer ${session.access_token}` } : {}),
+        },
+        body: JSON.stringify({
+          name: name.trim(),
+          category,
+          description: description.trim() || null,
+          price_from: Number(priceFrom),
+          unit: unit.trim() || null,
+          images: uploadedUrls,
+        }),
       })
-      if (insertError) throw insertError
+      const json = await res.json() as { error?: string }
+      if (!res.ok) throw new Error(json.error ?? 'Gagal menghantar listing. Sila cuba lagi.')
 
       window.location.href = '/seller/dashboard'
     } catch (err) {
@@ -194,12 +227,25 @@ export default function TambahProdukPage() {
     )
   }
 
+  if (isListingLimitReached({ planType, listingLimit, listingCount })) {
+    return (
+      <div style={{ position: 'fixed', inset: 0, background: '#F5F5F5', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: 32, textAlign: 'center', fontFamily: "'Plus Jakarta Sans', sans-serif" }}>
+        <div style={{ fontSize: 40, marginBottom: 16 }}>+</div>
+        <div style={{ fontSize: 16, fontWeight: 700, color: '#111', marginBottom: 8 }}>Had listing dicapai</div>
+        <div style={{ fontSize: 13, color: '#555', lineHeight: 1.6, marginBottom: 24 }}>Free plan allows up to 5 listings only. Upgrade to LokalGo Pro to add more.</div>
+        <button onClick={() => window.location.href = '/seller/dashboard'} style={{ background: '#7B1533', color: '#fff', border: 'none', borderRadius: 12, padding: '12px 24px', fontSize: 14, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}>
+          Kembali ke Dashboard
+        </button>
+      </div>
+    )
+  }
+
   return (
     <div style={{ position: 'fixed', inset: 0, background: '#F5F5F5', overflowY: 'auto', fontFamily: "'Plus Jakarta Sans', sans-serif", paddingBottom: 'max(24px, env(safe-area-inset-bottom))' }}>
       <div style={{ maxWidth: 430, margin: '0 auto' }}>
         {/* Header */}
         <div style={{ background: '#7B1533', padding: 'calc(env(safe-area-inset-top) + 14px) 20px 14px', display: 'flex', alignItems: 'center', gap: 12 }}>
-          <button onClick={() => window.history.back()} style={{ background: 'rgba(255,255,255,0.15)', border: 'none', borderRadius: '50%', width: 36, height: 36, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', flexShrink: 0 }}>
+          <button onClick={() => window.history.back()} style={{ background: 'rgba(255,255,255,0.15)', border: 'none', borderRadius: '50%', width: 44, height: 44, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', flexShrink: 0 }}>
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
           </button>
           <div>
@@ -221,17 +267,23 @@ export default function TambahProdukPage() {
                   <img src={src} alt="" style={{ width: 96, height: 96, objectFit: 'cover', objectPosition: 'center', borderRadius: 10, display: 'block' }} />
                   {/* position badge */}
                   <div style={{ position: 'absolute', bottom: 3, left: 3, background: 'rgba(0,0,0,0.55)', borderRadius: 4, padding: '1px 5px', fontSize: 9, color: '#fff', fontWeight: 700 }}>{i + 1}</div>
-                  {/* remove */}
-                  <button type="button" onClick={() => removeImage(i)} style={{ position: 'absolute', top: -6, right: -6, background: '#e44', border: '2px solid #fff', borderRadius: '50%', width: 20, height: 20, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', padding: 0, zIndex: 1 }}>
-                    <svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="3.5" strokeLinecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                  {/* remove — 44×44 transparent hit area, 24px visual */}
+                  <button type="button" onClick={() => removeImage(i)} style={{ position: 'absolute', top: -22, right: -22, width: 44, height: 44, background: 'transparent', border: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', padding: 0, zIndex: 2 }}>
+                    <div style={{ background: '#e44', border: '2px solid #fff', borderRadius: '50%', width: 24, height: 24, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                      <svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="3.5" strokeLinecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                    </div>
                   </button>
-                  {/* reorder arrows */}
-                  <div style={{ position: 'absolute', top: -6, left: '50%', transform: 'translateX(-50%)', display: 'flex', gap: 2, zIndex: 1 }}>
-                    <button type="button" onClick={() => moveImage(i, -1)} disabled={i === 0} style={{ background: i === 0 ? '#ccc' : '#7B1533', border: '2px solid #fff', borderRadius: 4, width: 18, height: 18, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: i === 0 ? 'default' : 'pointer', padding: 0 }}>
-                      <svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+                  {/* reorder arrows — each 44×44 transparent hit area, 22px visual */}
+                  <div style={{ position: 'absolute', top: -22, left: '50%', transform: 'translateX(-50%)', display: 'flex', zIndex: 1 }}>
+                    <button type="button" onClick={() => moveImage(i, -1)} disabled={i === 0} style={{ width: 44, height: 44, background: 'transparent', border: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: i === 0 ? 'default' : 'pointer', padding: 0 }}>
+                      <div style={{ background: i === 0 ? '#ccc' : '#7B1533', border: '2px solid #fff', borderRadius: 4, width: 22, height: 22, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                        <svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+                      </div>
                     </button>
-                    <button type="button" onClick={() => moveImage(i, 1)} disabled={i === imageFiles.length - 1} style={{ background: i === imageFiles.length - 1 ? '#ccc' : '#7B1533', border: '2px solid #fff', borderRadius: 4, width: 18, height: 18, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: i === imageFiles.length - 1 ? 'default' : 'pointer', padding: 0 }}>
-                      <svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+                    <button type="button" onClick={() => moveImage(i, 1)} disabled={i === imageFiles.length - 1} style={{ width: 44, height: 44, background: 'transparent', border: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: i === imageFiles.length - 1 ? 'default' : 'pointer', padding: 0 }}>
+                      <div style={{ background: i === imageFiles.length - 1 ? '#ccc' : '#7B1533', border: '2px solid #fff', borderRadius: 4, width: 22, height: 22, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                        <svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+                      </div>
                     </button>
                   </div>
                 </div>
@@ -267,8 +319,8 @@ export default function TambahProdukPage() {
             </div>
             <div>
               <label style={{ fontSize: 12, fontWeight: 700, color: '#555', display: 'block', marginBottom: 5 }}>Kategori *</label>
-              <select value={category} onChange={(e) => setCategory(e.target.value as ProductCategory)} style={{ width: '100%', border: '1.5px solid #E5E5EA', borderRadius: 10, padding: '10px 12px', fontSize: 14, fontFamily: 'inherit', background: '#fff', outline: 'none', boxSizing: 'border-box' }}>
-                {PRODUCT_CATEGORIES.map((c) => (
+              <select value={category} onChange={(e) => setCategory(e.target.value)} style={{ width: '100%', border: '1.5px solid #E5E5EA', borderRadius: 10, padding: '10px 12px', fontSize: 14, fontFamily: 'inherit', background: '#fff', outline: 'none', boxSizing: 'border-box' }}>
+                {getCategoriesForBusinessType(sellerBusinessType).map((c) => (
                   <option key={c} value={c}>{c}</option>
                 ))}
               </select>
@@ -293,7 +345,7 @@ export default function TambahProdukPage() {
 
           {/* Info note */}
           <div style={{ background: '#FFF8E7', border: '1px solid #FFE0A3', borderRadius: 12, padding: '10px 14px', marginBottom: 16, fontSize: 12, color: '#7A5800', lineHeight: 1.6 }}>
-            Produk akan disemak oleh admin sebelum dipaparkan kepada pembeli. Status <strong>Dalam Semakan</strong> akan terpapar di dashboard anda.
+            Produk akan disemak oleh admin sebelum dipaparkan kepada pembeli. Status <strong>Dalam Semakan</strong> akan terpapar di dashboard anda. Jenis listing: <strong>{BUSINESS_TYPE_LABELS[normalizeBusinessType(sellerBusinessType)]}</strong>.
           </div>
 
           {error && (

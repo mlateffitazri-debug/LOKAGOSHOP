@@ -5,26 +5,41 @@ import { createClient } from '@/lib/supabase/client'
 import { HtmlPrototypePage } from '@/components/shared/HtmlPrototypePage'
 import { compressImage } from '@/lib/compressImage'
 
-const ALLOWED_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/heic', 'image/heif']
+// --- Client-side MIME pre-filter ---
+// 'image/jpg' is a common Android variant of 'image/jpeg'.
+// Empty string and 'application/octet-stream' are allowed through so the server's
+// magic-bytes check makes the authoritative type decision.
+const ALLOWED_TYPES = [
+  'image/jpeg',
+  'image/jpg',
+  'image/png',
+  'image/webp',
+  'image/heic',
+  'image/heif',
+]
 const MAX_RAW_BYTES = 10 * 1024 * 1024
+
+type UploadState = 'idle' | 'uploading' | 'success' | 'failed'
 
 type OnboardingWindow = Window & {
   __submitSellerOnboarding?: () => void
   __handleImageFile?: (file: File) => Promise<void>
   __showImagePreview?: (dataUrl: string) => void
   __getImgPos?: () => { x: number; y: number }
+  __triggerImageUpload?: () => void
+  __resetImagePos?: () => void
 }
 
 const styles = `:root{--c-primary:#7B1533;--c-primary-dark:#6A1029;--c-primary-lt:#8f1a3a;--c-accent:#ADD036;--c-bg:#F5F5F5;--c-surface:#FFFFFF;--c-border:#E5E5EA;--c-text:#111111;--c-text2:#555555;--c-text3:#888888;--c-hint:#BBBBBB;}
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;-webkit-font-smoothing:antialiased;}
 body{background:#0a0a0a;min-height:100vh;font-family:'Plus Jakarta Sans',-apple-system,sans-serif;font-size:14px;color:var(--c-text);}
 .page{width:100%;max-width:430px;margin:0 auto;min-height:100vh;background:var(--c-bg);overflow:hidden;}
-@media(min-width:500px){body{padding:40px 20px;display:flex;justify-content:center;align-items:flex-start;}.page{min-height:auto;border-radius:36px;border:8px solid #1a1a1a;box-shadow:0 32px 80px rgba(0,0,0,0.7);}}
+@media(min-width:500px){body{padding:40px 20px;display:flex;justify-content:center;align-items:flex-start;}.page{min-height:auto;border-radius:36px;border:8px solid #1a1a1a;box-shadow:0 32px 80px rgba(0,0,0,0.7);}.scroll{height:812px;}}
 @media(min-width:1024px){body{align-items:center;padding:40px;min-height:100vh;}}
-.scroll{height:812px;overflow-y:auto;padding-bottom:32px;}.scroll::-webkit-scrollbar{display:none;}
+.scroll{height:100dvh;overflow-y:auto;overscroll-behavior-y:contain;-webkit-overflow-scrolling:touch;padding-bottom:env(safe-area-inset-bottom,32px);}.scroll::-webkit-scrollbar{display:none;}
 
 /* HEADER */
-.header{background:var(--c-primary);padding:14px 20px 12px;}
+.header{background:var(--c-primary);padding:calc(env(safe-area-inset-top,0px) + 14px) 20px 12px;}
 .header-r1{display:flex;align-items:center;justify-content:space-between;margin-bottom:3px;}
 .header-sub{font-size:11px;color:rgba(255,255,255,0.55);margin-bottom:10px;}
 .header-r2{display:flex;gap:8px;align-items:center;}
@@ -50,27 +65,18 @@ body{background:#0a0a0a;min-height:100vh;font-family:'Plus Jakarta Sans',-apple-
 
 /* IMAGE PREVIEW FRAME */
 .img-preview-wrap{width:100%;border-radius:14px;overflow:hidden;border:2px solid var(--c-primary);}
-.img-preview-frame{width:100%;height:150px;background-size:cover;background-position:50% 50%;background-color:#f0f0f0;}
-.pos-btns{display:flex;background:#f9f9f9;border-top:1px solid #eee;}
-.pos-btn{flex:1;border:none;border-right:1px solid #eee;background:transparent;padding:11px 8px;font-size:12px;font-weight:600;color:#666;font-family:inherit;cursor:pointer;min-height:44px;}
-.pos-btn:last-child{border-right:none;}
-.pos-btn.pos-btn-active{color:var(--c-primary);background:#fff5f7;}
-.btn-change-img{width:100%;border:none;background:var(--c-primary);color:#fff;font-size:13px;font-weight:600;font-family:inherit;padding:12px;cursor:pointer;min-height:44px;}
+.img-preview-frame{width:100%;height:150px;background-size:cover;background-position:50% 50%;background-color:#f0f0f0;cursor:grab;user-select:none;touch-action:none;position:relative;}
+.img-preview-frame:active{cursor:grabbing;}
+.drag-hint{position:absolute;bottom:8px;left:50%;transform:translateX(-50%);background:rgba(0,0,0,0.5);color:#fff;font-size:10px;font-weight:600;padding:4px 10px;border-radius:10px;pointer-events:none;white-space:nowrap;}
+.img-helper{font-size:11px;color:var(--c-hint);text-align:center;padding:8px 12px;background:#f9f9f9;border-top:1px solid #eee;line-height:1.5;}
+.preview-actions{display:flex;border-top:1px solid #eee;}
+.btn-change-img{flex:1;border:none;background:var(--c-primary);color:#fff;font-size:13px;font-weight:600;font-family:inherit;padding:12px;cursor:pointer;min-height:44px;}
+.btn-reset-pos{width:110px;flex-shrink:0;border:none;border-left:1px solid rgba(255,255,255,0.2);background:#666;color:#fff;font-size:12px;font-weight:600;font-family:inherit;padding:12px 8px;cursor:pointer;min-height:44px;}
 
 /* DESCRIPTION */
 .desc-input{width:100%;border:1.5px solid var(--c-border);border-radius:10px;padding:12px 14px;font-size:14px;color:var(--c-text);outline:none;background:#fff;font-family:inherit;resize:none;height:90px;line-height:1.6;transition:border 0.2s;}
 .desc-input:focus{border-color:var(--c-primary);}
 .desc-input::placeholder{color:var(--c-hint);}
-
-/* CATEGORY GRID */
-.cat-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
-.cat-item{display:flex;align-items:center;gap:10px;background:#fff;border:1.5px solid var(--c-border);border-radius:10px;padding:12px;cursor:pointer;transition:all 0.15s;}
-.cat-item.selected{border-color:var(--c-primary);background:#fff5f7;}
-.cat-checkbox{width:20px;height:20px;border-radius:5px;border:1.5px solid var(--c-border);display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:all 0.15s;}
-.cat-item.selected .cat-checkbox{background:var(--c-primary);border-color:var(--c-primary);}
-.cat-name{font-size:13px;font-weight:600;color:var(--c-text);}
-.cat-item.selected .cat-name{color:var(--c-primary);}
-.cat-full{grid-column:1/-1;}
 
 /* AGREE */
 .agree-wrap{background:#fff;border:1.5px solid var(--c-border);border-radius:12px;padding:14px;display:flex;gap:12px;align-items:flex-start;cursor:pointer;}
@@ -86,7 +92,7 @@ body{background:#0a0a0a;min-height:100vh;font-family:'Plus Jakarta Sans',-apple-
 .submit-btn::after{content:'';position:absolute;top:0;left:0;right:0;height:50%;background:linear-gradient(180deg,rgba(255,255,255,0.12) 0%,transparent 100%);border-radius:14px 14px 0 0;pointer-events:none;}
 .submit-btn:active{transform:scale(0.985);}
 .submit-note{font-size:11px;color:var(--c-hint);text-align:center;margin-top:10px;line-height:1.6;padding:0 8px;}
-.back-btn{width:32px;height:32px;border-radius:50%;background:rgba(255,255,255,0.15);border:none;display:flex;align-items:center;justify-content:center;cursor:pointer;flex-shrink:0;}
+.back-btn{width:44px;height:44px;border-radius:50%;background:rgba(255,255,255,0.15);border:none;display:flex;align-items:center;justify-content:center;cursor:pointer;flex-shrink:0;}
 .img-guide-text{font-size:12px;color:var(--c-hint);text-align:center;margin-bottom:12px;line-height:1.6;padding:0 4px;}`
 
 const markup = `<div class="page">
@@ -118,7 +124,7 @@ const markup = `<div class="page">
     <div class="field-label">Gambar Profil Kedai</div>
     <div class="img-guide-text">Gunakan gambar square 1:1 untuk hasil terbaik. Cadangan minimum 800×800px. Elakkan screenshot kecil atau gambar terlalu rendah resolusi.</div>
     <input type="file" id="imgInput" accept="image/*,.heic,.heif" style="display:none;">
-    <div class="upload-box" id="uploadBox" onclick="document.getElementById('imgInput').click()">
+    <div class="upload-box" id="uploadBox" onclick="window.__triggerImageUpload && window.__triggerImageUpload()">
       <div class="upload-icon">
         <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#aaa" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
       </div>
@@ -126,52 +132,22 @@ const markup = `<div class="page">
       <div class="upload-hint">JPG atau PNG • Maksimum 10MB</div>
     </div>
     <div class="img-preview-wrap" id="imgPreviewWrap" style="display:none;">
-      <div class="img-preview-frame" id="imgPreviewFrame"></div>
-      <div class="pos-btns">
-        <button type="button" class="pos-btn" onclick="setImgPos(50,15)">Atas</button>
-        <button type="button" class="pos-btn pos-btn-active" onclick="setImgPos(50,50)">Tengah</button>
-        <button type="button" class="pos-btn" onclick="setImgPos(50,85)">Bawah</button>
+      <div class="img-preview-frame" id="imgPreviewFrame">
+        <div class="drag-hint">Drag untuk laras posisi</div>
       </div>
-      <button type="button" class="btn-change-img" onclick="document.getElementById('imgInput').click()">Tukar gambar</button>
+      <div class="img-helper">Drag gambar untuk pilih bahagian yang mahu dipaparkan. Gambar ini akan digunakan di Home dan halaman kedai anda.</div>
+      <div class="preview-actions">
+        <button type="button" class="btn-change-img" onclick="window.__triggerImageUpload && window.__triggerImageUpload()">Tukar Gambar</button>
+        <button type="button" class="btn-reset-pos" onclick="window.__resetImagePos && window.__resetImagePos()">Reset Posisi</button>
+      </div>
     </div>
-    <div id="imgStatus" style="font-size:12px;color:#7B1533;font-weight:600;margin-top:8px;min-height:16px;text-align:center;"></div>
+    <div id="imgStatus" style="font-size:12px;font-weight:600;margin-top:8px;text-align:center;border-radius:8px;min-height:0;"></div>
   </div>
 
   <!-- Penerangan -->
   <div>
     <div class="field-label">Penerangan Kedai</div>
     <textarea class="desc-input" placeholder="Ceritakan apa yang anda jual dikedai anda disini!"></textarea>
-  </div>
-
-  <!-- Kategori -->
-  <div>
-    <div class="field-label">Kategori Produk</div>
-    <div class="cat-grid">
-      <div class="cat-item" onclick="toggleCat(this)">
-        <div class="cat-checkbox"></div>
-        <span class="cat-name">Pastri &amp; Kek</span>
-      </div>
-      <div class="cat-item" onclick="toggleCat(this)">
-        <div class="cat-checkbox"></div>
-        <span class="cat-name">Set Makanan &amp; Lauk</span>
-      </div>
-      <div class="cat-item" onclick="toggleCat(this)">
-        <div class="cat-checkbox"></div>
-        <span class="cat-name">Frozen &amp; Simpanan</span>
-      </div>
-      <div class="cat-item" onclick="toggleCat(this)">
-        <div class="cat-checkbox"></div>
-        <span class="cat-name">Minuman</span>
-      </div>
-      <div class="cat-item" onclick="toggleCat(this)">
-        <div class="cat-checkbox"></div>
-        <span class="cat-name">Fresh &amp; Semulajadi</span>
-      </div>
-      <div class="cat-item cat-full" onclick="toggleCat(this)">
-        <div class="cat-checkbox"></div>
-        <span class="cat-name">Snek</span>
-      </div>
-    </div>
   </div>
 
   <!-- Agree -->
@@ -190,38 +166,14 @@ const markup = `<div class="page">
     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
     Hantar permohonan
   </button>
-  <div class="submit-note">Admin akan menghubungi anda dalam masa 24 jam melalui WhatsApp untuk sesi video call 5 minit.</div>
+  <div class="submit-note">Admin akan menyemak permohonan anda dalam masa 3-5 hari bekerja.</div>
 </div>
 
 </div>
 </div>`
 
+// Only toggleAgree remains as vanilla JS — position tracking moved to TypeScript useEffect
 const scripts: string[] = [`
-var imgPosX = 50, imgPosY = 50;
-
-function setImgPos(x, y) {
-  imgPosX = x; imgPosY = y;
-  var frame = document.getElementById('imgPreviewFrame');
-  if (frame) frame.style.backgroundPosition = x + '% ' + y + '%';
-  var btns = document.querySelectorAll('.pos-btn');
-  btns.forEach(function(b) { b.classList.remove('pos-btn-active'); });
-  if (y <= 25) { if (btns[0]) btns[0].classList.add('pos-btn-active'); }
-  else if (y >= 75) { if (btns[2]) btns[2].classList.add('pos-btn-active'); }
-  else { if (btns[1]) btns[1].classList.add('pos-btn-active'); }
-}
-
-function toggleCat(el) {
-  var selected = document.querySelectorAll('.cat-item.selected').length;
-  if (el.classList.contains('selected')) {
-    el.classList.remove('selected');
-    el.querySelector('.cat-checkbox').innerHTML = '';
-  } else {
-    if (selected >= 5) { alert('Maksimum 5 kategori sahaja.'); return; }
-    el.classList.add('selected');
-    el.querySelector('.cat-checkbox').innerHTML = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>';
-  }
-}
-
 function toggleAgree() {
   var wrap = document.getElementById('agreeWrap');
   var box = document.getElementById('agreeBox');
@@ -238,55 +190,107 @@ export default function Page() {
   useEffect(() => {
     let authCancelled = false
     let profileImageUrl: string | null = null
-    const supabase = createClient()
+    let uploadState: UploadState = 'idle'
+    let posX = 50
+    let posY = 50
+    let isDragging = false
+    let dragStartClientX = 0
+    let dragStartClientY = 0
+    let dragStartPosX = 50
+    let dragStartPosY = 50
 
-    function showImgStatus(msg: string | null) {
+    const supabase = createClient()
+    const previewFrame = document.querySelector<HTMLElement>('#imgPreviewFrame')
+
+    function applyPosition() {
+      if (previewFrame) previewFrame.style.backgroundPosition = `${posX}% ${posY}%`
+    }
+
+    function showImgStatus(msg: string | null, state: UploadState = 'idle') {
       const el = document.querySelector<HTMLElement>('#imgStatus')
-      if (el) el.textContent = msg ?? ''
+      if (!el) return
+      el.textContent = msg ?? ''
+      if (!msg) {
+        el.style.cssText = 'font-size:12px;font-weight:600;margin-top:8px;text-align:center;border-radius:8px;min-height:0;'
+        return
+      }
+      if (state === 'success') {
+        el.style.cssText = 'font-size:12px;font-weight:600;margin-top:8px;text-align:center;border-radius:8px;padding:10px 12px;color:#3B6D11;background:#EAF3DE;border:1px solid #C5E1A5;'
+      } else if (state === 'failed') {
+        el.style.cssText = 'font-size:12px;font-weight:600;margin-top:8px;text-align:center;border-radius:8px;padding:10px 12px;color:#A32D2D;background:#FFF0F3;border:1px solid #F3C4D2;'
+      } else if (state === 'uploading') {
+        el.style.cssText = 'font-size:12px;font-weight:600;margin-top:8px;text-align:center;border-radius:8px;padding:10px 12px;color:#7B1533;background:#FFF8F9;border:1px solid #F3C4D2;'
+      } else {
+        el.style.cssText = 'font-size:12px;font-weight:600;margin-top:8px;text-align:center;border-radius:8px;min-height:0;'
+      }
     }
 
     async function handleImageFile(file: File) {
-      if (!ALLOWED_TYPES.includes(file.type.toLowerCase())) {
-        showImgStatus('Format gambar tidak disokong. Sila tukar ke JPG.')
-        return
-      }
-      if (file.size > MAX_RAW_BYTES) {
-        showImgStatus('Gambar terlalu besar (max 10MB)')
+      // MIME pre-filter: accept known image MIME types, Android variants (image/jpg),
+      // and ambiguous types (octet-stream, blank) — server magic bytes is authoritative
+      const mime = file.type.toLowerCase()
+      const mimeOk =
+        mime === '' ||
+        mime === 'application/octet-stream' ||
+        ALLOWED_TYPES.includes(mime)
+
+      if (!mimeOk) {
+        showImgStatus('⚠️ Format gambar tidak disokong. Sila gunakan JPG, PNG, atau WebP.', 'failed')
         return
       }
 
-      // Show preview immediately; check dimensions for quality warning (non-blocking)
+      if (file.size > MAX_RAW_BYTES) {
+        showImgStatus('⚠️ Gambar terlalu besar (maksimum 10MB)', 'failed')
+        return
+      }
+
+      // Reset upload state when new file is chosen
+      profileImageUrl = null
+      uploadState = 'uploading'
+
+      // Show preview immediately from local file (non-blocking)
       const reader = new FileReader()
       reader.onload = (e) => {
         const dataUrl = e.target?.result as string
         if (!dataUrl) return
         ;(window as OnboardingWindow).__showImagePreview?.(dataUrl)
+        // Quality warning — only shown if still uploading (not failed/success yet)
         const img = new window.Image()
         img.onload = () => {
           if (img.naturalWidth > 0 && (img.naturalWidth < 600 || img.naturalHeight < 600)) {
-            showImgStatus('⚠️ Gambar ini mungkin kelihatan pecah. Untuk hasil terbaik, gunakan gambar sekurang-kurangnya 800×800px.')
+            if (uploadState === 'uploading') {
+              showImgStatus('⚠️ Gambar ini mungkin kelihatan pecah. Untuk hasil terbaik, gunakan gambar sekurang-kurangnya 800×800px.', 'uploading')
+            }
           }
         }
         img.src = dataUrl
       }
       reader.readAsDataURL(file)
 
-      showImgStatus('Memampatkan gambar...')
+      showImgStatus('Memampatkan gambar...', 'uploading')
 
       let compressed: File
       try {
-        compressed = await compressImage(file, 'shop_profile')
+        // HEIC/HEIF: pass through — browser-image-compression cannot decode HEIC outside Safari
+        compressed = (mime === 'image/heic' || mime === 'image/heif')
+          ? file
+          : await compressImage(file, 'shop_profile')
       } catch {
-        showImgStatus('Format gambar tidak disokong. Sila tukar ke JPG.')
+        uploadState = 'failed'
+        showImgStatus('⚠️ Format gambar tidak dapat diproses. Sila tukar ke JPG atau PNG.', 'failed')
         return
       }
 
-      showImgStatus('Memuat naik...')
+      showImgStatus('Memuat naik gambar...', 'uploading')
 
       try {
         const { data: { session } } = await supabase.auth.getSession()
         const token = session?.access_token
-        if (!token) { showImgStatus('Sila log masuk semula.'); return }
+        if (!token) {
+          uploadState = 'failed'
+          showImgStatus('⚠️ Sesi tamat. Sila muat semula halaman ini.', 'failed')
+          return
+        }
 
         const form = new FormData()
         form.append('file', compressed)
@@ -299,20 +303,24 @@ export default function Page() {
         const json = await res.json() as { url?: string; error?: string }
 
         if (!res.ok) {
-          showImgStatus(`Gagal memuat naik: ${json.error ?? 'Sila cuba semula'}`)
+          uploadState = 'failed'
+          showImgStatus(`⚠️ Gagal memuat naik: ${json.error ?? 'Sila cuba semula'}`, 'failed')
           return
         }
 
         profileImageUrl = json.url ?? null
-        showImgStatus('✓ Gambar berjaya dimuat naik')
+        uploadState = 'success'
+        showImgStatus('✓ Gambar berjaya dimuat naik', 'success')
       } catch (e) {
-        showImgStatus('Gagal memuat naik. Periksa sambungan internet anda.')
+        uploadState = 'failed'
+        showImgStatus('⚠️ Gagal memuat naik. Periksa sambungan internet anda.', 'failed')
         console.error(e)
       }
     }
 
-    // Set window helpers — called from TypeScript, cleaned up on unmount
+    // ── Window helpers ───────────────────────────────────────────────────
     ;(window as OnboardingWindow).__handleImageFile = handleImageFile
+
     ;(window as OnboardingWindow).__showImagePreview = (dataUrl: string) => {
       const box = document.querySelector<HTMLElement>('#uploadBox')
       const wrap = document.querySelector<HTMLElement>('#imgPreviewWrap')
@@ -321,11 +329,25 @@ export default function Page() {
       if (wrap) wrap.style.display = ''
       if (frame) frame.style.backgroundImage = `url("${dataUrl}")`
     }
-    ;(window as OnboardingWindow).__getImgPos = () => {
-      const w = window as Window & { imgPosX?: number; imgPosY?: number }
-      return { x: w.imgPosX ?? 50, y: w.imgPosY ?? 50 }
+
+    ;(window as OnboardingWindow).__getImgPos = () => ({ x: posX, y: posY })
+
+    // Triggers file picker after resetting value — allows re-selecting the same file
+    ;(window as OnboardingWindow).__triggerImageUpload = () => {
+      const fi = document.querySelector<HTMLInputElement>('#imgInput')
+      if (fi) {
+        fi.value = ''
+        fi.click()
+      }
     }
 
+    ;(window as OnboardingWindow).__resetImagePos = () => {
+      posX = 50
+      posY = 50
+      applyPosition()
+    }
+
+    // ── File input change handler ────────────────────────────────────────
     const fileInput = document.querySelector<HTMLInputElement>('#imgInput')
     function onFileChange() {
       const file = fileInput?.files?.[0]
@@ -333,6 +355,38 @@ export default function Page() {
     }
     fileInput?.addEventListener('change', onFileChange)
 
+    // ── Drag-to-reposition (PointerEvent — works on touch + mouse) ──────
+    function onPointerDown(e: PointerEvent) {
+      isDragging = true
+      dragStartClientX = e.clientX
+      dragStartClientY = e.clientY
+      dragStartPosX = posX
+      dragStartPosY = posY
+      ;(e.currentTarget as HTMLElement).setPointerCapture(e.pointerId)
+    }
+
+    function onPointerMove(e: PointerEvent) {
+      if (!isDragging || !previewFrame) return
+      const rect = previewFrame.getBoundingClientRect()
+      const dx = e.clientX - dragStartClientX
+      const dy = e.clientY - dragStartClientY
+      // Drag right → reveal left content → decrease posX; same logic as seller/edit
+      posX = Math.min(100, Math.max(0, dragStartPosX - (dx / rect.width) * 100))
+      posY = Math.min(100, Math.max(0, dragStartPosY - (dy / rect.height) * 100))
+      applyPosition()
+      e.preventDefault()
+    }
+
+    function onPointerUp() {
+      isDragging = false
+    }
+
+    previewFrame?.addEventListener('pointerdown', onPointerDown)
+    previewFrame?.addEventListener('pointermove', onPointerMove, { passive: false })
+    previewFrame?.addEventListener('pointerup', onPointerUp)
+    previewFrame?.addEventListener('pointercancel', onPointerUp)
+
+    // ── Auth check ───────────────────────────────────────────────────────
     async function checkAuth() {
       const { data: { user } } = await supabase.auth.getUser()
       if (authCancelled) return
@@ -345,14 +399,26 @@ export default function Page() {
 
     checkAuth().catch(console.error)
 
+    // ── Final submit ─────────────────────────────────────────────────────
     ;(window as OnboardingWindow).__submitSellerOnboarding = async () => {
       const submitButton = document.querySelector<HTMLButtonElement>('.submit-btn')
+
+      // Block if upload is still in progress
+      if (uploadState === 'uploading') {
+        alert('Tunggu gambar selesai dimuat naik.')
+        return
+      }
+
+      // Block if seller selected an image but upload failed — do not silently submit null URL
+      if (uploadState === 'failed') {
+        showImgStatus('⚠️ Gambar belum berjaya dimuat naik. Sila tukar gambar atau cuba semula.', 'failed')
+        document.querySelector<HTMLElement>('#imgStatus')?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+        return
+      }
+
       const saved = localStorage.getItem('lokalgo_seller_onboarding')
       const baseData = saved ? JSON.parse(saved) as Record<string, string> : {}
       const description = document.querySelector<HTMLTextAreaElement>('.desc-input')?.value.trim() || ''
-      const categories = Array.from(document.querySelectorAll<HTMLElement>('.cat-item.selected .cat-name'))
-        .map((item) => item.textContent?.trim())
-        .filter(Boolean)
       const accepted = document.getElementById('agreeWrap')?.classList.contains('checked')
 
       if (!accepted) {
@@ -378,8 +444,6 @@ export default function Page() {
         return
       }
 
-      const imgPos = (window as OnboardingWindow).__getImgPos?.() ?? { x: 50, y: 50 }
-
       const response = await fetch('/api/seller/onboarding', {
         method: 'POST',
         headers: {
@@ -392,11 +456,12 @@ export default function Page() {
           taman_name: baseData.taman_name,
           postcode: baseData.postcode || '00000',
           kawasan: baseData.kawasan || baseData.taman_name,
+          business_type: baseData.business_type || 'FOOD',
           latitude: baseData.latitude ? parseFloat(baseData.latitude) : undefined,
           longitude: baseData.longitude ? parseFloat(baseData.longitude) : undefined,
           profile_image_url: profileImageUrl,
-          profile_image_position_x: imgPos.x,
-          profile_image_position_y: imgPos.y,
+          profile_image_position_x: posX,
+          profile_image_position_y: posY,
         }),
       })
       const result = await response.json() as { error?: string; sellerId?: string }
@@ -415,7 +480,7 @@ export default function Page() {
         return
       }
 
-      localStorage.setItem('lokalgo_seller_onboarding_extra', JSON.stringify({ description, categories, seller_id: result.sellerId }))
+      localStorage.setItem('lokalgo_seller_onboarding_extra', JSON.stringify({ description, seller_id: result.sellerId }))
       localStorage.setItem('lokalgo_seller_onboarding_success', 'true')
       window.location.href = `/onboarding/step3?seller=${encodeURIComponent(result.sellerId || '')}&success=1`
     }
@@ -423,10 +488,16 @@ export default function Page() {
     return () => {
       authCancelled = true
       fileInput?.removeEventListener('change', onFileChange)
+      previewFrame?.removeEventListener('pointerdown', onPointerDown)
+      previewFrame?.removeEventListener('pointermove', onPointerMove)
+      previewFrame?.removeEventListener('pointerup', onPointerUp)
+      previewFrame?.removeEventListener('pointercancel', onPointerUp)
       delete (window as OnboardingWindow).__submitSellerOnboarding
       delete (window as OnboardingWindow).__handleImageFile
       delete (window as OnboardingWindow).__showImagePreview
       delete (window as OnboardingWindow).__getImgPos
+      delete (window as OnboardingWindow).__triggerImageUpload
+      delete (window as OnboardingWindow).__resetImagePos
     }
   }, [])
 

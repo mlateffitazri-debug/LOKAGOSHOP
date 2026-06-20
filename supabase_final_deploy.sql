@@ -47,6 +47,12 @@ create table sellers (
   latitude                 double precision,
   longitude                double precision,
   permanent_ban            boolean          not null default false,
+  business_type            text             not null default 'FOOD'
+                             check (business_type in ('FOOD', 'SERVICE', 'PRODUCT', 'HOMESTAY')),
+  plan_type                text             not null default 'free'
+                             check (plan_type in ('free', 'pro')),
+  listing_limit            integer          not null default 5
+                             check (listing_limit >= 0),
   badge                    text             not null default 'seller_baharu'
                              check (badge in ('seller_baharu', 'seller_aktif', 'verified_seller')),
   status                   text             not null default 'pending'
@@ -67,6 +73,8 @@ create table products (
   seller_id        uuid         references sellers(id) on delete cascade,
   name             text,
   category         text         not null,
+  listing_type     text         not null default 'FOOD'
+                     check (listing_type in ('FOOD', 'SERVICE', 'PRODUCT', 'HOMESTAY')),
   description      text,
   price_from       decimal(10,2),
   unit             text,
@@ -134,6 +142,9 @@ create table support_stats (
 );
 -- Singleton row
 insert into support_stats (id, qr_download_count) values (1, 0);
+
+create index if not exists sellers_business_type_idx on sellers(business_type);
+create index if not exists products_listing_type_idx on products(listing_type);
 
 -- ─── 10. ROW LEVEL SECURITY ───────────────────────────────────────────────────
 alter table buyers             enable row level security;
@@ -242,6 +253,83 @@ as $$
 $$;
 
 -- ─── 12. VERIFY ───────────────────────────────────────────────────────────────
+-- Guards both INSERT and UPDATE: non-service-role clients can never self-set
+-- plan_type/listing_limit, and can never change business_type after creation.
+-- business_type validity is enforced unconditionally by sellers_business_type_check.
+create or replace function protect_seller_plan_fields()
+returns trigger
+language plpgsql
+as $$
+begin
+  if auth.role() is distinct from 'service_role' then
+    if tg_op = 'INSERT' then
+      new.plan_type := 'free';
+      new.listing_limit := 5;
+    else
+      new.business_type := old.business_type;
+      new.plan_type := old.plan_type;
+      new.listing_limit := old.listing_limit;
+    end if;
+  end if;
+
+  return new;
+end;
+$$;
+
+create trigger protect_seller_plan_fields_before_insert_update
+  before insert or update on sellers
+  for each row
+  execute function protect_seller_plan_fields();
+
+revoke execute on function protect_seller_plan_fields() from anon, authenticated;
+
+create or replace function enforce_product_listing_rules()
+returns trigger
+language plpgsql
+as $$
+declare
+  seller_business_type text;
+  seller_plan_type text;
+  seller_listing_limit integer;
+  current_listing_count integer;
+begin
+  select business_type, plan_type, listing_limit
+    into seller_business_type, seller_plan_type, seller_listing_limit
+  from sellers
+  where id = new.seller_id;
+
+  if not found then
+    return new;
+  end if;
+
+  if auth.role() is distinct from 'service_role' then
+    new.listing_type := coalesce(seller_business_type, 'FOOD');
+
+    if coalesce(seller_plan_type, 'free') = 'free'
+       and new.status in ('pending', 'approved') then
+      select count(*)
+        into current_listing_count
+      from products
+      where seller_id = new.seller_id
+        and status in ('pending', 'approved');
+
+      if current_listing_count >= coalesce(seller_listing_limit, 5) then
+        raise exception 'Free plan allows up to 5 listings only. Upgrade to LokalGo Pro to add more.';
+      end if;
+    end if;
+  end if;
+
+  return new;
+end;
+$$;
+
+create trigger enforce_product_listing_rules_before_insert
+  before insert on products
+  for each row
+  execute function enforce_product_listing_rules();
+
+revoke execute on function enforce_product_listing_rules() from anon, authenticated;
+
 select
   table_name,
   count(*) as column_count

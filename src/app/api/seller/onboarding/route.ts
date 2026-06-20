@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { createClient as createServerClient } from '@/lib/supabase/server'
+import { normalizeBusinessType } from '@/lib/business-types'
 
 type SellerOnboardingBody = {
   shop_name?: string
@@ -9,6 +10,7 @@ type SellerOnboardingBody = {
   postcode?: string
   kawasan?: string
   email?: string
+  business_type?: string | null
   profile_image_url?: string | null
   profile_image_position_x?: number | null
   profile_image_position_y?: number | null
@@ -69,6 +71,7 @@ export async function POST(request: Request) {
     taman_name: body.taman_name.trim(),
     postcode: body.postcode?.trim() || '00000',
     kawasan: body.kawasan?.trim() || body.taman_name.trim(),
+    business_type: normalizeBusinessType(body.business_type),
     profile_image_url: body.profile_image_url || null,
     profile_image_position_x: typeof body.profile_image_position_x === 'number' ? body.profile_image_position_x : 50,
     profile_image_position_y: typeof body.profile_image_position_y === 'number' ? body.profile_image_position_y : 50,
@@ -85,6 +88,16 @@ export async function POST(request: Request) {
 
   if (lookupError) {
     return NextResponse.json({ error: 'Failed to check existing seller' }, { status: 500 })
+  }
+
+  // Postcode is required only for brand-new sellers. Existing sellers (update path)
+  // are never blocked here — old rows with '00000'/missing postcode are fixed
+  // later via the admin panel, not by this endpoint.
+  if (!existingSeller) {
+    const postcode = body.postcode?.trim() ?? ''
+    if (!/^\d{5}$/.test(postcode) || postcode === '00000') {
+      return NextResponse.json({ error: 'Poskod anda membantu pembeli mengenalpasti kawasan jualan anda. Isikan dengan tepat.' }, { status: 400 })
+    }
   }
 
   // INSERT new sellers with is_open: false (must explicitly open from dashboard).
