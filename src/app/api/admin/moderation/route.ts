@@ -243,7 +243,23 @@ export async function PATCH(request: Request) {
 
     // ── PRODUCT actions ─────────────────────────────────────────────────────
     if (body.type === 'product') {
-      const r = await supabase.from('products').update({ status: body.action === 'approve' ? 'approved' : 'rejected' }).eq('id', body.id)
+      let update: Record<string, unknown> = {}
+
+      if (body.action === 'approve') {
+        update = { status: 'approved', is_available: true }
+      } else if (body.action === 'reject') {
+        update = { status: 'rejected' }
+      } else if (body.action === 'set_available') {
+        update = { status: 'approved', is_available: true, is_preorder: false }
+      } else if (body.action === 'set_preorder') {
+        update = { status: 'approved', is_available: false, is_preorder: true }
+      } else if (body.action === 'hide_product') {
+        update = { is_available: false }
+      } else {
+        return NextResponse.json({ error: 'Unknown product action' }, { status: 400 })
+      }
+
+      const r = await supabase.from('products').update(update).eq('id', body.id)
       if (r.error) return NextResponse.json({ error: r.error.message }, { status: 500 })
       return NextResponse.json({ ok: true })
     }
