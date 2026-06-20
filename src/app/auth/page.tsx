@@ -77,9 +77,9 @@ export default function LoginPage() {
   }
 
   return (
-    <div style={{ width: '100%', height: '100%', minHeight: '100dvh', overflowY: 'auto', overscrollBehaviorY: 'contain', background: '#0a0a0a', display: 'flex', alignItems: 'flex-start', justifyContent: 'center', fontFamily: "'Plus Jakarta Sans', sans-serif" }}>
+    <div style={{ width: '100%', minHeight: '100dvh', background: '#0a0a0a', display: 'flex', alignItems: 'flex-start', justifyContent: 'center', fontFamily: "'Plus Jakarta Sans', sans-serif" }}>
 
-      <div style={{ width: '100%', maxWidth: 430, minHeight: '100vh', background: '#7B1533', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+      <div style={{ width: '100%', maxWidth: 430, minHeight: '100dvh', background: '#7B1533', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
 
         {/* TOP — Logo + Mascot */}
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '56px 32px 0', flex: 1 }}>
