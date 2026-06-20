@@ -271,7 +271,7 @@ export async function PATCH(request: Request) {
       let update: Record<string, unknown> = {}
 
       if (body.action === 'approve') {
-        update = { status: 'approved' }
+        update = { status: 'approved', is_available: true }
       } else if (body.action === 'reject') {
         update = { status: 'rejected' }
       } else if (body.action === 'set_available') {
