@@ -894,7 +894,7 @@ function HomePageContent() {
               onSelectCategory={handleSelectCategory}
             />
           </header>
-          <div dangerouslySetInnerHTML={{ __html: mainMarkup }} />
+          <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', overflow: 'hidden' }} dangerouslySetInnerHTML={{ __html: mainMarkup }} />
         </div>
         {isSidebarOpen ? (
           <div className="sidebar-backdrop" onClick={() => setIsSidebarOpen(false)} aria-hidden="true" />
