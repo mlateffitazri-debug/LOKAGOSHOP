@@ -70,6 +70,9 @@ export async function GET(request: Request) {
         .maybeSingle()
 
       if (seller) {
+        if (next !== '/home') {
+          return NextResponse.redirect(`${origin}${next}`)
+        }
         return NextResponse.redirect(`${origin}/dashboard`)
       }
 
